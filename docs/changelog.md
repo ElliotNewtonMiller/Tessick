@@ -2510,3 +2510,34 @@ Verified live on a production build (port 3995):
   - The success reset the failure count to 0.
 - **Signatures:** after New secret, Send test reached the receiver with a valid, fresh signature.
 - **Not verified live:** the 3-day pause itself, which the server test drives with simulated time.
+
+## Fixed: TestRail CSV imports in every step layout (2026-10-14)
+
+Known gap from CLAUDE.md: TestRail CSV supported only one step layout. Elliot provided a real TestRail export (8 cases, `~/Desktop/testrail_test_cases_sample.csv`). It used yet another layout: a `Step` column (singular) and an `Expected Result` column, one step per line, unnumbered. With it, every case imported with **no steps**, and the step text landed in a custom field `cf_step`.
+
+**What changed** (`TestRailCsvParser`, rewritten):
+- **The three layouts TestRail writes:**
+  - one row per case with `Steps`/`Step` and `Expected Result` columns (also `Steps (Step)`/`Steps (Expected Result)`), as a numbered list or one per line;
+  - indexed columns `Steps (Step N)` / `Steps (Expected Result N)`, which were refused with `UNSUPPORTED_TESTRAIL_COLUMN_FORMAT` (that warning is gone);
+  - one row per step, where rows with no ID or title continue the case above. That layout is detected from the file, and then each row's step cell is one step, even across lines.
+- **Numbered lists:** an unnumbered line joins the step above, so a step written over two lines stays one step.
+- **Mismatched counts:** when a case's expected-result lines don't match its steps, the expected results now go on the **last** step instead of the first, since they usually describe the end state. They're also no longer dropped when a case has expected results but no steps. The `STEP_EXPECTED_MISALIGNED` warning stays, with a clearer message.
+- **Type:** "Automated" makes the case AUTOMATED. Type also stays a custom field.
+- **Custom field names:** a field created from an imported column is named readably by default ("Type", "Estimate"), not "cf_type". This is the wizard's default name and the API's fallback (`fieldLabelFromKey` in `csvHelpers.ts`, and a copy in `ImportWizardModal.tsx`). It applies to every import format.
+- **Docs:** RFC 03 §6.2 (the TestRail layouts and rules), CLAUDE.md/AGENTS.md (the gap removed).
+
+Tests:
+- `TestRailCsvParser.test.ts`, now 10 tests:
+  - the mismatch rule (last step);
+  - Elliot's layout, with made-up content (step/expected pairing, priority, preconditions, Type → AUTOMATED, no `cf_step`);
+  - indexed columns, including a multi-line step and an empty third step;
+  - one row per step, including a cell that looks like a numbered list staying one step;
+  - multi-line numbered steps;
+  - readable field names.
+- `apps/server/tests/testrail_import.test.ts` (1): a made-up file in Elliot's layout through the dry run and the import. It checks the warning, priorities, execution types, steps (including the mismatch), preconditions, the suite tree, and "Type"/"Estimate" custom fields.
+
+**Verified with Elliot's file** through the API (a throwaway test, not committed):
+- The dry run found 8 cases in 10 suites, with 4 `STEP_EXPECTED_MISALIGNED` warnings: C1003, C1005, C1007 and C1008, which have fewer expected-result lines than steps.
+- The import created all 8, with their steps (3, 3, 2, 3, 1, 3, 3, 3), priorities (3 HIGH, 3 CRITICAL, 2 MEDIUM), C1003 as AUTOMATED, and Type and Estimate as custom fields.
+
+681 tests pass; typecheck clean.

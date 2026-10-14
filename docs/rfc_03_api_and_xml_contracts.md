@@ -376,7 +376,12 @@ Priorities, in every format: `CRITICAL`, `HIGH`, `MEDIUM` or `LOW` in any letter
 - **CSV:** a header row with columns matched by name, case-insensitively: `Suite Path`, `External ID`, `Title`, `Summary`, `Preconditions`, `Importance` (or `Priority`), `Execution Type`, `Step Number`, `Action`, `Expected Result`. Other columns become custom fields; the CSV export writes them as `cf_<name>`. One row per step, with the case's fields repeated. A CSV definitions export re-imports through this parser. Known limits:
   - A custom field whose name contains a built-in column's word (`title`, `suite`, `action`, `result`...) is read as that column.
 - **JUnit XML:** suites nest by the test's dotted `classname`. Status, duration and failure message arrive as the custom fields `junit_status`, `junit_duration_seconds` and `junit_failure_message`. They're case fields, not results; send results through the batch API instead.
-- **TestRail CSV:** TestRail's export with one combined `Steps` column and one `Expected Result` column, both as numbered lists. TestRail's priorities map to Testify's four (`Critical` → CRITICAL). The variant with one column per step isn't supported; it gets an `UNSUPPORTED_TESTRAIL_COLUMN_FORMAT` warning.
+- **TestRail CSV:** TestRail's case export, in any of its step layouts:
+  - one row per case, with a `Steps` (or `Step`) column and an `Expected Result` column, each holding several steps as a numbered list or one per line (in a numbered list, unnumbered lines join the step above);
+  - one row per case with indexed columns, `Steps (Step 1)`, `Steps (Expected Result 1)`, ...;
+  - one row per step: rows with no `ID` or `Title` add a step to the case above.
+
+  `Section` ("Parent > Child") becomes the suite tree; `Priority` maps onto Testify's four (`Critical` → CRITICAL); a `Type` of "Automated" makes the case AUTOMATED. Other columns (`Type`, `Estimate`, ...) become custom fields, named readably by default ("Type"). When a case has more or fewer expected-result lines than steps, the expected results go on its last step, with a `STEP_EXPECTED_MISALIGNED` warning.
 
 ### 6.3 File Size & Memory
 

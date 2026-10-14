@@ -9,6 +9,7 @@ import {
   CsvParser,
   JUnitXmlParser,
   TestRailCsvParser,
+  fieldLabelFromKey,
   inferFieldType,
   collectImportFieldOptions,
   splitMultiSelectValue,
@@ -62,10 +63,8 @@ function sendImportTooLarge(reply: FastifyReply, err: any): boolean {
 }
 
 const PARSER_WARNING_MESSAGES: Record<string, string> = {
-  UNSUPPORTED_TESTRAIL_COLUMN_FORMAT:
-    "This file uses TestRail's indexed step-column export format (e.g. 'Steps (Step 1)'), which is not yet supported -- only the combined Steps/Expected Result column format is.",
   STEP_EXPECTED_MISALIGNED:
-    'The Steps and Expected Result columns have a different number of lines for this case; step/expected pairing may be inaccurate.',
+    'The Steps and Expected Result columns have a different number of lines for this case, so the expected results were all put on its last step. Check its steps after importing.',
 };
 
 export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
@@ -512,7 +511,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                   project_id: targetProjectId!,
                   entity_type: 'TestCase',
                   name: mapping.incoming_key,
-                  field_label: mapping.field_name || mapping.incoming_key,
+                  field_label: mapping.field_name || fieldLabelFromKey(mapping.incoming_key),
                   field_type: fieldType,
                   ...(options ? { options } : {}),
                 });

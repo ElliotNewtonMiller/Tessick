@@ -249,7 +249,6 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - No UI for `allow_draft_plan_linking`.
 - Imports:
   - No remembered field mappings and no per-case duplicate-resolution UI.
-  - TestRail CSV supports only the combined Steps/Expected Result column format.
   - Files are held in memory, hence the 50 MB cap.
 - CSV re-import reads a custom field named like a built-in column (`title`, `suite`, `action`, ...) as that column.
 - No "sign out everywhere" button or list of your sessions. Changing `SECRETS_KEY` has no rotation; the SMTP password must be re-entered.

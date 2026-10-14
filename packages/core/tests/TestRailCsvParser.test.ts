@@ -55,17 +55,74 @@ describe('TestRailCsvParser', () => {
     expect(byTitle).toEqual({ A: 'LOW', B: 'MEDIUM', C: 'HIGH', D: 'CRITICAL', E: 'MEDIUM' });
   });
 
-  it('flags a step/expected line-count mismatch with a STEP_EXPECTED_MISALIGNED parser warning', async () => {
+  it('flags a step/expected line-count mismatch, putting the expected results on the last step', async () => {
     const csv = ['Title,Steps,Expected Result', 'A,"1. Do X\n2. Do Y","1. Result X"'].join('\n');
-    const suites = await parseAll(csv);
-    expect(suites[0].test_cases[0].parser_warnings).toContain('STEP_EXPECTED_MISALIGNED');
+    const tc = (await parseAll(csv))[0].test_cases[0];
+    expect(tc.parser_warnings).toContain('STEP_EXPECTED_MISALIGNED');
+    expect(tc.steps.map((s) => [s.actions, s.expected_results])).toEqual([
+      ['Do X', ''],
+      ['Do Y', 'Result X'],
+    ]);
   });
 
-  it('flags indexed step columns as UNSUPPORTED_TESTRAIL_COLUMN_FORMAT rather than mis-parsing them', async () => {
-    const csv = ['Title,Steps (Step 1),Steps (Expected Result 1)', 'A,Do X,Result X'].join('\n');
+  it('reads a Step column with one step per line, unnumbered, beside Expected Result (as TestRail exports it)', async () => {
+    const csv = [
+      '"ID","Title","Section","Type","Priority","Estimate","Preconditions","Step","Expected Result"',
+      '"C1","Sign in","Auth > Login","Functional","High","2m","A user exists.","Open the page.\nEnter the password.\nPress Sign in.","The form shows.\nThe field is masked.\nThe dashboard opens."',
+      '"C2","Run the batch","API > Batch","Automated","Critical","5m","","Send the batch.","201 Created."',
+    ].join('\n');
     const suites = await parseAll(csv);
-    expect(suites[0].test_cases[0].parser_warnings).toContain('UNSUPPORTED_TESTRAIL_COLUMN_FORMAT');
-    expect(suites[0].test_cases[0].custom_fields).not.toHaveProperty('cf_steps__step_1_');
+    const [login, batch] = [suites[0].sub_suites[0].test_cases[0], suites[1].sub_suites[0].test_cases[0]];
+    expect(login.steps.map((s) => [s.step_number, s.actions, s.expected_results])).toEqual([
+      [1, 'Open the page.', 'The form shows.'],
+      [2, 'Enter the password.', 'The field is masked.'],
+      [3, 'Press Sign in.', 'The dashboard opens.'],
+    ]);
+    expect(login).toMatchObject({ external_id: 'C1', importance: 'HIGH', execution_type: 'MANUAL', preconditions: 'A user exists.', custom_fields: { cf_type: 'Functional', cf_estimate: '2m' } });
+    expect(login.custom_fields).not.toHaveProperty('cf_step');
+    expect(login.parser_warnings).toBeUndefined();
+    // Type "Automated" makes the case AUTOMATED (and stays a custom field).
+    expect(batch).toMatchObject({ importance: 'CRITICAL', execution_type: 'AUTOMATED', custom_fields: { cf_type: 'Automated' } });
+  });
+
+  it('reads indexed step columns: Steps (Step 1), Steps (Expected Result 1), ...', async () => {
+    const csv = [
+      'Title,Section,Steps (Step 1),Steps (Expected Result 1),Steps (Step 2),Steps (Expected Result 2),Steps (Step 3),Steps (Expected Result 3)',
+      'A,S,Do X,Result X,"Do Y\non two lines",Result Y,,',
+    ].join('\n');
+    const tc = (await parseAll(csv))[0].test_cases[0];
+    expect(tc.steps.map((s) => [s.step_number, s.actions, s.expected_results])).toEqual([
+      [1, 'Do X', 'Result X'],
+      [2, 'Do Y\non two lines', 'Result Y'],
+    ]);
+    expect(Object.keys(tc.custom_fields)).toEqual([]);
+    expect(tc.parser_warnings).toBeUndefined();
+  });
+
+  it('reads one row per step: rows with no ID or title add a step to the case above', async () => {
+    const csv = [
+      'ID,Title,Section,Priority,Steps (Step),Steps (Expected Result)',
+      'C1,First,S,High,Open the page,"It shows,\nfully"',
+      ',,,,Click save,Saved',
+      'C2,Second,S,Low,Do one thing,Done',
+      ',,,,Do another,Also done',
+      ',,,,"1. Numbered text stays\n2. one step here",',
+    ].join('\n');
+    const [first, second] = (await parseAll(csv))[0].test_cases;
+    expect(first.steps.map((s) => [s.step_number, s.actions, s.expected_results])).toEqual([
+      [1, 'Open the page', 'It shows,\nfully'],
+      [2, 'Click save', 'Saved'],
+    ]);
+    expect(second.steps.map((s) => s.actions)).toEqual(['Do one thing', 'Do another', '1. Numbered text stays\n2. one step here']);
+  });
+
+  it('a numbered list keeps a step written over several lines together', async () => {
+    const csv = ['Title,Steps,Expected Result', 'A,"1. Fill in the form:\nname and email\n2. Submit","1. Accepted\n2. Thanks page"'].join('\n');
+    const tc = (await parseAll(csv))[0].test_cases[0];
+    expect(tc.steps.map((s) => [s.actions, s.expected_results])).toEqual([
+      ['Fill in the form:\nname and email', 'Accepted'],
+      ['Submit', 'Thanks page'],
+    ]);
   });
 
   it('splits Section hierarchy the same way CsvParser splits Suite Path', async () => {
@@ -74,5 +131,10 @@ describe('TestRailCsvParser', () => {
     expect(suites[0].name).toBe('Root');
     expect(suites[0].sub_suites[0].name).toBe('Mid');
     expect(suites[0].sub_suites[0].sub_suites[0].name).toBe('Leaf');
+  });
+
+  it('names a custom field made from a column readably', async () => {
+    const { fieldLabelFromKey } = await import('../src/ingestion/csvHelpers.js');
+    expect(['cf_type', 'cf_test_type', 'cf_estimate__min_', 'plain'].map(fieldLabelFromKey)).toEqual(['Type', 'Test type', 'Estimate min', 'Plain']);
   });
 });

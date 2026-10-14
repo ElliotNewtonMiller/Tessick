@@ -169,3 +169,9 @@ export function splitSuitePath(raw: string): string[] {
 export function slugifyColumnName(header: string): string {
   return 'cf_' + header.toLowerCase().replace(/[^a-z0-9]/g, '_');
 }
+
+/** A readable label for a custom field made from an imported column: `cf_test_type` → "Test type". */
+export function fieldLabelFromKey(key: string): string {
+  const words = key.replace(/^cf_/i, '').replace(/_+/g, ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : key;
+}

@@ -9,6 +9,12 @@ interface ProjectItem {
   prefix?: string;
 }
 
+/** A readable default name for a field made from an imported column: `cf_test_type` → "Test type". */
+function fieldLabelFromKey(key: string): string {
+  const words = key.replace(/^cf_/i, "").replace(/_+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : key;
+}
+
 type WizardStep = "UPLOAD" | "MAPPING" | "DUPLICATES" | "CONFIRM" | "RESULTS";
 
 type FieldFormatId = "" | "TESTLINK_XML" | "NATIVE_JSON" | "STANDARD_CSV" | "JUNIT_XML" | "TESTRAIL_CSV";
@@ -552,7 +558,7 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
                         onClick={() =>
                           setMappingFor(selectedUnmapped.incoming_key, {
                             action: "AUTO_CREATE",
-                            field_name: selectedUnmapped.incoming_key,
+                            field_name: fieldLabelFromKey(selectedUnmapped.incoming_key),
                             field_type: CREATABLE_FIELD_TYPES.includes(selectedUnmapped.detected_type)
                               ? selectedUnmapped.detected_type
                               : "TEXT",
