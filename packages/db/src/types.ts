@@ -346,6 +346,11 @@ export interface WebhooksTable {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Migration 011: failed attempts since the last success, and an automatic pause. */
+  failing_since: string | null;
+  consecutive_failures: Generated<number>;
+  paused_at: string | null;
+  pause_reason: string | null;
 }
 
 /** One event for one webhook: the outbox the delivery worker sends and retries (migration 010). */

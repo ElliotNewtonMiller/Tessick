@@ -4,7 +4,8 @@ import { isIP } from 'node:net';
 /**
  * Webhooks (API roadmap step 7): the events Testify sends, how a delivery is signed, the
  * Slack-style message for webhooks that want one, and which addresses a webhook may not reach.
- * The server's delivery worker is apps/server/src/services/webhooks.ts.
+ * The server's delivery worker is apps/server/src/services/webhooks.ts. Formats: the JSON envelope, a
+ * Slack-style message, or a Microsoft Teams Adaptive Card.
  */
 
 export interface WebhookEventDefinition {
@@ -28,7 +29,7 @@ export const WEBHOOK_EVENTS: WebhookEventDefinition[] = [
 
 export const WEBHOOK_EVENT_KEYS: string[] = WEBHOOK_EVENTS.map((e) => e.key);
 
-export const WEBHOOK_FORMATS = ['json', 'slack'] as const;
+export const WEBHOOK_FORMATS = ['json', 'slack', 'teams'] as const;
 export type WebhookFormat = (typeof WEBHOOK_FORMATS)[number];
 
 /** What every delivery carries (the body of a `json` webhook). */
@@ -125,19 +126,36 @@ export function slackEscape(text: unknown): string {
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 const percent = (rate: unknown) => (typeof rate === 'number' ? `${Math.round(rate * 1000) / 10}%` : '–');
 
+/** How a chat message is written: Slack mrkdwn (escaped, *bold*, :emoji:), or plain text. */
+interface Style {
+  esc(text: unknown): string;
+  bold(text: string): string;
+  icon(slackCode: string, unicode: string): string;
+}
+const SLACK: Style = { esc: slackEscape, bold: (t) => `*${t}*`, icon: (code) => `:${code}: ` };
+const PLAIN: Style = { esc: (t) => String(t ?? ''), bold: (t) => t, icon: (_code, unicode) => `${unicode} ` };
+
 /** Up to 10 failures as bullet lines. */
-function failureLines(failures: any[] | undefined, truncated: boolean | undefined, total?: number): string {
-  if (!Array.isArray(failures) || failures.length === 0) return '';
+function failureLines(failures: any[] | undefined, truncated: boolean | undefined, total: number | undefined, st: Style): string[] {
+  if (!Array.isArray(failures) || failures.length === 0) return [];
   const shown = failures.slice(0, 10);
   const lines = shown.map((f) => {
-    const msg = f.failure_message ? ` — ${clip(slackEscape(f.failure_message), 150)}` : '';
-    const verdict = f.verdict && f.verdict !== 'FAILED' ? ` (${slackEscape(f.verdict)})` : '';
-    return `• *${slackEscape(f.external_id)}* ${clip(slackEscape(f.title), 120)}${verdict}${msg}`;
+    const msg = f.failure_message ? ` — ${clip(st.esc(f.failure_message), 150)}` : '';
+    const verdict = f.verdict && f.verdict !== 'FAILED' ? ` (${st.esc(f.verdict)})` : '';
+    return `• ${st.bold(st.esc(f.external_id))} ${clip(st.esc(f.title), 120)}${verdict}${msg}`;
   });
   const more = (total ?? failures.length) - shown.length;
   if (more > 0) lines.push(`…and ${more} more`);
   else if (truncated) lines.push('…and more');
-  return lines.join('\n');
+  return lines;
+}
+
+/** The failures an event lists, if any. */
+function eventFailures(env: WebhookEnvelope, st: Style): string[] {
+  const d = env.data ?? {};
+  if (env.event === 'run.closed') return failureLines(d.summary?.failures, d.summary?.failures_truncated, d.summary?.failure_count, st);
+  if (env.event === 'results.failed' || env.event === 'results.recorded') return failureLines(d.failures, d.failures_truncated, d.failed_count, st);
+  return [];
 }
 
 function countsLine(counts: Record<string, number> | undefined): string {
@@ -148,45 +166,45 @@ function countsLine(counts: Record<string, number> | undefined): string {
     .join(' · ');
 }
 
-/** The headline for each event, in Slack mrkdwn. */
-function headline(env: WebhookEnvelope): string {
+/** The headline for each event, in the given style. */
+function headline(env: WebhookEnvelope, st: Style): string {
   const d = env.data ?? {};
-  const run = d.run ? `*${slackEscape(d.run.name)}*` : 'a run';
-  const plan = d.plan ? ` (plan ${slackEscape(d.plan.name)})` : '';
-  const tc = d.test_case ? `*${slackEscape(d.test_case.external_id)}* ${slackEscape(d.test_case.title)}` : 'A test case';
+  const run = d.run ? st.bold(st.esc(d.run.name)) : 'a run';
+  const plan = d.plan ? ` (plan ${st.esc(d.plan.name)})` : '';
+  const tc = d.test_case ? `${st.bold(st.esc(d.test_case.external_id))} ${st.esc(d.test_case.title)}` : 'A test case';
   switch (env.event) {
     case 'ping':
-      return `:bell: Testify webhook *${slackEscape(d.webhook?.name)}* works.`;
+      return `${st.icon('bell', '🔔')}Testify webhook ${st.bold(st.esc(d.webhook?.name))} works.`;
     case 'run.created':
-      return `:arrow_forward: Run ${run} started${plan}.`;
+      return `${st.icon('arrow_forward', '▶️')}Run ${run} started${plan}.`;
     case 'run.closed': {
       const s = d.summary ?? {};
       const counts = { passed: s.passed, failed: s.failed, blocked: s.blocked, skipped: s.skipped, untested: s.untested };
       const executed = (s.total ?? 0) - (s.untested ?? 0);
-      const cmp = s.compared_to ? ` Compared with ${slackEscape(s.compared_to.name)}: ${s.new_failures ?? 0} new failure${s.new_failures === 1 ? '' : 's'}, ${s.fixed ?? 0} fixed.` : '';
-      return `:checkered_flag: Run ${run}${plan} closed: *${percent(s.pass_rate)} passed*, ${executed}/${s.total ?? 0} executed. ${countsLine(counts)}.${cmp}`;
+      const cmp = s.compared_to ? ` Compared with ${st.esc(s.compared_to.name)}: ${s.new_failures ?? 0} new failure${s.new_failures === 1 ? '' : 's'}, ${s.fixed ?? 0} fixed.` : '';
+      return `${st.icon('checkered_flag', '🏁')}Run ${run}${plan} closed: ${st.bold(`${percent(s.pass_rate)} passed`)}, ${executed}/${s.total ?? 0} executed. ${countsLine(counts)}.${cmp}`;
     }
     case 'results.failed':
-      return `:x: ${d.failed_count} failed in run ${run}${plan}. ${countsLine(d.counts)}.`;
+      return `${st.icon('x', '❌')}${d.failed_count} failed in run ${run}${plan}. ${countsLine(d.counts)}.`;
     case 'results.recorded':
-      return `:memo: ${d.recorded} result${d.recorded === 1 ? '' : 's'} recorded in run ${run}${plan}: ${countsLine(d.counts)}.`;
+      return `${st.icon('memo', '📝')}${d.recorded} result${d.recorded === 1 ? '' : 's'} recorded in run ${run}${plan}: ${countsLine(d.counts)}.`;
     case 'test_case.created': {
       const status = d.version?.status === 'DRAFT' ? ' as a DRAFT, waiting for review' : '';
       const via = d.via === 'mcp' ? ' by an AI agent' : '';
-      return `:new: ${tc} was created${via}${status}.`;
+      return `${st.icon('new', '🆕')}${tc} was created${via}${status}.`;
     }
     case 'test_case.approved':
-      return `:white_check_mark: ${tc} was approved (version ${d.version?.version_number ?? '?'}).`;
+      return `${st.icon('white_check_mark', '✅')}${tc} was approved (version ${d.version?.version_number ?? '?'}).`;
     case 'test_case.deprecated':
-      return `:file_cabinet: ${tc} was deprecated.`;
+      return `${st.icon('file_cabinet', '🗄️')}${tc} was deprecated.`;
     case 'test_case.restored':
-      return `:recycle: ${tc} was restored.`;
+      return `${st.icon('recycle', '♻️')}${tc} was restored.`;
     case 'import.completed': {
       const c = d.counts ?? {};
-      return `:inbox_tray: Import finished: ${c.imported_cases_count ?? 0} cases in ${c.imported_suites_count ?? 0} suites (${slackEscape(d.format)}).`;
+      return `${st.icon('inbox_tray', '📥')}Import finished: ${c.imported_cases_count ?? 0} cases in ${c.imported_suites_count ?? 0} suites (${st.esc(d.format)}).`;
     }
     default:
-      return `Testify event ${slackEscape(env.event)}.`;
+      return `Testify event ${st.esc(env.event)}.`;
   }
 }
 
@@ -195,14 +213,8 @@ function headline(env: WebhookEnvelope): string {
  * Discord's /slack URLs show only it), `blocks` lays it out for Slack.
  */
 export function renderSlackMessage(env: WebhookEnvelope): { text: string; blocks: unknown[] } {
-  const d = env.data ?? {};
-  const main = headline(env);
-  const failures =
-    env.event === 'run.closed'
-      ? failureLines(d.summary?.failures, d.summary?.failures_truncated, d.summary?.failure_count)
-      : env.event === 'results.failed' || env.event === 'results.recorded'
-        ? failureLines(d.failures, d.failures_truncated, d.failed_count)
-        : '';
+  const main = headline(env, SLACK);
+  const failures = eventFailures(env, SLACK).join('\n');
   const link = env.url ? `<${env.url}|Open in Testify>` : '';
   const who = [`${slackEscape(env.project.name)}`, env.actor ? `by ${slackEscape(env.actor.name)}` : ''].filter(Boolean).join(' · ');
 
@@ -211,4 +223,33 @@ export function renderSlackMessage(env: WebhookEnvelope): { text: string; blocks
   if (failures) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: clip(failures, 2900) } });
   blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: clip([who, link].filter(Boolean).join(' · '), 2900) }] });
   return { text, blocks };
+}
+
+/**
+ * The event as a Microsoft Teams message: an Adaptive Card, as a Teams Workflows webhook ("Post
+ * to a channel when a webhook request is received") expects. Test content goes into TextRuns,
+ * which Teams shows as plain text (no markdown), so it can't add links or formatting.
+ */
+export function renderTeamsMessage(env: WebhookEnvelope): { type: 'message'; attachments: unknown[] } {
+  const textRun = (text: string, extra: Record<string, unknown> = {}) => ({ type: 'TextRun', text, ...extra });
+  const paragraph = (text: string, extra: Record<string, unknown> = {}, spacing?: string) => ({
+    type: 'RichTextBlock',
+    ...(spacing ? { spacing } : {}),
+    inlines: [textRun(text, extra)],
+  });
+  const who = [env.project.name, env.actor ? `by ${env.actor.name}` : ''].filter(Boolean).join(' · ');
+  const body: unknown[] = [
+    paragraph(clip(headline(env, PLAIN), 2000), { weight: 'Bolder' }),
+    ...eventFailures(env, PLAIN).map((line, i) => paragraph(line, {}, i === 0 ? 'Medium' : 'None')),
+    paragraph(who, { isSubtle: true, size: 'Small' }, 'Medium'),
+  ];
+  const card = {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.4',
+    msteams: { width: 'Full' },
+    body,
+    ...(env.url ? { actions: [{ type: 'Action.OpenUrl', title: 'Open in Testify', url: env.url }] } : {}),
+  };
+  return { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: card }] };
 }

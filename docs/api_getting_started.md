@@ -355,7 +355,7 @@ curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/webhooks" -H "Authorizatio
 curl -s -X POST "$TESTIFY/api/v1/webhooks/$WEBHOOK_ID/ping" -H "Authorization: Bearer $LOGIN_TOKEN" | jq '.delivery | {status, response_status, error}'
 ```
 
-The `slack` format also suits Mattermost and Rocket.Chat, and Discord when its webhook URL ends in `/slack`. (`$LOGIN_TOKEN` is from `POST /api/v1/auth/login`; set the server's public address in Admin Panel → Email for the messages to link back to Testify.)
+The `slack` format also suits Mattermost and Rocket.Chat, and Discord when its webhook URL ends in `/slack`. **For Microsoft Teams**, add the *Post to a channel when a webhook request is received* workflow to the channel (Workflows app), copy its URL, and use `"format": "teams"`. (`$LOGIN_TOKEN` is from `POST /api/v1/auth/login`; set the server's public address in Admin Panel → Email for the messages to link back to Testify.)
 
 **To your own code** (`"format": "json"`, the default), each event arrives as a signed JSON `POST`, described in [RFC 03 §7.3](rfc_03_api_and_xml_contracts.md). Check the signature before trusting it: the secret is answered once when the webhook is created (`secret`), or by `POST /api/v1/webhooks/{id}/rotate-secret`.
 
@@ -381,7 +381,7 @@ def from_testify(request, secret: str) -> bool:
 ```
 
 What to know:
-- **Answer quickly with a 2xx.** Anything else, no answer within 10 seconds, or a redirect, counts as a failure, retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 8 hours.
+- **Answer quickly with a 2xx.** Anything else, no answer within 10 seconds, or a redirect, counts as a failure, retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 8 hours. A webhook that fails every attempt for 3 days is paused (the Webhooks tab says so); turn it back on once the receiver works.
 - **Events can arrive twice or out of order** (after a retry). Each has an `id` that stays the same: use it to ignore repeats.
 - **The delivery log** (`GET /api/v1/webhooks/{id}/deliveries`, then `GET /api/v1/webhook-deliveries/{id}`) shows each attempt and the start of your answer; `POST /api/v1/webhook-deliveries/{id}/redeliver` sends one again.
 - **Addresses:** webhooks can reach the internet and your private network, but not the Testify server's own machine (`localhost`) or link-local addresses, unless the server sets `WEBHOOK_ALLOW_LOCAL=true`.

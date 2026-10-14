@@ -279,7 +279,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Results | `RESULT_RECORDED`, `RESULTS_BATCH_RECORDED`, `RUN_AUTO_CLOSED` (rows written before 2026-10-12 say `EXECUTION_RECORDED`, `BATCH_EXECUTION_RECORDED`, `BUILD_AUTO_CLOSED`; audit rows can't be changed) |
 | Custom fields | `CUSTOM_FIELD_DEFINITION_CREATED`, `CUSTOM_FIELD_DEFINITION_UPDATED`, `CUSTOM_FIELD_DEFINITION_DELETED` |
 | Data and email | `IMPORT_EXECUTED`, `DATA_EXPORTED`, `REPORT_EMAILED`, `REPORT_SCHEDULE_CREATED`, `REPORT_SCHEDULE_UPDATED`, `REPORT_SCHEDULE_DELETED`, `EMAIL_SETTINGS_UPDATED` |
-| Webhooks | `WEBHOOK_CREATED`, `WEBHOOK_UPDATED`, `WEBHOOK_DELETED`, `WEBHOOK_SECRET_ROTATED` |
+| Webhooks | `WEBHOOK_CREATED`, `WEBHOOK_UPDATED`, `WEBHOOK_DELETED`, `WEBHOOK_SECRET_ROTATED`, `WEBHOOK_AUTO_PAUSED` (by the system) |
 | Agents | `MCP_WRITE` (one per MCP write-tool call) |
 
 Plans and runs are audited too (`PLAN_CREATED`, `PLAN_UPDATED`, `PLAN_DELETED`, `RUN_CREATED`, `RUN_UPDATED`, `RUN_CLOSED`, `RUN_REOPENED`, `RUN_DELETED`), with what changed (`changes: { field: { from, to } }`), how a run was made or closed (`via: run_name` or `close_run` for CI), and what a delete destroyed (`deleted_runs`, `deleted_results`). Of these, only the deletes show in the Admin Panel's Security Audit Log; the rest are read with `GET /api/v1/admin/audit-logs?action=...`.

@@ -2471,3 +2471,42 @@ Tests: `apps/server/tests/plan_run_audit.test.ts` (3):
 - which ones the Security Audit Log shows.
 
 670 tests pass; typecheck clean.
+
+## Added: webhooks pause when they keep failing; a Teams format (2026-10-14)
+
+Two known gaps from CLAUDE.md.
+
+**Pausing** (decided with Elliot: after 3 days of failures; the audit log and the Webhooks tab say so):
+- **The rule:** a webhook whose every attempt has failed for 3 days, with at least 10 attempts, is turned off. That's long enough to ride out a weekend outage. It needs ongoing failures, so a webhook that rarely sends isn't paused by one bad delivery.
+- **What a pause records:** `paused_at` and `pause_reason` (the attempt count and the last error), and a `WEBHOOK_AUTO_PAUSED` row (actor SYSTEM) in the Security Audit Log. Its waiting deliveries end as FAILED with "The webhook was paused because it kept failing".
+- **Tracking:** each webhook shows `failing_since` and `consecutive_failures`. A delivery that reaches the receiver resets them. Turning the webhook back on (`enabled: true`) clears the pause and the count.
+- **How:** migration `011_webhook_pausing` (four columns on `webhooks`); `recordFailure`, `recordSuccess` and `pause` in `WebhookRepository`, with an atomic increment and a pause only while enabled (so one audit row). The engine counts every real attempt (`countFailure` in `services/webhooks.ts`), not deliveries of a webhook that's off or deleted.
+- **The Webhooks tab** shows "⏸ Paused automatically on …: <reason>. Turn it On to resume.", and while it's failing, "⚠️ Failing since … (n failed attempts)".
+
+**Teams** (`format: "teams"`, `renderTeamsMessage` in `packages/core/src/webhooks/`):
+- **The message:** an Adaptive Card 1.4 in `{ type: "message", attachments: [...] }`, which a Teams *Workflows* webhook takes ("Post to a channel when a webhook request is received"); the old Office 365 connectors are retired. It has the headline, up to 10 failures, project and actor, and an "Open in Testify" action when the public address is set.
+- **Test content** goes only into `TextRun`s, which Teams shows as plain text, so a case title can't add links or formatting (as Slack's escaping does).
+- **Shared wording:** the Slack and Teams messages now share one headline builder with two styles (Slack mrkdwn, plain text with Unicode emoji). The Slack output is unchanged; its tests pass as before.
+- **The Webhooks tab** has a "Teams card" format pill and a TEAMS badge.
+
+**Docs:** RFC 03 §7.3 (Teams format, pausing), RFC 04 (`WEBHOOK_AUTO_PAUSED`), the getting-started guide (Teams setup, pausing), the roadmap (two decisions), CLAUDE.md/AGENTS.md (the gaps removed).
+
+Tests:
+- `packages/core/tests/webhooks.test.ts` +3 (Teams):
+  - the card and its link;
+  - only `RichTextBlock`/`TextRun` (a title with a markdown link stays plain text);
+  - every event, with and without a link.
+- `apps/server/tests/webhooks.test.ts` +2:
+  - pausing: 10 failures now, still on after 2 days, paused after 3 (state, reason, audit row); waiting deliveries end as FAILED, and nothing more is sent; turning it on clears everything; a success resets the count.
+  - a Teams webhook receives a signed Adaptive Card.
+- `migrations.test.ts` +1 (011 and its rollback).
+
+676 tests pass; typecheck clean.
+
+Verified live on a production build (port 3995):
+- **The Teams webhook:**
+  - The receiver was down for the first attempt. The tab showed "⚠️ Failing since … (2 failed attempts)", the TEAMS badge, and "Waiting to retry … ECONNREFUSED".
+  - The poller sent both again a minute later, as Adaptive Cards. The headline, the failure line and the case title `Pays [click](https://evil.example)` arrived as plain text.
+  - The success reset the failure count to 0.
+- **Signatures:** after New secret, Send test reached the receiver with a valid, fresh signature.
+- **Not verified live:** the 3-day pause itself, which the server test drives with simulated time.

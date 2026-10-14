@@ -495,7 +495,7 @@ A project's webhooks send its events to other systems as they happen (`apps/serv
 | `import.completed` | An import finished | `format`, its counts |
 | `ping` | "Send test" (`POST /webhooks/{id}/ping`), whatever the subscriptions | `webhook` |
 
-**Envelope.** A `json` webhook receives the envelope itself; a `slack` webhook receives a Slack-style message rendered from it (`{ text, blocks }`, which Slack, Mattermost, Rocket.Chat and Discord's `/slack` URLs show; test content is escaped, so it can't mention `@channel`):
+**Envelope.** A `json` webhook receives the envelope itself. A `slack` webhook receives a Slack-style message rendered from it (`{ text, blocks }`, which Slack, Mattermost, Rocket.Chat and Discord's `/slack` URLs show; test content is escaped, so it can't mention `@channel`). A `teams` webhook receives a Microsoft Teams message (`{ type: "message", attachments: [an Adaptive Card 1.4] }`) for a Teams *Workflows* webhook (the old Office 365 connectors are retired); test content goes only into `TextRun`s, which Teams shows as plain text, so it can't add links or formatting:
 
 ```json
 {
@@ -520,6 +520,7 @@ A receiver recomputes the signature over the raw body, compares in constant time
 **Delivery and retries.** Events are queued in `webhook_deliveries` (an outbox) right after the change commits, and sent at once.
 - **Success:** a 2xx answer within 10 s. Redirects aren't followed (a 3xx is a failure).
 - **Retries:** after 1 min, 5 min, 30 min, 2 h and 8 h, then the delivery is `FAILED`.
+- **Pausing:** a webhook whose every attempt has failed for 3 days (at least 10 attempts) is turned off automatically: `paused_at` and `pause_reason` (with the last error) are set, a `WEBHOOK_AUTO_PAUSED` row goes to the Security Audit Log, and its waiting deliveries end as `FAILED`. Each webhook also shows `failing_since` and `consecutive_failures`; a success resets them. Turning it back on (`PATCH` with `enabled: true`) clears the pause.
 - **Workers:** deliveries are claimed with a compare-and-set lease, so several server instances never send one twice. Each webhook has one sender at a time per process, sending in order; a receiver that can't be reached holds up only its own webhook.
 - **Order:** not guaranteed across retries. Delivery is at least once.
 - **The delivery log:** `GET /webhooks/{id}/deliveries` (paged) and `GET /webhook-deliveries/{id}` (payload and the start of the answer), kept 30 days. `POST /webhook-deliveries/{id}/redeliver` sends one again.

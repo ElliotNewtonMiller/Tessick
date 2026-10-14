@@ -396,6 +396,7 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
       'WEBHOOK_UPDATED',
       'WEBHOOK_DELETED',
       'WEBHOOK_SECRET_ROTATED',
+      'WEBHOOK_AUTO_PAUSED',
     ];
 
     const query = request.query as { action?: string; actor_id?: string; since?: string };

@@ -278,3 +278,5 @@ Many tools read that format, so the one file gives:
 | 2026-10-12 | Two formats: signed JSON, and Slack-style messages (also Mattermost, Rocket.Chat, Discord's `/slack`). | Decided with Elliot; Teams later if asked for. |
 | 2026-10-12 | Nine events: runs (created, closed with summary), results (recorded, failed: one per request), test cases (created, approved, deprecated, restored), imports (completed). | Decided with Elliot. |
 | 2026-10-12 | Delivery is an outbox with claimed leases (several instances, at least once), retried after 1 min, 5 min, 30 min, 2 h, 8 h; one sender per webhook, so a dead receiver holds up only itself. | The per-webhook sender came from the live check: sending everything in one queue let one unreachable address delay every other webhook. |
+| 2026-10-14 | A webhook is paused automatically when every attempt has failed for 3 days (at least 10 attempts): a `WEBHOOK_AUTO_PAUSED` audit row and a note in the Webhooks tab; turning it on resumes it. | Decided with Elliot. |
+| 2026-10-14 | A Teams format: an Adaptive Card for Teams Workflows webhooks (Office 365 connectors are retired), with test content only in plain-text `TextRun`s. | |

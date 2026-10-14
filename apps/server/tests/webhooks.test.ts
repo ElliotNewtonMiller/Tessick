@@ -308,6 +308,76 @@ describe('Webhooks', () => {
     await healthy.close();
   });
 
+  it('pauses a webhook whose every attempt has failed for 3 days (at least 10); a success or turning it on starts over', async () => {
+    const hook = body(await createHook({ events: ['run.created'] })).webhook;
+    const state = async () => body(await call(admin, 'GET', `/api/v1/webhooks/${hook.id}`)).webhook;
+    const day = 24 * 3_600_000;
+    receiver.answer((res) => {
+      res.writeHead(503);
+      res.end('down');
+    });
+    // 10 failed attempts now...
+    for (let i = 0; i < 10; i++) await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: `R${i}` });
+    await deliver();
+    expect(await state()).toMatchObject({ enabled: true, consecutive_failures: 10, paused_at: null });
+    const since = (await state()).failing_since;
+    expect(since).toBeTruthy();
+    // ...and still failing after 2 days: not yet.
+    await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'R2d' });
+    await deliver(2 * day);
+    expect((await state()).enabled).toBe(true);
+    // After 3 days: paused.
+    await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'R3d' });
+    await deliver(3 * day + 60_000);
+    const paused = await state();
+    expect(paused).toMatchObject({ enabled: false, failing_since: since });
+    expect(paused.paused_at).toBeTruthy();
+    expect(paused.pause_reason).toMatch(/failed \(\d+ attempts\); the last: HTTP 503/);
+    const audit = body(await call(admin, 'GET', '/api/v1/admin/audit-logs')).audit_logs.find((r: any) => r.action === 'WEBHOOK_AUTO_PAUSED');
+    expect(audit).toMatchObject({ actor_type: 'SYSTEM', resource_id: hook.id });
+    // Deliveries still waiting give up, saying why; nothing more is sent.
+    const sent = receiver.got.length;
+    await deliver(4 * day);
+    expect(receiver.got).toHaveLength(sent);
+    const failed = body(await call(admin, 'GET', `/api/v1/webhooks/${hook.id}/deliveries?status=FAILED`)).deliveries;
+    expect(failed.some((d: any) => d.error === 'The webhook was paused because it kept failing')).toBe(true);
+
+    // Turning it on clears the pause and the count.
+    receiver.answer((res) => {
+      res.writeHead(200);
+      res.end('ok');
+    });
+    expect((await call(admin, 'PATCH', `/api/v1/webhooks/${hook.id}`, { enabled: true })).statusCode).toBe(200);
+    expect(await state()).toMatchObject({ enabled: true, paused_at: null, pause_reason: null, failing_since: null, consecutive_failures: 0 });
+
+    // A success in the middle of failures starts the count over.
+    receiver.answer((res) => {
+      res.writeHead(500);
+      res.end();
+    });
+    await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'F1' });
+    await deliver(5 * day);
+    expect((await state()).consecutive_failures).toBe(1);
+    receiver.answer((res) => {
+      res.writeHead(200);
+      res.end('ok');
+    });
+    await call(admin, 'POST', `/api/v1/webhooks/${hook.id}/ping`);
+    expect(await state()).toMatchObject({ consecutive_failures: 0, failing_since: null });
+  });
+
+  it('a Teams webhook gets an Adaptive Card, signed like any other', async () => {
+    const { webhook, secret } = body(await createHook({ format: 'teams', events: ['run.created'] }));
+    expect(webhook.format).toBe('teams');
+    await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'Teams run' });
+    await deliver();
+    const [hit] = receiver.got;
+    expect(hit.json.type).toBe('message');
+    expect(hit.json.attachments[0].contentType).toBe('application/vnd.microsoft.card.adaptive');
+    expect(hit.json.attachments[0].content.body[0].inlines[0].text).toMatch(/Run Teams run started/);
+    expect(hit.headers['x-signature-sha256']).toBe(signWebhook(secret, hit.headers['x-signature-timestamp'] as string, hit.body));
+  });
+
   it("refuses local addresses unless allowed, also after DNS; a project's webhooks go with it", async () => {
     const hook = body(await createHook({ url: `http://localhost:${receiver.port}/hook`, events: ['run.created'] })).webhook;
     configureWebhooks({ allowLocal: false, deliverImmediately: false, timeoutMs: 500 });

@@ -17,7 +17,7 @@ Testify is an open-source, self-hosted test case management app meant to replace
 
 **Everything else:**
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
-- Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON or Slack-style messages, with retries and a delivery log.
+- Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
 - Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
 - Editable roles, per-project roles and permission overrides, and project-scoped API tokens.
 
@@ -258,8 +258,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - `AuditLogRepository` is used only by tests; routes insert audit rows directly.
 - Recharts 2 is deprecated upstream; the Recharts 3 upgrade hasn't been done.
 - Webhooks:
-  - A webhook that keeps failing isn't turned off automatically; each delivery gives up after 6 attempts.
-  - No filters beyond events (e.g. only one plan's runs), and no Teams card format.
+  - No filters beyond events (e.g. only one plan's runs).
   - Events are queued just after their change commits, so a crash between the two loses one. Order isn't guaranteed across retries.
   - The Admin Panel's Webhooks tab (and the Admin Panel button) follow global permissions, like API Tokens: someone with `WEBHOOK_MANAGE` only through a project role uses the API.
 

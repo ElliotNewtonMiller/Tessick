@@ -44,15 +44,23 @@ interface Webhook {
   id: string;
   name: string;
   url: string;
-  format: "json" | "slack";
+  format: Format;
   events: string[];
   enabled: boolean;
   secret_hint: string | null;
   created_at: string;
+  /** Failed attempts since the last success, and when they began. */
+  failing_since: string | null;
+  consecutive_failures: number;
+  /** Set when it was turned off automatically because it kept failing. */
+  paused_at: string | null;
+  pause_reason: string | null;
   last_delivery: DeliverySummary | null;
 }
 
-type FormState = { id: string | null; name: string; url: string; format: "json" | "slack"; events: string[] };
+type Format = "json" | "slack" | "teams";
+type FormState = { id: string | null; name: string; url: string; format: Format; events: string[] };
+const FORMAT_BADGES: Record<Format, string> = { json: "JSON", slack: "CHAT", teams: "TEAMS" };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -380,6 +388,9 @@ export function WebhooksPanel({ projects }: { projects: ProjectOption[] }) {
               <Pill on={form.format === "slack"} onClick={() => setForm({ ...form, format: "slack" })} title="Slack, Mattermost, Rocket.Chat, Discord (/slack URL)">
                 Chat message (Slack-style)
               </Pill>
+              <Pill on={form.format === "teams"} onClick={() => setForm({ ...form, format: "teams" })} title="A Microsoft Teams Workflows webhook (Post to a channel when a webhook request is received)">
+                Teams card
+              </Pill>
               <Pill on={form.format === "json"} onClick={() => setForm({ ...form, format: "json" })} title="The signed event, for CI, bug trackers or your own code">
                 JSON event
               </Pill>
@@ -430,13 +441,24 @@ export function WebhooksPanel({ projects }: { projects: ProjectOption[] }) {
                 <div style={{ fontSize: "13px", fontWeight: 700, color: "#e2e8f0" }}>
                   {w.name}{" "}
                   <span style={{ fontSize: "10px", fontWeight: 600, color: "#94a3b8", border: "1px solid #334155", borderRadius: "3px", padding: "0 4px", marginLeft: "4px" }}>
-                    {w.format === "slack" ? "CHAT" : "JSON"}
+                    {FORMAT_BADGES[w.format] ?? w.format.toUpperCase()}
                   </span>
                 </div>
                 <div style={{ fontSize: "11px", color: "#94a3b8", overflowWrap: "anywhere" }}>
                   {host(w.url)} · {w.events.length} event{w.events.length === 1 ? "" : "s"}
                   {w.secret_hint && <span> · secret …{w.secret_hint}</span>}
                 </div>
+                {w.paused_at && (
+                  <div style={{ fontSize: "11px", marginTop: "2px", color: "#fbbf24", overflowWrap: "anywhere" }}>
+                    ⏸ Paused automatically on {new Date(w.paused_at).toLocaleString()}: {w.pause_reason} Turn it On to resume.
+                  </div>
+                )}
+                {!w.paused_at && w.enabled && w.consecutive_failures > 0 && w.failing_since && (
+                  <div style={{ fontSize: "11px", marginTop: "2px", color: "#fbbf24" }}>
+                    ⚠️ Failing since {new Date(w.failing_since).toLocaleString()} ({w.consecutive_failures} failed attempt{w.consecutive_failures === 1 ? "" : "s"}). After 3 days of
+                    failures it's paused.
+                  </div>
+                )}
                 <div style={{ fontSize: "11px", marginTop: "2px" }}>
                   {w.last_delivery ? (
                     <span style={{ color: STATUS_COLORS[w.last_delivery.status] }}>

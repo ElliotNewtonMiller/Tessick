@@ -2,11 +2,12 @@ import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
 import type { Database, WebhookDelivery } from '@testify/db';
 import { ProjectRepository, WebhookRepository } from '@testify/db';
-import { renderSlackMessage, signWebhook, type WebhookEnvelope } from '@testify/core';
+import { renderSlackMessage, renderTeamsMessage, signWebhook, type WebhookEnvelope } from '@testify/core';
 import { getSecretBox } from './secrets.js';
 import { loadEmailSettings } from './mailer.js';
 import { actorNames } from './actorNames.js';
 import { postWebhook } from './webhookTargets.js';
+import { NO_ORIGIN } from '../audit.js';
 
 /**
  * Webhook delivery (API roadmap step 7; RFC 03 §7.3). An event becomes one PENDING row per
@@ -25,6 +26,9 @@ const LEASE_MS = 2 * 60_000;
 const BATCH = 200;
 const PARALLEL_WEBHOOKS = 10;
 const RETENTION_MS = 30 * 24 * 3_600_000;
+/** A webhook is paused once it has failed for this long without a success, with at least PAUSE_MIN_FAILURES attempts (decided with Elliot). */
+export const PAUSE_AFTER_MS = 3 * 24 * 3_600_000;
+export const PAUSE_MIN_FAILURES = 10;
 
 /** Set by createServer: may webhooks reach local addresses, are deliveries sent at once, and how long to wait for an answer. */
 let settings = { allowLocal: false, deliverImmediately: true, timeoutMs: 10_000 };
@@ -180,7 +184,7 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
   const hook = await repo.findById(d.webhook_id);
   const attempts = d.attempts + 1;
   const startedAt = new Date();
-  const finish = async (outcome: { ok: boolean; status?: number; body?: string; error?: string; duration_ms?: number }, retry = true, unreachable = false) => {
+  const finish = async (outcome: { ok: boolean; status?: number; body?: string; error?: string; duration_ms?: number }, retry = true) => {
     const status = outcome.ok ? 'SUCCEEDED' : retry && attempts < MAX_ATTEMPTS ? 'PENDING' : 'FAILED';
     await repo.recordAttempt(d.id, {
       status,
@@ -192,22 +196,29 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
       error: outcome.error ?? null,
       duration_ms: outcome.duration_ms ?? null,
     });
-    return { status, unreachable };
+    return { status, unreachable: false };
   };
 
   if (!hook) return finish({ ok: false, error: 'The webhook was deleted' }, false);
-  if (!hook.enabled) return finish({ ok: false, error: 'The webhook is turned off' }, false);
+  if (!hook.enabled) return finish({ ok: false, error: hook.paused_at ? 'The webhook was paused because it kept failing' : 'The webhook is turned off' }, false);
+  // Every real attempt counts towards (or ends) a run of failures; one that's gone on long enough pauses the webhook.
+  const failed = async (outcome: Parameters<typeof finish>[0]) => {
+    const result = await finish(outcome);
+    await countFailure(db, hook.id, hook.project_id, hook.name, now, outcome.error ?? 'failed');
+    return result;
+  };
   const box = getSecretBox();
   let secret: string;
   try {
     if (!box) throw new Error('SECRETS_KEY is not set, so the signing secret is unavailable');
     secret = box.decrypt(hook.secret);
   } catch (err) {
-    return finish({ ok: false, error: `Can't sign the delivery: ${(err as Error).message}` });
+    return failed({ ok: false, error: `Can't sign the delivery: ${(err as Error).message}` });
   }
 
   const envelope = JSON.parse(d.payload) as WebhookEnvelope;
-  const body = hook.format === 'slack' ? JSON.stringify(renderSlackMessage(envelope)) : d.payload;
+  const body =
+    hook.format === 'slack' ? JSON.stringify(renderSlackMessage(envelope)) : hook.format === 'teams' ? JSON.stringify(renderTeamsMessage(envelope)) : d.payload;
   const timestamp = Math.floor(Date.now() / 1000);
   const headers = {
     'content-type': 'application/json',
@@ -222,7 +233,8 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
     const res = await postWebhook(hook.url, body, headers, { allowLocal: settings.allowLocal, timeoutMs: settings.timeoutMs });
     const ok = res.status >= 200 && res.status < 300;
     const redirect = res.status >= 300 && res.status < 400;
-    return finish({
+    if (ok) await repo.recordSuccess(hook.id);
+    return (ok ? finish : failed)({
       ok,
       status: res.status,
       body: res.body,
@@ -230,6 +242,36 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
       error: ok ? undefined : redirect ? `HTTP ${res.status}: redirects aren't followed; use the final URL` : `HTTP ${res.status}`,
     });
   } catch (err) {
-    return finish({ ok: false, error: (err as Error).message, duration_ms: Date.now() - startedAt.getTime() }, true, true);
+    const result = await failed({ ok: false, error: (err as Error).message, duration_ms: Date.now() - startedAt.getTime() });
+    return { ...result, unreachable: true };
   }
+}
+
+/**
+ * Counts a failed attempt; pauses the webhook once every attempt for PAUSE_AFTER_MS has failed
+ * (and there were at least PAUSE_MIN_FAILURES). The pause shows in the Webhooks tab and the
+ * Security Audit Log; turning the webhook back on resumes it.
+ */
+async function countFailure(db: Kysely<Database>, webhookId: string, projectId: string, name: string, now: Date, error: string): Promise<void> {
+  const repo = new WebhookRepository(db);
+  const state = await repo.recordFailure(webhookId, now.toISOString());
+  if (!state || state.consecutive_failures < PAUSE_MIN_FAILURES) return;
+  if (now.getTime() - new Date(state.failing_since).getTime() < PAUSE_AFTER_MS) return;
+  const reason = `Every attempt since ${state.failing_since} failed (${state.consecutive_failures} attempts); the last: ${error}`;
+  if (!(await repo.pause(webhookId, now.toISOString(), reason))) return;
+  await db
+    .insertInto('audit_logs')
+    .values({
+      id: uuidv4(),
+      actor_id: 'SYSTEM',
+      actor_type: 'SYSTEM',
+      action: 'WEBHOOK_AUTO_PAUSED',
+      resource_type: 'webhook',
+      resource_id: webhookId,
+      project_id: projectId,
+      diff: JSON.stringify({ name, failing_since: state.failing_since, failed_attempts: state.consecutive_failures, last_error: error.slice(0, 500) }),
+      ...NO_ORIGIN,
+      created_at: now.toISOString(),
+    })
+    .execute();
 }

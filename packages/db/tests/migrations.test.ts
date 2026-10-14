@@ -181,4 +181,13 @@ describe('migrateToLatest', () => {
     expect((await migrator.migrateTo('009_index_case_external_id')).error).toBeUndefined();
     expect(await tables()).not.toContain('webhooks');
   }, 30_000);
+
+  it('011 adds the columns for pausing failing webhooks; rolling back removes them', async () => {
+    const columns = async () => (await db.introspection.getTables()).find((t) => t.name === 'webhooks')?.columns.map((c) => c.name) ?? [];
+    expect(await migrateToLatest(db)).toContain('011_webhook_pausing');
+    expect(await columns()).toEqual(expect.arrayContaining(['failing_since', 'consecutive_failures', 'paused_at', 'pause_reason']));
+    const migrator = new Migrator({ db, provider: { getMigrations: async () => MIGRATIONS } });
+    expect((await migrator.migrateTo('010_webhooks')).error).toBeUndefined();
+    expect(await columns()).not.toContain('paused_at');
+  }, 30_000);
 });

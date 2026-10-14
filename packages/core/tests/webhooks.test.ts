@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { WEBHOOK_EVENTS, isBlockedAddress, renderSlackMessage, signWebhook, slackEscape, type WebhookEnvelope } from '../src/webhooks/index.js';
+import { WEBHOOK_EVENTS, isBlockedAddress, renderSlackMessage, renderTeamsMessage, signWebhook, slackEscape, type WebhookEnvelope } from '../src/webhooks/index.js';
 
 describe('webhook signatures', () => {
   it('is the hex HMAC-SHA256 of "timestamp.body"', () => {
@@ -80,5 +80,60 @@ describe('Slack-style messages', () => {
     const text = renderSlackMessage(env('results.failed', { run, plan, failed_count: 35, counts: { failed: 35 }, failures, failures_truncated: true })).text;
     expect(text.match(/^• /gm)).toHaveLength(10);
     expect(text).toContain('…and 25 more');
+  });
+});
+
+describe('Teams messages', () => {
+  const env: WebhookEnvelope = {
+    id: 'e1',
+    event: 'results.failed',
+    created_at: '2026-10-14T10:00:00Z',
+    project: { id: 'p', name: 'Shop', prefix: 'SHOP' },
+    actor: { type: 'SERVICE_ACCOUNT', name: 'ci (API token)' },
+    url: 'https://testify.example/#/reports/run?project=p',
+    data: {
+      run: { name: 'CI build 7' },
+      plan: { name: 'Regression' },
+      failed_count: 2,
+      counts: { passed: 3, failed: 2 },
+      failures: [
+        { external_id: 'SHOP-2', title: 'Pays [click](https://evil.example)', verdict: 'FAILED', failure_message: '**500**' },
+        { external_id: 'SHOP-3', title: 'Refunds', verdict: 'BLOCKED', failure_message: null },
+      ],
+    },
+  };
+
+  it('is an Adaptive Card message for a Teams Workflows webhook, with a link back', () => {
+    const msg = renderTeamsMessage(env);
+    expect(msg.type).toBe('message');
+    const attachment = msg.attachments[0] as any;
+    expect(attachment.contentType).toBe('application/vnd.microsoft.card.adaptive');
+    const card = attachment.content;
+    expect(card).toMatchObject({ type: 'AdaptiveCard', version: '1.4' });
+    expect(card.actions).toEqual([{ type: 'Action.OpenUrl', title: 'Open in Testify', url: env.url }]);
+    const texts = card.body.map((b: any) => b.inlines.map((r: any) => r.text).join(''));
+    expect(texts).toEqual([
+      '❌ 2 failed in run CI build 7 (plan Regression). 3 passed · 2 failed.',
+      '• SHOP-2 Pays [click](https://evil.example) — **500**',
+      '• SHOP-3 Refunds (BLOCKED)',
+      'Shop · by ci (API token)',
+    ]);
+  });
+
+  it('puts test content only in TextRuns (plain text in Teams), never in markdown TextBlocks', () => {
+    const card = (renderTeamsMessage(env).attachments[0] as any).content;
+    expect(JSON.stringify(card)).not.toContain('"TextBlock"');
+    for (const block of card.body) {
+      expect(block.type).toBe('RichTextBlock');
+      for (const inline of block.inlines) expect(inline.type).toBe('TextRun');
+    }
+  });
+
+  it('renders every event, without a link when the server has no public address', () => {
+    for (const e of [...WEBHOOK_EVENTS.map((x) => x.key), 'ping']) {
+      const card = (renderTeamsMessage({ ...env, event: e, url: null, data: { webhook: { name: 'w' }, test_case: { external_id: 'SHOP-1', title: 't' }, summary: {}, counts: {} } }).attachments[0] as any).content;
+      expect(card.body.length, e).toBeGreaterThanOrEqual(2);
+      expect(card.actions, e).toBeUndefined();
+    }
   });
 });

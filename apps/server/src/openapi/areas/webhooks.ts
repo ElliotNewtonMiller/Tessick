@@ -40,19 +40,26 @@ const delivery = {
 
 const webhook = {
   type: 'object',
-  required: ['id', 'project_id', 'name', 'url', 'format', 'events', 'enabled', 'secret_hint', 'created_by', 'created_at', 'updated_at', 'last_delivery'],
+  required: ['id', 'project_id', 'name', 'url', 'format', 'events', 'enabled', 'secret_hint', 'created_by', 'created_at', 'updated_at', 'failing_since', 'consecutive_failures', 'paused_at', 'pause_reason', 'last_delivery'],
   properties: {
     id: { type: 'string' },
     project_id: { type: 'string' },
     name: { type: 'string' },
     url: { type: 'string' },
-    format: oneOf(WEBHOOK_FORMATS, 'json: the signed event envelope; slack: a Slack-style message ({text, blocks}).'),
+    format: oneOf(WEBHOOK_FORMATS, 'json: the signed event envelope; slack: a Slack-style message ({text, blocks}); teams: an Adaptive Card for a Teams Workflows webhook.'),
     events: { type: 'array', items: oneOf(WEBHOOK_EVENT_KEYS) },
     enabled: { type: 'boolean' },
     secret_hint: { type: ['string', 'null'], description: 'The last 4 characters of the signing secret (null if it can no longer be read: SECRETS_KEY changed)' },
     created_by: { type: 'string' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
+    failing_since: { type: ['string', 'null'], description: 'When its current run of failed attempts began (null after a success)' },
+    consecutive_failures: { type: 'integer', description: 'Failed attempts since the last success' },
+    paused_at: {
+      type: ['string', 'null'],
+      description: 'When it was turned off automatically: every attempt for 3 days failed (at least 10). Turning it on (`enabled: true`) resumes it and clears this.',
+    },
+    pause_reason: { type: ['string', 'null'] },
     last_delivery: { anyOf: [deliverySummary, { type: 'null' }] },
   },
 };
@@ -132,7 +139,7 @@ export const getWebhookSchema = {
 export const updateWebhookSchema = {
   tags: TAGS,
   summary: 'Change a webhook',
-  description: 'Any of name, url, format, events and enabled. Turning a webhook off fails its pending deliveries.' + NEEDS,
+  description: 'Any of name, url, format, events and enabled. Turning a webhook off fails its pending deliveries; turning it on clears an automatic pause.' + NEEDS,
   params: idParams('webhookId'),
   body: handlerValidated({ type: 'object', properties: webhookFields }),
   response: { 200: wrappedWebhook('Changed'), ...authedErrors(URL_400, 404) },

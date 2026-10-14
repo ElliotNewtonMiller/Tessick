@@ -62,7 +62,7 @@ export class WebhookRepository {
     return Number(row?.n ?? 0);
   }
 
-  async create(row: Omit<Webhook, 'enabled'> & { enabled?: boolean }): Promise<Webhook> {
+  async create(row: Omit<Webhook, 'enabled' | 'failing_since' | 'consecutive_failures' | 'paused_at' | 'pause_reason'> & { enabled?: boolean }): Promise<Webhook> {
     await this.db
       .insertInto('webhooks')
       .values({ ...row, events: JSON.stringify(row.events), enabled: row.enabled ?? true })
@@ -72,9 +72,11 @@ export class WebhookRepository {
 
   async update(id: string, patch: Partial<Pick<Webhook, 'name' | 'url' | 'format' | 'events' | 'enabled' | 'secret'>>): Promise<Webhook | undefined> {
     const { events, ...rest } = patch;
+    // Turning a webhook (back) on starts its failure count afresh and clears an automatic pause.
+    const restart = patch.enabled === true ? { failing_since: null, consecutive_failures: 0, paused_at: null, pause_reason: null } : {};
     await this.db
       .updateTable('webhooks')
-      .set({ ...rest, ...(events ? { events: JSON.stringify(events) } : {}), updated_at: new Date().toISOString() })
+      .set({ ...rest, ...restart, ...(events ? { events: JSON.stringify(events) } : {}), updated_at: new Date().toISOString() })
       .where('id', '=', id)
       .execute();
     return this.findById(id);
@@ -88,6 +90,35 @@ export class WebhookRepository {
   async subscribers(projectId: string, event: string): Promise<Webhook[]> {
     const rows = await this.db.selectFrom('webhooks').selectAll().where('project_id', '=', projectId).where('enabled', '=', true).execute();
     return rows.map(toWebhook).filter((w) => w.events.includes(event));
+  }
+
+  /** A delivery reached the receiver: the run of failures is over. */
+  async recordSuccess(id: string): Promise<void> {
+    await this.db.updateTable('webhooks').set({ failing_since: null, consecutive_failures: 0 }).where('id', '=', id).where('consecutive_failures', '>', 0).execute();
+  }
+
+  /** An attempt failed: count it, and note when the run of failures began. Returns the new state. */
+  async recordFailure(id: string, atIso: string): Promise<{ failing_since: string; consecutive_failures: number } | undefined> {
+    return this.db
+      .updateTable('webhooks')
+      .set((eb) => ({
+        consecutive_failures: eb('consecutive_failures', '+', 1),
+        failing_since: eb.fn.coalesce('failing_since', eb.val(atIso)),
+      }))
+      .where('id', '=', id)
+      .returning(['failing_since', 'consecutive_failures'])
+      .executeTakeFirst() as Promise<{ failing_since: string; consecutive_failures: number } | undefined>;
+  }
+
+  /** Turns a webhook off because it keeps failing. True only for the call that paused it (it may already be off). */
+  async pause(id: string, atIso: string, reason: string): Promise<boolean> {
+    const result = await this.db
+      .updateTable('webhooks')
+      .set({ enabled: false, paused_at: atIso, pause_reason: reason.slice(0, 1000), updated_at: atIso })
+      .where('id', '=', id)
+      .where('enabled', '=', true)
+      .executeTakeFirst();
+    return (result.numUpdatedRows ?? 0n) > 0n;
   }
 
   // ---- Deliveries ----
