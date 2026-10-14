@@ -224,7 +224,7 @@ Many tools read that format, so the one file gives:
 
 ### Related gaps worth doing alongside
 
-- Plan and run create/edit/delete write no audit entry (add with step 1).
+- ~~Plan and run create/edit/delete write no audit entry.~~ Done 2026-10-14.
 - `allow_draft_plan_linking` has no UI (a project settings form).
 - Step-level results can be sent through the API but not recorded in the web app.
 

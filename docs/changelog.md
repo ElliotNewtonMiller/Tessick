@@ -2443,3 +2443,31 @@ Tests:
 - `apps/server/tests/import_roundtrip.test.ts` (2): the sample project, with a case of each priority, exported as JSON and as CSV through the API and imported into another project. Every case comes back identical: title, priority, execution type, summary, preconditions, steps. Before, JSON brought back no cases and CSV turned CRITICAL into MEDIUM.
 
 667 tests pass; typecheck clean.
+
+## Added: audit rows for plans and runs (2026-10-14)
+
+Known gap from CLAUDE.md: creating, editing and deleting plans and runs, and closing a run by hand, wrote no audit entry. Now they do.
+
+**Decided with Elliot:** only the deletes (`PLAN_DELETED`, `RUN_DELETED`) show in the Admin Panel's Security Audit Log, since they can destroy results. The others are read through `GET /api/v1/admin/audit-logs?action=...`, like case edits.
+
+**The rows:**
+- `PLAN_CREATED`, `PLAN_UPDATED`, `PLAN_DELETED`.
+- `RUN_CREATED`: in the app or API, or by CI naming a new run (`via: run_name`).
+- `RUN_UPDATED`; `RUN_CLOSED` by hand or by CI (`via: close_run`); `RUN_REOPENED`. Auto-close keeps its `RUN_AUTO_CLOSED`.
+- `RUN_DELETED`.
+
+**What they record:**
+- Updates record only what changed: `changes: { field: { from, to } }`. A change that changes nothing writes no row.
+- Deletes record what they destroyed (`deleted_runs`, `deleted_results`, counted beforehand) and whether they were forced. A refused delete (409) writes nothing.
+- The actor type is right for API tokens.
+
+**How:** new `writeAudit` and `changedFields` helpers in `apps/server/src/audit.ts`, used by `routes/projects.ts`, `services/runByName.ts` and `services/batchResults.ts`.
+
+**Docs:** RFC 04 §5 (the actions, what they record, where they show), CLAUDE.md/AGENTS.md (the helper; the gap removed), the roadmap's related gaps.
+
+Tests: `apps/server/tests/plan_run_audit.test.ts` (3):
+- plan create, update (and a no-op), refused and forced delete with counts;
+- run create (by a person and by a token naming a run), close, reopen, edit, close by CI, delete;
+- which ones the Security Audit Log shows.
+
+670 tests pass; typecheck clean.

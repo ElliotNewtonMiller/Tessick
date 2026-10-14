@@ -390,6 +390,8 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
       'ACCOUNT_LOCKED',
       'ACCOUNT_UNLOCKED',
       'MCP_WRITE',
+      'PLAN_DELETED',
+      'RUN_DELETED',
       'WEBHOOK_CREATED',
       'WEBHOOK_UPDATED',
       'WEBHOOK_DELETED',

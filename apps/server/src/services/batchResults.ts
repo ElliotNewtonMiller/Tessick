@@ -8,7 +8,7 @@ import { MAX_BATCH_RESULTS, validateBatchItem, type InvalidParam, type BatchItem
 import { resolveCaseLinkability } from '../routes/testPlanCases.js';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { RESULT_OVERWRITE_MESSAGE, canOverwriteResults, isOverwrite, latestResultsInRun } from './resultOverwrite.js';
-import { requestOrigin } from '../audit.js';
+import { requestOrigin, writeAudit } from '../audit.js';
 import { emitResultsRecorded, emitRunClosed, webhookActor } from './webhookEvents.js';
 
 /**
@@ -492,6 +492,7 @@ export async function recordResultsBatch(
   // the CI knows when it's done (decided with Elliot, 2026-10-12). `close_run` closes it on purpose.
   if (options.closeRun) {
     await db.updateTable('test_runs').set({ status: 'CLOSED', updated_at: new Date().toISOString() }).where('id', '=', runId).execute();
+    await writeAudit(db, req, { action: 'RUN_CLOSED', resourceType: 'run', resourceId: runId, projectId, diff: { test_plan_id: planId, via: 'close_run' } });
   }
   responsePayload.run_status = options.closeRun ? 'CLOSED' : 'OPEN';
 

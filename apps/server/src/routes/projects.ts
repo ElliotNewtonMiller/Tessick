@@ -5,7 +5,7 @@ import { ProjectRepository, TestPlanRepository, TestRunRepository } from '@testi
 import { authenticateRequest, requirePermission, permissionsInProject, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sendPlanInUseError, sendRunInUseError, sendProjectInUseError, sendError } from '../errors.js';
-import { requestOrigin } from '../audit.js';
+import { changedFields, requestOrigin, writeAudit } from '../audit.js';
 import * as S from '../openapi/areas/projects.js';
 import { emitRunClosed, emitRunCreated, webhookActor } from '../services/webhookEvents.js';
 
@@ -234,6 +234,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
       }
 
       const plan = await planRepo.create({ project_id: projectId, name: name.trim(), description: description ?? null, status });
+      await writeAudit(db, request, { action: 'PLAN_CREATED', resourceType: 'plan', resourceId: plan.id, projectId, diff: { name: plan.name, status: plan.status } });
       return reply.status(201).send({ plan });
     }
   );
@@ -257,11 +258,16 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         return sendError(reply, 400, `status must be one of ${Array.from(VALID_PLAN_STATUSES).join(', ')}`);
       }
 
-      const plan = await planRepo.update(planId, {
+      const changes = {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined ? { description } : {}),
         ...(status !== undefined ? { status } : {}),
-      });
+      };
+      const plan = await planRepo.update(planId, changes);
+      const changed = changedFields(existing, changes);
+      if (Object.keys(changed).length) {
+        await writeAudit(db, request, { action: 'PLAN_UPDATED', resourceType: 'plan', resourceId: planId, projectId, diff: { name: plan?.name ?? existing.name, changes: changed } });
+      }
       return reply.status(200).send({ plan });
     }
   );
@@ -279,6 +285,11 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         return sendError(reply, 404, 'Test plan not found in this project');
       }
 
+      // What a forced delete destroys, for the audit row (counted before it's gone).
+      const runIds = (await db.selectFrom('test_runs').select('id').where('test_plan_id', '=', planId).execute()).map((r) => r.id);
+      const resultCount = runIds.length
+        ? Number((await db.selectFrom('test_results').select(db.fn.countAll<number>().as('n')).where('test_run_id', 'in', runIds).executeTakeFirst())?.n ?? 0)
+        : 0;
       const result = await planRepo.deleteWithForce(planId, { force: force === 'true' });
       if (!result.deleted) {
         return sendPlanInUseError(
@@ -290,6 +301,13 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         );
       }
 
+      await writeAudit(db, request, {
+        action: 'PLAN_DELETED',
+        resourceType: 'plan',
+        resourceId: planId,
+        projectId,
+        diff: { name: existing.name, forced: force === 'true', deleted_runs: runIds.length, deleted_results: resultCount },
+      });
       return reply.status(204).send();
     }
   );
@@ -328,6 +346,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
           status,
           release_date: release_date ?? null,
         });
+        await writeAudit(db, request, { action: 'RUN_CREATED', resourceType: 'run', resourceId: run.id, projectId, diff: { name: run.name, test_plan_id: planId } });
         await emitRunCreated(db, webhookActor(request.user), run.id);
         return reply.status(201).send({ run });
       } catch (err: any) {
@@ -373,6 +392,23 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
           ...(status !== undefined ? { status } : {}),
           ...(release_date !== undefined ? { release_date } : {}),
         });
+        const changed = changedFields(found.run, {
+          ...(name !== undefined ? { name: name.trim() } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(status !== undefined ? { status } : {}),
+          ...(release_date !== undefined ? { release_date } : {}),
+        });
+        if (Object.keys(changed).length) {
+          // Closing and reopening are their own actions; other edits are RUN_UPDATED.
+          const action = changed.status ? (status === 'CLOSED' ? 'RUN_CLOSED' : 'RUN_REOPENED') : 'RUN_UPDATED';
+          await writeAudit(db, request, {
+            action,
+            resourceType: 'run',
+            resourceId: runId,
+            projectId: found.plan.project_id,
+            diff: { name: run?.name ?? found.run.name, test_plan_id: found.plan.id, changes: changed },
+          });
+        }
         if (status === 'CLOSED' && found.run.status !== 'CLOSED') await emitRunClosed(db, webhookActor(request.user), runId, 'person');
         return reply.status(200).send({ run });
       } catch (err: any) {
@@ -397,11 +433,21 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
       }
       const existing = found.run;
 
+      const resultCount = Number(
+        (await db.selectFrom('test_results').select(db.fn.countAll<number>().as('n')).where('test_run_id', '=', runId).executeTakeFirst())?.n ?? 0
+      );
       const result = await runRepo.deleteWithForce(runId, { force: force === 'true' });
       if (!result.deleted) {
         return sendRunInUseError(reply, runId, { results: result.blockedResultCount }, request.url, existing.name);
       }
 
+      await writeAudit(db, request, {
+        action: 'RUN_DELETED',
+        resourceType: 'run',
+        resourceId: runId,
+        projectId: found.plan.project_id,
+        diff: { name: existing.name, test_plan_id: found.plan.id, forced: force === 'true', deleted_results: resultCount },
+      });
       return reply.status(204).send();
     }
   );

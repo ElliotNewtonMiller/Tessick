@@ -5,6 +5,7 @@ import type { Database } from '@testify/db';
 import { sendError, sendPlanLockedError } from '../errors.js';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { emitRunCreated, webhookActor } from './webhookEvents.js';
+import { writeAudit } from '../audit.js';
 
 export interface RunByName {
   id: string;
@@ -61,6 +62,7 @@ export async function findOrCreateRun(
     .returning('id')
     .executeTakeFirst();
   if (inserted) {
+    await writeAudit(db, request, { action: 'RUN_CREATED', resourceType: 'run', resourceId: id, projectId: plan.project_id, diff: { name, test_plan_id: planId, via: 'run_name' } });
     await emitRunCreated(db, webhookActor(user), id);
     return { id, name, created: true };
   }

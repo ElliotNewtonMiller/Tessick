@@ -194,7 +194,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - **Audit rows:**
   - Write one for every security-relevant change, with `...requestOrigin(request)` (real address and User-Agent) and `actor_type: actorType(user)` (`SERVICE_ACCOUNT` for an API token).
   - A new action only shows in the Admin Panel's Security Audit Log once it's added to `securityActions` in `routes/admin.ts`.
-  - Plan and run create/edit/delete currently write none.
+  - `writeAudit(db, request, {...})` and `changedFields` in `audit.ts` write one for the request's caller (used by plans and runs).
 - **Webhook events:** after a change commits, call the matching helper in `services/webhookEvents.ts` (`emitRunClosed`, `emitResultsRecorded`, ...); it queues deliveries for subscribed webhooks and never throws. A new event goes into `WEBHOOK_EVENTS` (`packages/core/src/webhooks/`), the Slack renderer there, and RFC 03 §7.3.
 - **Validate input up front** (`resultValidation.ts`, `stepValidation.ts`, `nameProblem` in `specEditing.ts`), so bad input gets a 400 naming each field instead of a database error.
 - **Transactions:** group a change into one transaction. Repositories that may run inside a caller's transaction use the `runInTransaction` pattern (if `db.isTransaction`, run directly; otherwise open one).
@@ -246,7 +246,6 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 
 ## Known gaps
 
-- Plan and run create/edit/delete write no audit entry.
 - No UI for `allow_draft_plan_linking`.
 - Imports:
   - No remembered field mappings and no per-case duplicate-resolution UI.
