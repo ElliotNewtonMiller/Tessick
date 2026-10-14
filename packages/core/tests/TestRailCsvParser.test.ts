@@ -18,7 +18,7 @@ describe('TestRailCsvParser', () => {
     expect(parser.canHandle()).toBe(false);
   });
 
-  it('parses Title/Section/Priority/Preconditions/Steps/Expected Result, folding Critical to HIGH', async () => {
+  it('parses Title/Section/Priority/Preconditions/Steps/Expected Result, mapping Critical to CRITICAL', async () => {
     const csv = [
       'ID,Title,Section,Priority,Preconditions,Steps,Expected Result,Type,References',
       'C1,Checkout works,Payments > Checkout,Critical,User is logged in,"1. Add item to cart\n2. Click checkout","1. Item appears in cart\n2. Checkout page loads",Regression,JIRA-42',
@@ -33,7 +33,7 @@ describe('TestRailCsvParser', () => {
     const tc = suites[0].sub_suites[0].test_cases[0];
     expect(tc.external_id).toBe('C1');
     expect(tc.title).toBe('Checkout works');
-    expect(tc.importance).toBe('HIGH'); // Critical folds to HIGH
+    expect(tc.importance).toBe('CRITICAL');
     expect(tc.preconditions).toBe('User is logged in');
     expect(tc.steps).toHaveLength(2);
     expect(tc.steps[0]).toMatchObject({ actions: 'Add item to cart', expected_results: 'Item appears in cart' });
@@ -41,7 +41,7 @@ describe('TestRailCsvParser', () => {
     expect(tc.custom_fields).toEqual({ cf_type: 'Regression', cf_references: 'JIRA-42' });
   });
 
-  it('folds every known TestRail priority label onto HIGH/MEDIUM/LOW, defaulting to MEDIUM', async () => {
+  it('maps every known TestRail priority label onto the four Testify priorities, defaulting to MEDIUM', async () => {
     const csv = [
       'Title,Priority',
       'A,Low',
@@ -52,7 +52,7 @@ describe('TestRailCsvParser', () => {
     ].join('\n');
     const suites = await parseAll(csv);
     const byTitle = Object.fromEntries(suites[0].test_cases.map((c) => [c.title, c.importance]));
-    expect(byTitle).toEqual({ A: 'LOW', B: 'MEDIUM', C: 'HIGH', D: 'HIGH', E: 'MEDIUM' });
+    expect(byTitle).toEqual({ A: 'LOW', B: 'MEDIUM', C: 'HIGH', D: 'CRITICAL', E: 'MEDIUM' });
   });
 
   it('flags a step/expected line-count mismatch with a STEP_EXPECTED_MISALIGNED parser warning', async () => {

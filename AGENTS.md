@@ -252,9 +252,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
   - No remembered field mappings and no per-case duplicate-resolution UI.
   - TestRail CSV supports only the combined Steps/Expected Result column format.
   - Files are held in memory, hence the 50 MB cap.
-- CSV re-import is lossy in two ways:
-  - Any priority other than HIGH/MEDIUM/LOW becomes MEDIUM.
-  - A custom field named like a built-in column (`title`, `suite`, `action`, ...) is read as that column.
+- CSV re-import reads a custom field named like a built-in column (`title`, `suite`, `action`, ...) as that column.
 - No "sign out everywhere" button or list of your sessions. Changing `SECRETS_KEY` has no rotation; the SMTP password must be re-entered.
 - Several server instances share the database, but rate and sign-in limits are counted per instance.
 - A custom-field change made by another admin shows only after the next case or suite switch or a reload; nothing is pushed.

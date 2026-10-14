@@ -363,18 +363,20 @@ export interface IFileParser {
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
 | `<externalid>` | Case external id | Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). |
 | `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, entities decoded. |
-| `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH. |
+| `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
 | `<steps><step>` | Steps | `<step_number>`, `<actions>`, `<expectedresults>`, cleaned like the summary. |
 | `<custom_fields><custom_field>` | Custom fields | `<name>` → column, `<value>` → value; mapped in the wizard (§6.4). |
 
 #### Other formats
-- **Testify JSON:** mirrors the domain model; the JSON export re-imports through it.
-- **CSV:** a header row with columns matched by name, case-insensitively: `Suite Path`, `External ID`, `Title`, `Summary`, `Preconditions`, `Importance`, `Execution Type`, `Step Number`, `Action`, `Expected Result`. Other columns become custom fields; the CSV export writes them as `cf_<name>`. One row per step, with the case's fields repeated. A CSV definitions export re-imports through this parser. Known limits:
-  - Any `Importance` other than HIGH, MEDIUM or LOW becomes MEDIUM.
+
+Priorities, in every format: `CRITICAL`, `HIGH`, `MEDIUM` or `LOW` in any letter case, or `1`-`4` (LOW to CRITICAL); anything else gets the import's default (MEDIUM).
+
+- **Testify JSON:** suites with `test_cases` (`title`, `external_id`, `summary`, `preconditions`, `importance`, `execution_type`, `steps`, `custom_fields`). It also reads Testify's own JSON export (suites with `cases`, `priority`, the content in `version`, `custom_field_values`), so an export re-imports with every case, priority, step and custom-field value (multi-select values joined with commas).
+- **CSV:** a header row with columns matched by name, case-insensitively: `Suite Path`, `External ID`, `Title`, `Summary`, `Preconditions`, `Importance` (or `Priority`), `Execution Type`, `Step Number`, `Action`, `Expected Result`. Other columns become custom fields; the CSV export writes them as `cf_<name>`. One row per step, with the case's fields repeated. A CSV definitions export re-imports through this parser. Known limits:
   - A custom field whose name contains a built-in column's word (`title`, `suite`, `action`, `result`...) is read as that column.
 - **JUnit XML:** suites nest by the test's dotted `classname`. Status, duration and failure message arrive as the custom fields `junit_status`, `junit_duration_seconds` and `junit_failure_message`. They're case fields, not results; send results through the batch API instead.
-- **TestRail CSV:** TestRail's export with one combined `Steps` column and one `Expected Result` column, both as numbered lists. TestRail's `Critical` priority becomes HIGH. The variant with one column per step isn't supported; it gets an `UNSUPPORTED_TESTRAIL_COLUMN_FORMAT` warning.
+- **TestRail CSV:** TestRail's export with one combined `Steps` column and one `Expected Result` column, both as numbered lists. TestRail's priorities map to Testify's four (`Critical` → CRITICAL). The variant with one column per step isn't supported; it gets an `UNSUPPORTED_TESTRAIL_COLUMN_FORMAT` warning.
 
 ### 6.3 File Size & Memory
 

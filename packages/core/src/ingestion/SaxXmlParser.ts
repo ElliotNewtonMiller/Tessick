@@ -7,6 +7,7 @@ import type {
   ParsedCase,
   ParsedStep,
 } from './types.js';
+import { normalizePriority, type ParsedPriority } from './types.js';
 
 function cleanHtmlText(html: string): string {
   if (!html) return '';
@@ -24,15 +25,9 @@ function cleanHtmlText(html: string): string {
   return text;
 }
 
-function mapImportance(val?: string, defaultVal: string = 'MEDIUM'): 'HIGH' | 'MEDIUM' | 'LOW' {
-  if (!val) return (defaultVal.toUpperCase() as any) || 'MEDIUM';
-  const clean = val.trim();
-  if (clean === '1') return 'LOW';
-  if (clean === '2') return 'MEDIUM';
-  if (clean === '3') return 'HIGH';
-  const upper = clean.toUpperCase();
-  if (upper === 'HIGH' || upper === 'MEDIUM' || upper === 'LOW') return upper;
-  return 'MEDIUM';
+/** TestLink importance: 1-3 (low, medium, high), or a priority name. */
+function mapImportance(val?: string, defaultVal: string = 'MEDIUM'): ParsedPriority {
+  return normalizePriority(val, defaultVal);
 }
 
 function mapExecutionType(val?: string, defaultVal: string = 'MANUAL'): 'MANUAL' | 'AUTOMATED' {

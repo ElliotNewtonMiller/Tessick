@@ -2419,3 +2419,27 @@ Verified:
   - `/docs` renders in the browser, and its JSON lists 112 routes;
   - `/docs/static/../` traversal is refused (404 and 403);
   - the JUnit, MCP and webhook flows work, with all 15 deliveries signed and valid.
+
+## Fixed: imports keep every priority, and a JSON export re-imports (2026-10-14)
+
+Known gap from CLAUDE.md: "CSV re-import loses some priorities". It was wider than that.
+- **Priorities:** every importer knew only HIGH/MEDIUM/LOW. CRITICAL became MEDIUM in CSV, JSON and TestLink XML, and TestRail's Critical became HIGH. Generic CSV also read a `Priority` column as a custom field.
+- **JSON round trip:** Testify's own JSON export didn't re-import at all. The export writes suites with `cases`, `priority` and the content in `version`; the importer read only `test_cases`, `importance` and top-level `summary`. So a re-import created the suites and no cases. RFC 03 said it re-imported.
+
+**What changed:**
+- **`normalizePriority`** (`packages/core/src/ingestion/types.ts`) is used by every importer. It accepts the four names in any letter case, or `1`-`4` (`4` = CRITICAL); anything else gets the import's default. `ParsedCase.importance` now includes CRITICAL.
+- **CSV:** reads `Importance` or `Priority`.
+- **TestRail:** `Critical` and `4 - Critical` → CRITICAL.
+- **JSON** (`JsonSchemaParser`) also reads the export shape:
+  - `cases` and `priority`;
+  - `version.summary`/`preconditions`;
+  - suites' `description`/`position`;
+  - `custom_field_values` (multi-select values joined with ", ", how imports split them; unset values left out).
+- **Docs:** RFC 03 §6.2 (priorities in every format, the JSON format, CSV `Priority`, TestRail), CLAUDE.md/AGENTS.md known gaps.
+
+Tests:
+- `TestRailCsvParser.test.ts`: its two priority tests now expect CRITICAL.
+- `packages/core/tests/importPriorities.test.ts` (4): `normalizePriority`; CSV by `Importance` and `Priority`; JSON, TestRail and TestLink priorities; the export shape read in full.
+- `apps/server/tests/import_roundtrip.test.ts` (2): the sample project, with a case of each priority, exported as JSON and as CSV through the API and imported into another project. Every case comes back identical: title, priority, execution type, summary, preconditions, steps. Before, JSON brought back no cases and CSV turned CRITICAL into MEDIUM.
+
+667 tests pass; typecheck clean.

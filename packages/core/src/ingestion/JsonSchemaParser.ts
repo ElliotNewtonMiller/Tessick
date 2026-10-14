@@ -6,6 +6,7 @@ import type {
   ParsedCase,
   ParsedStep,
 } from './types.js';
+import { normalizePriority } from './types.js';
 
 export class JsonSchemaParser implements IFileParser {
   readonly formatId = 'NATIVE_JSON';
@@ -61,14 +62,14 @@ export class JsonSchemaParser implements IFileParser {
       ? raw.sub_suites.map((s: any) => this.normalizeSuite(s, options))
       : [];
 
-    const testCases = Array.isArray(raw.test_cases)
-      ? raw.test_cases.map((c: any) => this.normalizeCase(c, options))
-      : [];
+    // `test_cases` in the import format; `cases` in Testify's own JSON export (DefinitionsExportBundle).
+    const rawCases = Array.isArray(raw.test_cases) ? raw.test_cases : Array.isArray(raw.cases) ? raw.cases : [];
+    const testCases = rawCases.map((c: any) => this.normalizeCase(c, options));
 
     return {
       name: (raw.name || 'Unnamed Suite').trim(),
-      details: raw.details || '',
-      node_order: typeof raw.node_order === 'number' ? raw.node_order : 0,
+      details: raw.details || raw.description || '',
+      node_order: typeof raw.node_order === 'number' ? raw.node_order : typeof raw.position === 'number' ? raw.position : 0,
       sub_suites: subSuites,
       test_cases: testCases,
     };
@@ -84,8 +85,8 @@ export class JsonSchemaParser implements IFileParser {
         }))
       : [];
 
-    const rawImportance = (raw.importance || options?.defaultImportance || 'MEDIUM').toString().toUpperCase();
-    const importance = rawImportance === 'HIGH' || rawImportance === 'LOW' ? rawImportance : 'MEDIUM';
+    // `importance` in the import format; `priority` in Testify's export.
+    const importance = normalizePriority(raw.importance ?? raw.priority, options?.defaultImportance);
 
     const rawExecType = (raw.execution_type || options?.defaultExecutionType || 'MANUAL').toString().toUpperCase();
     const executionType = rawExecType === 'AUTOMATED' ? 'AUTOMATED' : 'MANUAL';
@@ -94,6 +95,14 @@ export class JsonSchemaParser implements IFileParser {
     if (raw.custom_fields && typeof raw.custom_fields === 'object') {
       for (const [k, v] of Object.entries(raw.custom_fields)) {
         customFields[k] = String(v ?? '');
+      }
+    }
+    // Testify's export: [{ name, value }], values typed. Lists become "a, b" (how imports read a
+    // MULTI_SELECT value); unset values are left out.
+    if (Array.isArray(raw.custom_field_values)) {
+      for (const cf of raw.custom_field_values) {
+        if (!cf || typeof cf.name !== 'string' || cf.value === null || cf.value === undefined || cf.value === '') continue;
+        customFields[cf.name] = Array.isArray(cf.value) ? cf.value.join(', ') : String(cf.value);
       }
     }
 
@@ -105,9 +114,10 @@ export class JsonSchemaParser implements IFileParser {
     return {
       external_id: raw.external_id || raw.externalid || undefined,
       title,
-      summary: raw.summary || '',
-      preconditions: raw.preconditions || '',
-      importance: importance as any,
+      // Testify's export keeps a case's content in `version`.
+      summary: raw.summary || raw.version?.summary || '',
+      preconditions: raw.preconditions || raw.version?.preconditions || '',
+      importance,
       execution_type: executionType as any,
       steps: steps as ParsedStep[],
       custom_fields: customFields,

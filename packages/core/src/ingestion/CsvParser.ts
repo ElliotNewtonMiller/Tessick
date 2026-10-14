@@ -8,6 +8,7 @@ import type {
 } from './types.js';
 import { parseCsvLine, bufferStreamToLines, splitSuitePath, slugifyColumnName } from './csvHelpers.js';
 import { restoreNeutralizedFormula } from '../export/spreadsheetFormula.js';
+import { normalizePriority } from './types.js';
 
 export class CsvParser implements IFileParser {
   readonly formatId = 'STANDARD_CSV';
@@ -59,7 +60,7 @@ export class CsvParser implements IFileParser {
         if (summaryIdx === -1) summaryIdx = idx;
       } else if (lower.includes('precondition')) {
         if (preconditionsIdx === -1) preconditionsIdx = idx;
-      } else if (lower.includes('importance')) {
+      } else if (lower.includes('importance') || lower === 'priority') {
         if (importanceIdx === -1) importanceIdx = idx;
       } else if (lower.includes('execution_type') || lower.includes('exec_type')) {
         if (executionTypeIdx === -1) executionTypeIdx = idx;
@@ -94,11 +95,7 @@ export class CsvParser implements IFileParser {
       const summary = summaryIdx !== -1 ? row[summaryIdx]?.trim() : '';
       const preconditions = preconditionsIdx !== -1 ? row[preconditionsIdx]?.trim() : '';
 
-      let rawImp = (importanceIdx !== -1 ? row[importanceIdx]?.trim() : '') || options?.defaultImportance || 'MEDIUM';
-      if (rawImp === '3') rawImp = 'HIGH';
-      if (rawImp === '2') rawImp = 'MEDIUM';
-      if (rawImp === '1') rawImp = 'LOW';
-      const importance = (['HIGH', 'MEDIUM', 'LOW'].includes(rawImp.toUpperCase()) ? rawImp.toUpperCase() : 'MEDIUM') as any;
+      const importance = normalizePriority(importanceIdx !== -1 ? row[importanceIdx] : undefined, options?.defaultImportance);
 
       let rawExec = (executionTypeIdx !== -1 ? row[executionTypeIdx]?.trim() : '') || options?.defaultExecutionType || 'MANUAL';
       if (rawExec === '2') rawExec = 'AUTOMATED';

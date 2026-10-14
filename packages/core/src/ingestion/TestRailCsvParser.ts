@@ -5,21 +5,22 @@ import type {
   ParsedSuite,
   ParsedCase,
   ParsedStep,
+  ParsedPriority,
 } from './types.js';
 import { bufferStreamToText, parseCsvText, splitSuitePath, slugifyColumnName } from './csvHelpers.js';
 
-const PRIORITY_MAP: Record<string, 'HIGH' | 'MEDIUM' | 'LOW'> = {
+const PRIORITY_MAP: Record<string, ParsedPriority> = {
   '1 - low': 'LOW',
   low: 'LOW',
   '2 - medium': 'MEDIUM',
   medium: 'MEDIUM',
   '3 - high': 'HIGH',
   high: 'HIGH',
-  '4 - critical': 'HIGH', // No 4th priority level in Testify -- Critical folds into HIGH.
-  critical: 'HIGH',
+  '4 - critical': 'CRITICAL',
+  critical: 'CRITICAL',
 };
 
-function foldPriority(raw: string | undefined): 'HIGH' | 'MEDIUM' | 'LOW' {
+function foldPriority(raw: string | undefined): ParsedPriority {
   if (!raw) return 'MEDIUM';
   return PRIORITY_MAP[raw.trim().toLowerCase()] ?? 'MEDIUM';
 }

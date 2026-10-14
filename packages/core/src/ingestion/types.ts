@@ -8,12 +8,32 @@ export interface ParsedStep {
   execution_type: 'MANUAL' | 'AUTOMATED';
 }
 
+/** A case's priority, as Testify stores it. */
+export type ParsedPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+const PRIORITIES: readonly ParsedPriority[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+/** TestLink-style numeric importance, and 4 for CRITICAL (which TestLink doesn't have). */
+const NUMERIC_PRIORITIES: Record<string, ParsedPriority> = { '1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL' };
+
+/**
+ * A priority from a file: one of Testify's four (any letter case) or 1-4; anything else (or
+ * nothing) gives the fallback (the import's default, else MEDIUM).
+ */
+export function normalizePriority(raw: unknown, fallback?: string): ParsedPriority {
+  const value = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
+  const upper = value.toUpperCase();
+  if ((PRIORITIES as readonly string[]).includes(upper)) return upper as ParsedPriority;
+  if (NUMERIC_PRIORITIES[value]) return NUMERIC_PRIORITIES[value];
+  const fb = (fallback ?? '').toUpperCase();
+  return (PRIORITIES as readonly string[]).includes(fb) ? (fb as ParsedPriority) : 'MEDIUM';
+}
+
 export interface ParsedCase {
   external_id?: string;
   title: string;
   summary?: string;
   preconditions?: string;
-  importance: 'HIGH' | 'MEDIUM' | 'LOW';
+  importance: ParsedPriority;
   execution_type: 'MANUAL' | 'AUTOMATED';
   steps: ParsedStep[];
   // Always a flat string map, even for numeric/boolean-ish data (e.g. JUnit's
@@ -36,7 +56,7 @@ export interface ParsedSuite {
 }
 
 export interface ParseOptions {
-  defaultImportance?: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  defaultImportance?: ParsedPriority | string;
   defaultExecutionType?: 'MANUAL' | 'AUTOMATED' | string;
 }
 
