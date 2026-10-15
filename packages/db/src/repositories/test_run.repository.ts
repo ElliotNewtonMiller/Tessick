@@ -82,6 +82,16 @@ export class TestRunRepository {
    * if it was already CLOSED, the plan has no cases, or some case is still untested.
    */
   async closeIfComplete(id: string): Promise<boolean> {
+    if (!(await this.isComplete(id))) return false;
+    await this.updateStatus(id, 'CLOSED');
+    return true;
+  }
+
+  /**
+   * Whether the run is OPEN and every case in its plan has at least one result in it (what
+   * closeIfComplete closes). False if the plan has no cases.
+   */
+  async isComplete(id: string): Promise<boolean> {
     const run = await this.findById(id);
     if (!run || run.status === 'CLOSED') return false;
 
@@ -113,10 +123,7 @@ export class TestRunRepository {
         )
       )
       .executeTakeFirst();
-    if (Number(covered?.n ?? 0) < totalCases) return false;
-
-    await this.updateStatus(id, 'CLOSED');
-    return true;
+    return Number(covered?.n ?? 0) >= totalCases;
   }
 
   async update(id: string, input: UpdateTestRunInput): Promise<TestRun | undefined> {

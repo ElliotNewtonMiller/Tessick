@@ -190,6 +190,8 @@ export default function App() {
     syncStatus,
     executionDenied,
     setExecutionDenied,
+    unsavedNotes,
+    setUnsavedNotes,
     notesInputRef,
     pendingVerdictRef,
     notesDirtyRef,
@@ -542,6 +544,8 @@ export default function App() {
           isRunMissing={isRunMissing}
           executionDenied={executionDenied}
           setExecutionDenied={setExecutionDenied}
+          unsavedNotes={unsavedNotes}
+          setUnsavedNotes={setUnsavedNotes}
         />
 
         {appView === "REPORTS" && hasSpecViewPermission ? (

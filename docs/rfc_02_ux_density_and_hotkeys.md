@@ -226,6 +226,7 @@ As locked in [`00_requirements_alignment.md`](00_requirements_alignment.md) and 
 - **Recording:**
   - Every verdict key records a result immediately (`POST /api/v1/runs/{runId}/results`, status `COMPLETED`).
   - `f` and `b` then focus the notes box. `Ctrl+Enter` records the same verdict again with the notes and moves on.
+  - `f` and `b` (and the Fail/Block buttons) send `defer_auto_close`. If their result is the run's last missing one, the run stays open for the notes, and the notes' own result closes it. Leaving the case without notes (another case, run or mode, or closing the tab) closes it then (`POST /runs/{runId}/auto-close`).
   - There's no "in progress" state.
 
 ## 6. Visual Hotkey Toggle Indicator
@@ -258,14 +259,15 @@ To remove ambiguity about whether keypresses will record verdicts or type charac
 2. The selection moves to the next case. At the end of a suite filter, it moves into the next suite.
 
 **Fail / Block (`f` / `b`):**
-1. The verdict is shown and recorded at once, and the notes box is focused (hotkeys pause while typing).
+1. The verdict is shown and recorded at once, and the notes box is focused (hotkeys pause while typing). If this was the run's last missing result, the run's auto-close waits for the notes (§5).
 2. The user types what went wrong.
 3. `Ctrl+Enter` records the verdict again with the notes, re-engages hotkeys, and jumps to the first case of the next suite.
 
 ### 7.2 Optimistic UI
 
 - The queue updates before the server answers; state lives in React hooks (`useExecution`), with no separate store.
-- **Rollback:** if the server refuses the result (e.g. 403, a closed run) or the request fails, the case's previous verdict and notes come back. A permission refusal shows the yellow "Not permitted" banner; other failures show a toast.
+- **Rollback:** if the server refuses the result (e.g. 403, a closed run) or the request fails, the case's previous verdict and notes come back. A permission refusal shows the yellow "Not permitted" banner; other failures show a toast with the server's message.
+- **Notes are never dropped silently:** when a submit carrying notes is refused or fails, the "Notes not saved" banner shows the reason and the notes themselves, with Copy notes, until dismissed.
 - There's no offline queue or automatic retry.
 
 ## 8. Accessibility & High-Density Color Palette

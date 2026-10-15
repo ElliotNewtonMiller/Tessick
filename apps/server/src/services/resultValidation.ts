@@ -22,6 +22,8 @@ export interface ManualResult {
   status: ExecutionStatus;
   notes: string | null;
   step_results: Array<{ test_step_id: string; step_number?: number; verdict: StepVerdict; actual_result: string | null }>;
+  /** Leave the run open even if this result completes it (see runAutoClose.ts). */
+  defer_auto_close: boolean;
 }
 
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
@@ -47,6 +49,9 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
     else if (body.notes.length > MAX_RESULT_NOTES_LENGTH) {
       invalid.push({ name: 'notes', reason: `can be at most ${MAX_RESULT_NOTES_LENGTH} characters` });
     }
+  }
+  if (body.defer_auto_close !== undefined && body.defer_auto_close !== null && typeof body.defer_auto_close !== 'boolean') {
+    invalid.push({ name: 'defer_auto_close', reason: 'must be true or false' });
   }
 
   const steps: ManualResult['step_results'] = [];
@@ -91,6 +96,7 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
       status: body.status ?? 'COMPLETED',
       notes: body.notes || null,
       step_results: steps,
+      defer_auto_close: body.defer_auto_close === true,
     },
   };
 }

@@ -2541,3 +2541,46 @@ Tests:
 - The import created all 8, with their steps (3, 3, 2, 3, 1, 3, 3, 3), priorities (3 HIGH, 3 CRITICAL, 2 MEDIUM), C1003 as AUTOMATED, and Type and Estimate as custom fields.
 
 681 tests pass; typecheck clean.
+
+## Fixed: notes after Fail/Block no longer lost when that result closes the run (2026-10-15)
+
+**The bug:**
+- In Execute mode, `f`/`b` records the verdict and focuses the notes box; Ctrl+Enter then records the same verdict again with the notes.
+- When the `f`/`b` result was the run's last missing one, the run auto-closed at once. The web app then disabled the notes box and blocked Ctrl+Enter, and the server refused the notes (`422 RUN_CLOSED`). The only sign was a status-bar message.
+- Reproduced on 2026-10-14 with the demo data: Run 1.0.8, fail DEMO-12, type a note, Ctrl+Enter. DEMO-12 ended FAILED with notes null and the run [CLOSED].
+- That contradicts "notes are kept for every verdict".
+
+**Decided with Elliot:** defer the auto-close for Fail/Block until the notes are in. The other options were:
+- a grace exception that accepts your own notes on a run your result just closed;
+- recording `f`/`b` only on submit.
+
+Auto-close still happens once, and never from CI.
+
+**What changed:**
+- **Server:**
+  - `POST /runs/:runId/results` takes `defer_auto_close`. When the result completes the run, the run stays open and the answer says `auto_close_deferred: true`. `TestRunRepository.isComplete` is split out of `closeIfComplete`, and `autoCloseRunIfComplete` takes `{ defer }`.
+  - New `POST /runs/:runId/auto-close` with `{ test_result_id }` (`EXECUTE_RUN`) runs the usual auto-close check. It accepts only the caller's own result recorded through the single route (`403 AUTO_CLOSE_NOT_YOURS`). So it closes nothing that result couldn't have closed itself, and CI results still can't auto-close a run.
+- **Web (`useExecution`):**
+  - Fail/Block (keys and buttons) send `defer_auto_close`. The notes' result, from Ctrl+Enter or blur, is an ordinary result and closes the run.
+  - Leaving the deferred case without notes calls the new route: another case, another run, Spec mode, signing out, or closing the tab (`pagehide`, with `keepalive`).
+  - A later result in the same run takes over a deferral before its request is sent, so moving on with Ctrl+Enter can't close the run ahead of the notes. A failed send puts the deferral back.
+- **Web (refused notes):** a refused or failed submit that carried notes shows a new "Notes not saved" banner. It gives the server's reason and the notes text, with Copy notes and OK. Other refusals now show the server's message in a toast. A `RUN_CLOSED` refusal also marks the run closed in the header.
+- **Docs:** RFC 01 (runs), RFC 02 (recording, Fail/Block flow, rollback), RFC 03 (§1 route map, §2.2, error codes), CLAUDE.md/AGENTS.md (Results), api_roadmap Decisions, OpenAPI schemas.
+
+Tests:
+- `apps/server/tests/run_close.test.ts`, 3 new tests:
+  - a Tester's deferred Fail keeps the run open; the notes (no `EXECUTE_OVERWRITE` needed) are saved and close it;
+  - the finish route: 400 without an id, 404 for an unknown one, 403 for someone else's result, closes once, is idempotent, never re-closes after a reopen;
+  - a deferral that completes nothing reports `false`; a bad `defer_auto_close` gets 400; a CI result can't finish an auto-close.
+- `openapi.test.ts`: route count 113.
+- `app.smoke.test.tsx`, 3 new tests:
+  - Fail then Ctrl+Enter: the run stays open with the box usable, then the notes post closes it;
+  - Fail then another case calls `auto-close`;
+  - a 422 on notes shows the banner with the reason and text.
+
+**Verified live** (dev servers from this worktree, demo data, a separate tab on 127.0.0.1:3000):
+- **The repro:** Run 1.0.8, DEMO-10 `p`, DEMO-12 `f`. The run stayed open and the box was focused. A note and Ctrl+Enter left the latest DEMO-12 result FAILED with the note, and the run showed `[CLOSED]`.
+- **Leaving without a note:** a new run with all but DEMO-12 passed. `f`, Esc, `k` sent `POST /runs/…/auto-close` → 200, and the run showed CLOSED.
+- **A refused note:** `f` on DEMO-12, a note typed, then the run was closed through the API before Ctrl+Enter. The banner read "Your notes for DEMO-12 weren't saved. Test run … is closed…" with the note text.
+
+687 tests pass; typecheck clean.
