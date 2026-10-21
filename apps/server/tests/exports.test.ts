@@ -427,4 +427,47 @@ describe('Data export: definitions and execution results', () => {
       expect(body.runs.some((b: any) => b.id === seed.buildId)).toBe(true);
     });
   });
+  describe('formats and text', () => {
+    it('takes JSON and CSV as short names, and refuses an unknown format instead of exporting JSON', async () => {
+      const { app, seed } = serverInstance;
+      const { token } = await loginAsAdmin(app);
+      const definitions = `/api/v1/projects/${seed.projectId}/exports/definitions`;
+      for (const [format, type] of [['CSV', 'text/csv'], ['csv', 'text/csv'], ['JSON', 'application/json'], [undefined, 'application/json']] as const) {
+        const res = await app.inject({ method: 'POST', url: definitions, headers: { authorization: `Bearer ${token}` }, payload: { format } });
+        expect(res.statusCode, String(format)).toBe(200);
+        expect(res.headers['content-type']).toContain(type);
+      }
+      for (const [url, payload] of [
+        [definitions, { format: 'XLSX' }],
+        [`/api/v1/projects/${seed.projectId}/exports/results`, { format: 'xml', test_run_id: seed.buildId }],
+        [definitions, { format: 7 }],
+      ] as const) {
+        const res = await app.inject({ method: 'POST', url, headers: { authorization: `Bearer ${token}` }, payload });
+        expect(res.statusCode).toBe(400);
+        const body = JSON.parse(res.payload);
+        expect(body.code).toBe('INVALID_REQUEST');
+        expect(body.invalid_params).toEqual([{ name: 'format', reason: 'must be one of NATIVE_JSON, STANDARD_CSV' }]);
+      }
+    });
+
+    it('exports text exactly as stored: an em dash stays one character, and pre-escaped text stays as written', async () => {
+      const { app, seed } = serverInstance;
+      const { token } = await loginAsAdmin(app);
+      const auth = { authorization: `Bearer ${token}` };
+      for (const summary of ['Before — after', 'Escaped \\u2014 by the caller']) {
+        const res = await app.inject({ method: 'POST', url: `/api/v1/projects/${seed.projectId}/cases`, headers: auth, payload: { test_suite_id: seed.suiteId, title: summary, summary } });
+        expect(res.statusCode).toBe(201);
+      }
+
+      const json = await app.inject({ method: 'POST', url: `/api/v1/projects/${seed.projectId}/exports/definitions`, headers: auth, payload: { format: 'NATIVE_JSON' } });
+      const summaries = JSON.parse(json.payload).suites.flatMap(function all(s: any): any[] { return [...s.cases, ...s.sub_suites.flatMap(all)]; }).map((c: any) => c.version.summary);
+      expect(summaries).toContain('Before — after');
+      expect(summaries).toContain('Escaped \\u2014 by the caller');
+      expect(json.payload).toContain('Before — after'); // the character itself, not —
+
+      const csv = await app.inject({ method: 'POST', url: `/api/v1/projects/${seed.projectId}/exports/definitions`, headers: auth, payload: { format: 'STANDARD_CSV' } });
+      expect(csv.payload).toContain('Before — after');
+      expect(csv.payload).toContain('Escaped \\u2014 by the caller');
+    });
+  });
 });

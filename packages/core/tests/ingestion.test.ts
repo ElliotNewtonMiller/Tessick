@@ -55,6 +55,31 @@ describe('Core Ingestion Parsers', () => {
     expect(tc.custom_fields.cf_browser).toBe('Chrome');
   });
 
+  it('SaxXmlParser decodes the HTML entities in TestLink rich text', async () => {
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Checkout">
+  <testcase name="Pay">
+    <summary><![CDATA[<p>Before &mdash; after &#8212; and &#x2014;</p>]]></summary>
+    <preconditions><![CDATA[<p>Don&rsquo;t use caf&eacute;&nbsp;Wi-Fi &hellip; 5 &lt; 6 &amp;&amp; &quot;ok&quot; &#39;x&#39;</p>]]></preconditions>
+    <steps>
+      <step>
+        <actions><![CDATA[Type &amp;mdash; literally]]></actions>
+        <expectedresults><![CDATA[Unknown &foo; and bad &#0; stay]]></expectedresults>
+      </step>
+    </steps>
+  </testcase>
+</testsuite>`;
+
+    const suites = [];
+    for await (const suite of new SaxXmlParser().parseStream(Readable.from([xmlContent]))) suites.push(suite);
+    const tc = suites[0].test_cases[0];
+    expect(tc.summary).toBe('Before — after — and —');
+    expect(tc.preconditions).toBe('Don’t use café Wi-Fi … 5 < 6 && "ok" \'x\'');
+    // One pass: an escaped entity is text, not a second entity.
+    expect(tc.steps[0].actions).toBe('Type &mdash; literally');
+    expect(tc.steps[0].expected_results).toBe('Unknown &foo; and bad &#0; stay');
+  });
+
   it('JsonSchemaParser parses Native JSON payload', async () => {
     const jsonContent = JSON.stringify([
       {

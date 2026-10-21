@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { withinRateLimit } from '../services/rateLimits.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
@@ -31,8 +31,27 @@ import { requestOrigin } from '../audit.js';
 import { sendError } from '../errors.js';
 import { listRunsSchema } from '../openapi/areas/projects.js';
 import * as O from '../openapi/areas/other.js';
-function pickSerializer(format: unknown): IFileSerializer {
+type ExportFormat = 'NATIVE_JSON' | 'STANDARD_CSV';
+
+/** The format asked for; `JSON` and `CSV` (any case) are accepted too. null = not a format. */
+function exportFormat(raw: unknown): ExportFormat | null {
+  if (raw === undefined || raw === null) return 'NATIVE_JSON';
+  const name = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+  if (name === 'NATIVE_JSON' || name === 'JSON') return 'NATIVE_JSON';
+  if (name === 'STANDARD_CSV' || name === 'CSV') return 'STANDARD_CSV';
+  return null;
+}
+
+function pickSerializer(format: ExportFormat): IFileSerializer {
   return format === 'STANDARD_CSV' ? new CsvExportSerializer() : new JsonExportSerializer();
+}
+
+/** An unknown format is refused, rather than quietly exporting JSON. */
+function sendFormatProblem(reply: FastifyReply): FastifyReply {
+  return sendError(reply, 400, 'Unknown export format. Use NATIVE_JSON (or JSON) or STANDARD_CSV (or CSV).', {
+    code: 'INVALID_REQUEST',
+    invalid_params: [{ name: 'format', reason: 'must be one of NATIVE_JSON, STANDARD_CSV' }],
+  });
 }
 
 /**
@@ -75,7 +94,9 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
       if (!withinRateLimit(request, reply, app.rateLimits.exports, 'exports')) return reply;
       const actor = request.user!;
       const { projectId } = request.params as { projectId: string };
-      const { format, scope, status_filter: statusFilterRaw } = (request.body as any) || {};
+      const { format: formatRaw, scope, status_filter: statusFilterRaw } = (request.body as any) || {};
+      const format = exportFormat(formatRaw);
+      if (!format) return sendFormatProblem(reply);
       const statusFilter: 'ALL' | 'APPROVED_ONLY' = statusFilterRaw === 'APPROVED_ONLY' ? 'APPROVED_ONLY' : 'ALL';
 
       const project = await projectRepo.findById(projectId);
@@ -279,7 +300,9 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
       if (!withinRateLimit(request, reply, app.rateLimits.exports, 'exports')) return reply;
       const actor = request.user!;
       const { projectId } = request.params as { projectId: string };
-      const { format, test_run_id: runId } = (request.body as any) || {};
+      const { format: formatRaw, test_run_id: runId } = (request.body as any) || {};
+      const format = exportFormat(formatRaw);
+      if (!format) return sendFormatProblem(reply);
 
       const runPlanInfo = await db
         .selectFrom('test_runs')

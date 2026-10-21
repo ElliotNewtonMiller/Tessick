@@ -9,20 +9,37 @@ import type {
 } from './types.js';
 import { normalizePriority, type ParsedPriority } from './types.js';
 
+/** sax's table of the HTML entities (missing from its type definitions). */
+const HTML_ENTITIES = (sax as unknown as { ENTITIES: Record<string, string | number | undefined> }).ENTITIES;
+
+/**
+ * Decodes the HTML entities in TestLink's rich text, in one pass (so `&amp;mdash;` stays the text
+ * `&mdash;`): numeric ones (`&#8212;`, `&#x2014;`) and every named HTML entity (sax's table:
+ * `&mdash;`, `&rsquo;`, `&eacute;`, ...). A non-breaking space becomes a plain space; an unknown
+ * entity is left as it is.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]*);/gi, (entity, ref: string) => {
+    if (ref[0] === '#') {
+      const code = ref[1] === 'x' || ref[1] === 'X' ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
+      if (code === 0xa0) return ' ';
+      return code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff) ? String.fromCodePoint(code) : entity;
+    }
+    if (ref === 'nbsp') return ' ';
+    const named = HTML_ENTITIES[ref];
+    if (named === undefined) return entity;
+    return typeof named === 'number' ? String.fromCodePoint(named) : named;
+  });
+}
+
 function cleanHtmlText(html: string): string {
   if (!html) return '';
-  let text = html
+  const text = html
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .trim();
-  return text;
+    .replace(/<[^>]+>/g, '');
+  return decodeHtmlEntities(text).trim();
 }
 
 /** TestLink importance: 1-3 (low, medium, high), or a priority name. */

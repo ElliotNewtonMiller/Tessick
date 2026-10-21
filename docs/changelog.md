@@ -2541,3 +2541,39 @@ Tests:
 - The import created all 8, with their steps (3, 3, 2, 3, 1, 3, 3, 3), priorities (3 HIGH, 3 CRITICAL, 2 MEDIUM), C1003 as AUTOMATED, and Type and Estimate as custom fields.
 
 681 tests pass; typecheck clean.
+
+## Checked: a literal `—` in exports; fixed: TestLink entities and unknown export formats (2026-10-21)
+
+Another project reported a bug: the summary of their case 1989 contained `—` as literal text in both export formats, as if an em dash had been escaped twice.
+
+**Finding: Testify's exports aren't the cause.** They pass text through unchanged. The JSON export is one `JSON.stringify` (an em dash stays the character), and the CSV export only doubles quotes.
+
+Checked live on a production build with throwaway scripts:
+- A case created with a real em dash, through the REST API and through MCP (`create_case`, `update_case`), stores and exports the real character in JSON and CSV.
+- Every import format keeps a real em dash: TestLink XML, Testify JSON (raw or `\u` escaped), CSV and TestRail CSV.
+- Only a summary *sent* as the six characters `—` reproduces the report: JSON then shows `"Before \\u2014 after"` and CSV `Before — after`.
+
+So case 1989's summary was stored already escaped, by whatever wrote it. Likely culprits are a script that JSON-encodes a string twice, or a source file containing the escape as text. Its version history and audit rows (the User-Agent) show which client wrote it. Testify deliberately doesn't turn `\uXXXX` text back into characters, because that would corrupt text that really contains a backslash-u (for example, a test about escaping).
+
+**Fixed along the way** (both found while checking):
+- **TestLink XML import kept HTML entities as text.** TestLink stores rich text as HTML, and its editor writes entities. `cleanHtmlText` (`SaxXmlParser.ts`) decoded only five of them, so `&mdash;`, `&#8212;`, `&rsquo;`, `&eacute;` and `&nbsp;` inside CDATA arrived in Testify literally.
+  - It now decodes every entity, numeric (decimal or hex) or named. The names come from sax's own HTML entity table, so there's no new dependency.
+  - Decoding is one pass, so `&amp;mdash;` stays the text `&mdash;`.
+  - `&nbsp;` becomes a plain space. Unknown or invalid entities (`&foo;`, `&#0;`) stay as written.
+  - This applies to summaries, preconditions, step actions, expected results and suite details.
+- **An unknown export `format` quietly produced JSON.** `"format": "CSV"` was the trap: the documented values are `NATIVE_JSON` and `STANDARD_CSV`, and anything else fell back to JSON, so asking for CSV gave you a JSON file.
+  - Both export routes now accept `JSON` and `CSV` (any case) as short names. Our own tests and likely outside scripts already send `JSON`.
+  - Any other value gets `400 INVALID_REQUEST` naming `format`.
+  - The OpenAPI descriptions say so.
+
+**Docs:** RFC 03 §6.2 (the TestLink entity rule).
+
+Tests:
+- `packages/core/tests/ingestion.test.ts` +1: named, decimal and hex entities; `&nbsp;`; the XML five; one-pass decoding; unknown and invalid entities kept.
+- `apps/server/tests/exports.test.ts` +2:
+  - `CSV`, `csv`, `JSON` and no format give the right file type, and `XLSX`, `xml` and a number get the 400 on both routes;
+  - an em dash and a pre-escaped `—` both export exactly as stored, in JSON and CSV.
+
+**Verified live** on a production build: the TestLink cases with `&mdash;`/`&#8212;` in CDATA now import as a real em dash, `"format": "CSV"` downloads CSV, and `XLSX` gets the 400.
+
+684 tests pass; typecheck clean.

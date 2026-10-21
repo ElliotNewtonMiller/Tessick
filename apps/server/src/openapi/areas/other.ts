@@ -459,8 +459,8 @@ const exportFile = (what: string) => ({
     'text/csv': { schema: { type: 'string', description: 'STANDARD_CSV' } },
   },
 });
-const EXPORT_FORMAT = oneOf(['NATIVE_JSON', 'STANDARD_CSV'], 'Default NATIVE_JSON.');
-const exportErrors = authedErrors([400, 'A missing field, or `PROJECTS_DIFFER`'], 404, [429, '`RATE_LIMITED`: 120 exports an hour']);
+const EXPORT_FORMAT = oneOf(['NATIVE_JSON', 'STANDARD_CSV'], 'Default NATIVE_JSON. JSON and CSV (any case) are accepted too; anything else is refused.');
+const exportErrors = authedErrors([400, 'A missing field, an unknown `format` (`INVALID_REQUEST`), or `PROJECTS_DIFFER`'], 404, [429, '`RATE_LIMITED`: 120 exports an hour']);
 
 export const exportDefinitionsSchema = {
   tags: EXPORT,

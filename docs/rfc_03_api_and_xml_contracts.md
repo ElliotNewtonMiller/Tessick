@@ -362,7 +362,7 @@ export interface IFileParser {
 | `<details>` | Suite details | |
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
 | `<externalid>` | Case external id | Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). |
-| `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, entities decoded. |
+| `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
 | `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
 | `<steps><step>` | Steps | `<step_number>`, `<actions>`, `<expectedresults>`, cleaned like the summary. |
