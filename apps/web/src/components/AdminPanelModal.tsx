@@ -84,6 +84,9 @@ interface CustomFieldOption {
 
 interface CustomFieldDefinition {
   id: string;
+  /** null: a global field. Otherwise the one project it applies to (made by an import). */
+  project_id: string | null;
+  project_name: string | null;
   entity_type: CustomFieldEntityType;
   name: string;
   field_label: string;
@@ -2339,6 +2342,14 @@ export function AdminPanelModal({
                             {CUSTOM_FIELD_TYPE_OPTIONS.find((t) => t.value === f.field_type)?.label}
                             {f.is_required ? " · required" : ""}
                           </div>
+                          {f.project_id && (
+                            <div
+                              title="Made by an import: applies only to this project's cases"
+                              style={{ fontSize: "10px", marginTop: "3px", color: selectedFieldId === f.id ? "#e0f2fe" : "#fbbf24" }}
+                            >
+                              {f.project_name ?? "One project"} only
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={(e) => {
@@ -2414,6 +2425,14 @@ export function AdminPanelModal({
                   <h3 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0", color: "#38bdf8" }}>
                     {isNewField ? "New Custom Field" : `Editing: ${fieldLabel}`}
                   </h3>
+                  {(() => {
+                    const projectField = !isNewField ? customFields.find((f) => f.id === selectedFieldId && f.project_id) : undefined;
+                    return projectField ? (
+                      <p style={{ fontSize: "12px", color: "#fde68a", margin: "-4px 0 12px 0", lineHeight: 1.5 }}>
+                        Made by an import: applies only to cases in <strong>{projectField.project_name ?? "one project"}</strong>.
+                      </p>
+                    ) : null;
+                  })()}
 
                   <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
                     <div style={{ flex: 1 }}>

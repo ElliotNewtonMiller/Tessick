@@ -262,7 +262,7 @@ Results don't record custom field values (see §2.3, point 4).
 - `MULTI_SELECT`: a set of the field's options.
 
 Behavior around definitions:
-- **Scope:** fields are defined globally by admins, for test cases or test suites. Imports can create **project-scoped** fields.
+- **Scope:** fields are defined globally by admins, for test cases or test suites. Imports can create **project-scoped** fields, which apply only to that project's cases. The Admin Panel's Custom Fields tab lists both kinds (project fields marked "<project> only") and edits and deletes them alike.
 - **Required fields:** a required field must always have a usable default. Creating a field writes its default into every existing case or suite. Making a field required fills blank values with the default.
 - **Options:** removing an option deselects it everywhere.
 

@@ -135,6 +135,21 @@ export class CustomFieldRepository {
     return this.attachOptions(rows.map((r) => this.toDefinition(r)));
   }
 
+  /** Every definition, global and every project's own (fields made by imports), for the Admin
+   * Panel: global first, then by project id, then by name. `project_id` tells them apart. */
+  async listAllScopes(entityType?: CustomFieldEntityType): Promise<CustomFieldDefinition[]> {
+    let query = this.db.selectFrom('custom_field_definitions').selectAll();
+    if (entityType) query = query.where('entity_type', '=', entityType);
+    const rows = await query.execute();
+    const sorted = rows
+      .map((r) => this.toDefinition(r))
+      .sort((a, b) => {
+        if ((a.project_id === null) !== (b.project_id === null)) return a.project_id === null ? -1 : 1;
+        return (a.project_id ?? '').localeCompare(b.project_id ?? '') || a.name.localeCompare(b.name);
+      });
+    return this.attachOptions(sorted);
+  }
+
   /** Returns the union of a project's own custom field definitions and every global
    * (project_id IS NULL) definition, for the given entity type -- the merge-list lookup the
    * import wizard's "map to existing field" dropdown and the ingestion routes' "is this
@@ -479,8 +494,9 @@ export class CustomFieldRepository {
   /** Fetches a definition by id regardless of scope (global or any project) -- a PK lookup
    * is already maximally specific, so no project_id filter is needed or protective here.
    * Used internally by updateDefinition/deleteDefinition, which must be able to find and
-   * act on a project-scoped definition, not just a global one. */
-  private async getDefinitionAnyScope(id: string): Promise<CustomFieldDefinition | undefined> {
+   * act on a project-scoped definition, not just a global one, and by the Admin Panel's update
+   * route. */
+  async getDefinitionAnyScope(id: string): Promise<CustomFieldDefinition | undefined> {
     const row = await this.db.selectFrom('custom_field_definitions').selectAll().where('id', '=', id).executeTakeFirst();
     if (!row) return undefined;
     const [definition] = await this.attachOptions([this.toDefinition(row)]);

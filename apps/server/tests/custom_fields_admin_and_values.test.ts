@@ -298,27 +298,42 @@ describe('Custom Fields: admin definition CRUD & Spec-mode value CRUD', () => {
     expect(values.find((v: any) => v.definition.id === definition.id).value).toBe('Platform Team');
   });
 
-  it('a project-scoped definition (e.g. one created by the import wizard) never leaks into the Admin Panel\'s global-only listing', async () => {
-    const { app, db, seed } = serverInstance;
+  it("fields made by an import are listed with their project, and can be edited and deleted there", async () => {
+    const { app } = serverInstance;
     const { token } = await loginAsAdmin(app);
+    const auth = { authorization: `Bearer ${token}` };
+    const call = (method: string, url: string, payload?: unknown) => app.inject({ method, url, headers: auth, ...(payload ? { payload } : {}) });
 
-    await new CustomFieldRepository(db).createDefinition({
-      project_id: seed.projectId,
-      entity_type: 'TestCase',
-      name: 'imported_only_field',
-      field_label: 'Imported Only',
-      field_type: 'TEXT',
+    const project = JSON.parse((await call('POST', '/api/v1/projects', { name: 'Imported Fields', prefix: 'IMPF' })).payload).project;
+    const imported = await call('POST', `/api/v1/projects/${project.id}/imports/execute`, {
+      file_content: 'Title,Suite,Team\nLogs in,Login,Platform\n',
+      format: 'STANDARD_CSV',
+      configuration: { field_mappings: [{ incoming_key: 'cf_team', action: 'AUTO_CREATE', field_type: 'TEXT', field_name: 'Team' }] },
     });
+    expect(imported.statusCode, imported.payload).toBe(200);
 
-    const listRes = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/custom-fields?entity_type=TestCase',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(listRes.statusCode).toBe(200);
-    const names = JSON.parse(listRes.payload).definitions.map((d: any) => d.name);
-    expect(names).not.toContain('imported_only_field');
+    // A global field too, to check the order: global first.
+    await call('POST', '/api/v1/admin/custom-fields', { entity_type: 'TestCase', name: 'global_area', field_label: 'Area', field_type: 'TEXT' });
+
+    const listed = JSON.parse((await call('GET', '/api/v1/admin/custom-fields?entity_type=TestCase')).payload).definitions;
+    expect(listed.map((d: any) => [d.name, d.project_id, d.project_name])).toEqual([
+      ['global_area', null, null],
+      ['cf_team', project.id, 'Imported Fields'],
+    ]);
+    const field = listed[1];
+
+    // Editable like a global field: relabel it and make it required with a default.
+    const patched = await call('PATCH', `/api/v1/admin/custom-fields/${field.id}`, { field_label: 'Owning team', is_required: true, default_value: 'Unassigned' });
+    expect(patched.statusCode, patched.payload).toBe(200);
+    expect(JSON.parse(patched.payload).definition).toMatchObject({ field_label: 'Owning team', is_required: true, project_id: project.id });
+
+    // Deletable: it has a value, so it warns first.
+    expect((await call('DELETE', `/api/v1/admin/custom-fields/${field.id}`)).statusCode).toBe(409);
+    expect((await call('DELETE', `/api/v1/admin/custom-fields/${field.id}?force=true`)).statusCode).toBe(204);
+    const after = JSON.parse((await call('GET', '/api/v1/admin/custom-fields')).payload).definitions;
+    expect(after.map((d: any) => d.name)).toEqual(['global_area']);
   });
+
   it('refuses to create OR update a required field without a usable default value', async () => {
     const { app } = serverInstance;
     const { token } = await loginAsAdmin(app);

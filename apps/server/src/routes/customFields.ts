@@ -72,8 +72,16 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
     { schema: A.listDefinitionsSchema, preHandler: requirePermission('CUSTOM_FIELD_MANAGE', db, jwtSecret) },
     async (request) => {
       const { entity_type: entityType } = request.query as { entity_type?: string };
-      const definitions = await fieldRepo.listDefinitions(isEntityType(entityType) ? entityType : undefined);
-      return { definitions };
+      // Global fields and every project's own (made by imports), each project field with its
+      // project's name so the Admin Panel can say where it applies.
+      const definitions = await fieldRepo.listAllScopes(isEntityType(entityType) ? entityType : undefined);
+      const projectIds = [...new Set(definitions.map((d) => d.project_id).filter((id): id is string => id !== null))];
+      const projectNames = new Map(
+        projectIds.length > 0
+          ? (await db.selectFrom('projects').select(['id', 'name']).where('id', 'in', projectIds).execute()).map((p) => [p.id, p.name])
+          : []
+      );
+      return { definitions: definitions.map((d) => ({ ...d, project_name: d.project_id === null ? null : (projectNames.get(d.project_id) ?? null) })) };
     }
   );
 
@@ -160,7 +168,8 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
       const { id } = request.params as { id: string };
       const { name, field_label, is_required, default_value, validation_regex, options } = (request.body as any) || {};
 
-      const existing = await fieldRepo.getDefinition(id);
+      // Any scope: a project's own field (made by an import) is managed here too.
+      const existing = await fieldRepo.getDefinitionAnyScope(id);
       if (!existing) {
         return sendError(reply, 404, 'Custom field not found');
       }

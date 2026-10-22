@@ -2657,3 +2657,37 @@ Elliot asked for a header that's a little bigger and clearly separate from the S
 - **Plan ⋯ menu:** lists its three items, with focus on the first. `p` reached no shortcut, Down moved to Edit, and Escape closed the menu and refocused ⋯. A click outside closes it, and "New plan" opens the Create New Test Plan dialog.
 
 Web tests (48) pass; typecheck clean.
+
+## Fixed: imported custom fields missing from the Admin Panel (2026-10-22)
+
+Elliot reported that custom fields created by an import don't appear in the custom field menu.
+
+**Cause:**
+- When the Import wizard's "Create new field" is chosen for a column, the field is created **project-scoped**: it applies only to that project.
+- The Admin Panel's Custom Fields tab (`GET /api/v1/admin/custom-fields`) listed global fields only (`listDefinitions()` defaults to `project_id IS NULL`). The original import work recorded that as "invisible by design", but it was never a decision with Elliot.
+- The edit route also looked fields up global-only (`getDefinition(id)`), so even a visible imported field couldn't have been saved: it answered 404 "Custom field not found".
+- Net effect: an imported field could be used on its project's cases, but never renamed, retyped, made required or deleted in the app.
+
+**Fix** (imported fields stay project-scoped, not global: making them global would add them to every project, and importers don't need `CUSTOM_FIELD_MANAGE`):
+- **Server:**
+  - New `CustomFieldRepository.listAllScopes(entityType?)`: every definition, global first, then by project, then by name.
+  - The list route uses it and adds `project_name` (null for a global field) from one lookup of the projects.
+  - The edit route uses `getDefinitionAnyScope` (now public). Delete already worked for any scope.
+  - The OpenAPI schema documents `project_name`, and the list's description is updated.
+- **Admin Panel** (`AdminPanelModal.tsx`):
+  - Each project field shows "<project> only" under its type, with a tooltip.
+  - Its edit form says "Made by an import: applies only to cases in <project>".
+  - Editing and deleting work as for global fields.
+  - New fields made in the Admin Panel are still global.
+
+**Docs:** RFC 01 (custom field scope), RFC 03 (`AUTO_CREATE`), CLAUDE.md/AGENTS.md.
+
+**Tests:** `custom_fields_admin_and_values.test.ts`'s old assertion that a project field never appears in the list is replaced by an end-to-end test:
+- a real CSV import with `AUTO_CREATE`, plus one global field;
+- the list shows both, with the global one first and the project field carrying its `project_id` and `project_name`;
+- the project field can be relabelled and made required with a default;
+- deleting it warns first (409, since it has a value) and then succeeds with `force`.
+
+**Verified live** on a production build (port 3995): imported a CSV into a "Condor" project, creating a TEXT and a SINGLE_SELECT field. The Custom Fields tab (count 2) listed both as "Condor only", the edit form showed the import note, and relabelling "Team" to "Owning team" saved ("✓ Custom field saved.") with the badge kept.
+
+693 tests pass; typecheck clean.

@@ -400,7 +400,7 @@ The dry run lists every column that isn't an existing custom field, with:
 
 The user picks an action for each:
 - `DROP`: ignore the column.
-- `AUTO_CREATE`: create a new **project-scoped** custom field (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas.
+- `AUTO_CREATE`: create a new **project-scoped** custom field (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas. The field then appears in the Admin Panel's Custom Fields tab (`GET /admin/custom-fields`, with `project_id` and `project_name`), where it can be edited or deleted.
 - `ROUTE_TO_EXISTING`: put the values into an existing global or project custom field.
 
 Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import.

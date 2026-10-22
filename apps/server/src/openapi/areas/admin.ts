@@ -268,7 +268,7 @@ const definitionFields = {
 export const listDefinitionsSchema = {
   tags: FIELDS,
   summary: 'List custom fields',
-  description: 'Every global custom field (fields made by imports belong to a project and are listed by the import routes). Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
+  description: 'Every custom field: global ones (made here) first, then each project\'s own (made by imports; `project_id` and `project_name` say which project). Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
   querystring: { type: 'object', properties: { entity_type: oneOf(['TestCase', 'TestSuite'], 'Only fields of this kind.') } },
   response: { 200: list('definitions', 'CustomFieldDefinition', 'The fields'), ...authedErrors() },
 };

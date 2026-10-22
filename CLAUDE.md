@@ -116,7 +116,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Manual (UI) results are never timed: duration is null. Only batch/CI results carry durations.
 
 **Custom fields:**
-- Defined globally by admins. Imports can also create project-scoped ones.
+- Defined globally by admins. Imports can also create project-scoped ones, which apply to that project only. The Admin Panel lists and manages both (`listAllScopes`; edits look a field up in any scope).
 - Values are **not versioned** and not recorded on results. The UI only allows editing them while the case is a DRAFT. Elliot chose this; don't "fix" it unprompted.
 - A required field must always have a usable default, enforced on create and update. CHECKBOX fields can't be required.
 - Creating a field writes its default into every existing case or suite. Making a field required fills blank values with the default. Removing an option deselects it everywhere.

@@ -260,7 +260,8 @@ export const SHARED_SCHEMAS: Schema[] = [
     required: ['id', 'project_id', 'entity_type', 'name', 'field_label', 'field_type', 'is_required', 'default_value', 'validation_regex', 'options', 'created_at', 'updated_at'],
     properties: {
       id: str('The definition id (definitionId)'),
-      project_id: nullableStr('null for a global field (made in the Admin Panel); a project id for one made by an import'),
+      project_id: nullableStr('null for a global field (made in the Admin Panel); a project id for one made by an import, which applies only to that project'),
+      project_name: nullableStr("In the Admin Panel's list: the name of the project a project field belongs to (null for a global field)"),
       entity_type: oneOf(['TestCase', 'TestSuite']),
       name: str(),
       field_label: str('Shown in the app'),
