@@ -4,6 +4,7 @@ export { JsonSchemaParser } from './JsonSchemaParser.js';
 export { CsvParser } from './CsvParser.js';
 export { JUnitXmlParser } from './JUnitXmlParser.js';
 export * from './junitResults.js';
+export * from './junitClassname.js';
 export { TestRailCsvParser } from './TestRailCsvParser.js';
 export * from './csvHelpers.js';
 export * from './importFieldValues.js';

@@ -4103,3 +4103,39 @@ Kysely 0.29's own `PGliteDialect` was considered. It makes every query wait for 
 The merged suite passes: 870 tests, 4 skipped. The type check is clean.
 
 An earlier full run from the repo root stalled for hours with no output and no CPU, before any test ran. Stopped, each workspace then passed on its own, and a second full root run passed in 7.4 minutes. It looked like a startup stall, not a deadlock in the tests.
+
+## JUnit import: file-path classnames become folders (2026-10-22)
+
+Elliot imported a real Playwright report (`results.xml`, 47 tests, one `<testsuite>` per file). The dry run reported 188 suites for 47 cases.
+
+**Before:** `JUnitXmlParser` split every `classname` on dots, under a suite per `<testsuite>`. Playwright, Vitest and some Jest and pytest setups put a file path in `classname`, often in the `<testsuite>` name too. So `condor\end-user\activity-center\01_EndUser_Dashboard.spec.ts` became `<that path>` › `<that path minus .spec.ts>` › `spec` › `ts`, once per file, with no folders shared.
+
+**Now** (new `packages/core/src/ingestion/junitClassname.ts`, used by the parser and by `junitSuiteName`):
+- **A classname with `/` or `\` is a path.** Its folders are nested suites. The file, without its source extension (`.ts`, `.js`, `.py`, ...) and then its test markers (`.spec`, `.test`, `.e2e`, `.cy`, ...), is the innermost suite holding the tests. `.`/`..` parts and a Windows drive are left out. Unknown extensions stay (`notes.v2`).
+- **A `<testsuite>` named after the same file** (compared as suites, so `/` vs `\` doesn't matter) adds no level; its tests go straight into the folder tree.
+- **One tree per import.** Folder trees are merged across every `<testsuite>` and yielded once the file is read; root `<testsuite>`s holding them (e.g. one named `chromium`) are merged by name too. The importer already merged suites by name and parent, but the dry run counted each repeat, and the tree was built repeatedly.
+- **Dotted classnames are unchanged.** Suites that hold no path classnames still stream out as they close, exactly as before.
+- **Results match by file.** `junitSuiteName` (the suite a JUnit upload matches by, with the title) returns the same innermost suite: `tests/checkout/payment.spec.ts` → `payment`.
+- **Bug fix found by the new server test: matching by suite and title in `services/batchResults.ts`.** When a test's suite and title weren't in the plan, the batch took *any* plan case with that title before looking for the project's case in the named suite. Two files with an `opens` test both recorded onto the first one linked. The plan's same-titled case in another suite is now used only when no project case is named exactly (by id, or by title in the named suite); that case is linked as before. This also affects the JSON batch's `by_path_title` and a readable id that isn't in the plan: it no longer falls back to a same-titled plan case when the project has the case it names.
+
+**Real report** (`~/Downloads/results.xml`, in-process through the API): the dry run now gives 62 suites for 47 cases. That's `condor` › `end-user` (5 folders) and `portal-console-lms-admin` (7 folders) › one suite per spec file. Importing creates the same 62. Uploading the same file as results to a new plan records all 47 onto 47 distinct cases (34 passed, 12 failed, 1 skipped).
+
+**Docs:** RFC 03 §3.3 (matching order, `junitSuiteName`) and §6 (JUnit XML nesting); `api_getting_started.md` (a suite per test file).
+
+**Tests:**
+- `JUnitXmlParser.test.ts` +4:
+  - Windows paths across three Playwright-style `<testsuite>`s merge into one tree, with no per-file level.
+  - POSIX paths under a differently named `<testsuite>`, with `./`, `.e2e.spec.tsx`, `.cy.js` and `.py`.
+  - Dotted and path classnames in one file.
+  - `junitClassnameSuites` cases: drive letters, `..`, a folder named `v1.2`, a file that's only markers, an unknown extension.
+- `junitResults.test.ts`: `junitSuiteName` for Windows and POSIX paths.
+- `junit_results.test.ts` +1: a Playwright-style report goes through dry run (6 suites, preview tree) and import. Uploading the same file then puts each of two `opens` tests on its own file's case. That's how the matcher bug turned up.
+
+716 tests pass; typecheck clean.
+
+**Merged 2026-11-16.** The branch sat unmerged in its worktree while main went on (29 commits, including the Tessick rename); Elliot asked for it to be merged. Rebased onto main, with three conflicts resolved:
+- `junitResults.ts`: main's `MAX_DB_INTEGER` import and this change's `junitClassnameSuites` import, both kept.
+- RFC 03 §3.3: main's **Fields** line (the duration limit, NULs) kept; this change's **Matching** line, with `testify_id` renamed `tessick_id`.
+- This entry, moved to the end of the changelog.
+
+Each workspace's tests pass on their own (875 passed, 4 skipped: core 219, db 138, server 461 + 4 skipped, web 57; a full run from the repo root stalled again before any test started, as on 2026-11-15); typecheck clean.

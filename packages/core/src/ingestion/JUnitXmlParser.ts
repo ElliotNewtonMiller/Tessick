@@ -6,6 +6,7 @@ import type {
   ParsedSuite,
   ParsedCase,
 } from './types.js';
+import { isPathClassname, junitClassnameSuites } from './junitClassname.js';
 
 /** Finds (or creates) the child ParsedSuite named `segment` directly under `parent`. */
 function getOrCreateSubSuite(parent: ParsedSuite, segment: string): ParsedSuite {
@@ -16,6 +17,20 @@ function getOrCreateSubSuite(parent: ParsedSuite, segment: string): ParsedSuite 
   }
   return sub;
 }
+
+/** Adds `suite` under `target`, merging it into a same-named suite there (and so on down). */
+function mergeSuite(target: ParsedSuite, suite: ParsedSuite) {
+  const existing = target.sub_suites.find((s) => s.name === suite.name);
+  if (!existing) {
+    target.sub_suites.push({ ...suite, node_order: target.sub_suites.length });
+    return;
+  }
+  existing.test_cases.push(...suite.test_cases);
+  if (!existing.details) existing.details = suite.details;
+  for (const sub of suite.sub_suites) mergeSuite(existing, sub);
+}
+
+const sameSuites = (a: string[], b: string[]) => a.length === b.length && a.every((s, i) => s === b[i]);
 
 export class JUnitXmlParser implements IFileParser {
   readonly formatId = 'JUNIT_XML';
@@ -42,6 +57,14 @@ export class JUnitXmlParser implements IFileParser {
 
     const rootSuitesQueue: ParsedSuite[] = [];
     const suiteStack: ParsedSuite[] = [];
+    // Folder trees from path classnames (tests/checkout/payment.spec.ts), merged across every
+    // <testsuite> of the file -- Playwright and Vitest write one per test file -- and yielded at
+    // the end, so files sharing folders give one tree. Root <testsuite>s holding such trees are
+    // merged into it too; the rest stream out as they close.
+    const folderRoots: ParsedSuite = { name: '', details: '', node_order: 0, sub_suites: [], test_cases: [] };
+    const holdsFolders = new WeakSet<ParsedSuite>();
+    // <testsuite>s named after their tests' file, which add no level of their own.
+    const fileSuites = new WeakSet<ParsedSuite>();
 
     let currentCase: (Partial<ParsedCase> & { classname?: string }) | null = null;
     let currentOutcomeTag: 'failure' | 'error' | 'skipped' | null = null;
@@ -109,20 +132,36 @@ export class JUnitXmlParser implements IFileParser {
         const parentSuite = suiteStack[suiteStack.length - 1];
         if (parentSuite) {
           // Nest by the full dotted classname (e.g. com.acme.LoginTest -> 3 suite levels),
-          // consistent with how CsvParser's suite-path hierarchy already works.
-          const segments = (currentCase.classname || '').split('.').map((s) => s.trim()).filter(Boolean);
+          // consistent with how CsvParser's suite-path hierarchy already works; a path classname
+          // nests by its folders and file (junitClassname.ts).
+          const classname = currentCase.classname || '';
+          const segments = junitClassnameSuites(classname);
           let targetSuite = parentSuite;
+          if (isPathClassname(classname)) {
+            if (isPathClassname(parentSuite.name) && sameSuites(junitClassnameSuites(parentSuite.name), segments)) {
+              fileSuites.add(parentSuite);
+              targetSuite = suiteStack[suiteStack.length - 2] ?? folderRoots;
+            }
+            holdsFolders.add(targetSuite);
+          }
           for (const seg of segments) {
             targetSuite = getOrCreateSubSuite(targetSuite, seg);
           }
-          const { classname, ...parsedCase } = currentCase;
+          const { classname: _classname, ...parsedCase } = currentCase;
           targetSuite.test_cases.push(parsedCase as ParsedCase);
         }
         currentCase = null;
       } else if (suiteStack.length > 0 && name === 'testsuite') {
         const completedSuite = suiteStack.pop()!;
-        if (suiteStack.length > 0) {
-          suiteStack[suiteStack.length - 1].sub_suites.push(completedSuite);
+        const emptied = !completedSuite.test_cases.length && !completedSuite.sub_suites.length;
+        if (fileSuites.has(completedSuite) && emptied) {
+          // Its tests went into the folder tree.
+        } else if (suiteStack.length > 0) {
+          const parent = suiteStack[suiteStack.length - 1];
+          parent.sub_suites.push(completedSuite);
+          if (holdsFolders.has(completedSuite)) holdsFolders.add(parent);
+        } else if (holdsFolders.has(completedSuite)) {
+          mergeSuite(folderRoots, completedSuite);
         } else {
           rootSuitesQueue.push(completedSuite);
         }
@@ -152,5 +191,6 @@ export class JUnitXmlParser implements IFileParser {
 
     parser.close();
     while (rootSuitesQueue.length > 0) yield rootSuitesQueue.shift()!;
+    yield* folderRoots.sub_suites;
   }
 }

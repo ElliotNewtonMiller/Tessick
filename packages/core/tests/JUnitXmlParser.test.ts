@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Readable } from 'node:stream';
 import { JUnitXmlParser } from '../src/ingestion/JUnitXmlParser.js';
+import { junitClassnameSuites } from '../src/ingestion/junitClassname.js';
 import type { ParsedSuite } from '../src/ingestion/types.js';
 
 async function parseAll(xml: string): Promise<ParsedSuite[]> {
@@ -85,5 +86,72 @@ describe('JUnitXmlParser', () => {
     const suites = await parseAll(bare);
     expect(suites).toHaveLength(1);
     expect(suites[0].name).toBe('Solo');
+  });
+
+  /** Each suite as "name (cases)", indented by depth. */
+  const outline = (suites: ParsedSuite[], depth = 0): string[] =>
+    suites.flatMap((s) => [`${'  '.repeat(depth)}${s.name}${s.test_cases.length ? ` (${s.test_cases.length})` : ''}`, ...outline(s.sub_suites, depth + 1)]);
+
+  it('nests path classnames by folder and file, merging files that share folders (Playwright, Windows paths)', async () => {
+    // Playwright: one <testsuite> per file, named like the classname.
+    const file = (path: string, ...tests: string[]) =>
+      `<testsuite name="${path}" tests="${tests.length}">${tests.map((t) => `<testcase name="${t}" classname="${path}" time="1"/>`).join('')}</testsuite>`;
+    const suites = await parseAll(`<testsuites tests="4">
+      ${file('condor\\end-user\\activity-center\\01_EndUser_Dashboard.spec.ts', 'shows the dashboard', 'shows the calendar')}
+      ${file('condor\\end-user\\activity-center\\02_DueDates.spec.ts', 'shows due dates')}
+      ${file('condor\\admin\\reports.test.js', 'exports a report')}
+    </testsuites>`);
+    expect(outline(suites)).toEqual([
+      'condor',
+      '  end-user',
+      '    activity-center',
+      '      01_EndUser_Dashboard (2)',
+      '      02_DueDates (1)',
+      '  admin',
+      '    reports (1)',
+    ]);
+    expect(suites[0].sub_suites.map((s) => s.node_order)).toEqual([0, 1]);
+  });
+
+  it('nests POSIX path classnames under a <testsuite> with another name, and strips test extensions', async () => {
+    const suites = await parseAll(`<testsuites>
+      <testsuite name="chromium" tests="4">
+        <testcase classname="tests/checkout/payment.spec.ts" name="pays by card"/>
+        <testcase classname="./tests/checkout/cart.e2e.spec.tsx" name="adds an item"/>
+        <testcase classname="tests/login.cy.js" name="logs in"/>
+        <testcase classname="tests/test_api.py" name="test_health"/>
+      </testsuite>
+    </testsuites>`);
+    expect(outline(suites)).toEqual([
+      'chromium',
+      '  tests',
+      '    checkout',
+      '      payment (1)',
+      '      cart (1)',
+      '    login (1)',
+      '    test_api (1)',
+    ]);
+  });
+
+  it('keeps dotted classnames as they were when the same file also has path classnames', async () => {
+    const suites = await parseAll(`<testsuites>
+      <testsuite name="unit" tests="1"><testcase classname="com.acme.LoginTest" name="logs in"/></testsuite>
+      <testsuite name="e2e/login.spec.ts" tests="1"><testcase classname="e2e/login.spec.ts" name="logs in"/></testsuite>
+    </testsuites>`);
+    expect(outline(suites)).toEqual(['unit', '  com', '    acme', '      LoginTest (1)', 'e2e', '  login (1)']);
+  });
+});
+
+describe('junitClassnameSuites', () => {
+  it('splits dotted names, Windows paths and POSIX paths into suites', () => {
+    expect(junitClassnameSuites('com.acme.LoginTest')).toEqual(['com', 'acme', 'LoginTest']);
+    expect(junitClassnameSuites('condor\\end-user\\activity-center\\01_EndUser_Dashboard.spec.ts')).toEqual(['condor', 'end-user', 'activity-center', '01_EndUser_Dashboard']);
+    expect(junitClassnameSuites('tests/checkout/payment.spec.ts')).toEqual(['tests', 'checkout', 'payment']);
+    expect(junitClassnameSuites('C:\\ci\\..\\tests\\api.test.mjs')).toEqual(['ci', 'tests', 'api']);
+    expect(junitClassnameSuites('/home/ci/tests/v1.2/login.e2e.ts')).toEqual(['home', 'ci', 'tests', 'v1.2', 'login']);
+    // A file name that's only markers stays as it is; unknown extensions stay.
+    expect(junitClassnameSuites('tests/spec.ts')).toEqual(['tests', 'spec']);
+    expect(junitClassnameSuites('tests/notes.v2')).toEqual(['tests', 'notes.v2']);
+    expect(junitClassnameSuites('')).toEqual([]);
   });
 });

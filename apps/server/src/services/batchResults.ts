@@ -45,7 +45,8 @@ type ProjectCase = { id: string; external_id: string; title: string; test_suite_
 /**
  * Looks up, in a few queries, the project's cases that any item could mean, and returns a finder:
  * by readable id, then by case id, then by title (preferring the case whose suite has the named
- * suite name).
+ * suite name). `exact` finds only a case the item names exactly: by an id, or by title in the
+ * named suite.
  */
 async function projectCaseFinder(db: Kysely<Database>, projectId: string, identifiers: CaseIdentifier[]) {
   const externalIds = [...new Set(identifiers.map((c) => c.external_id).filter((v): v is string => Boolean(v)))];
@@ -76,13 +77,14 @@ async function projectCaseFinder(db: Kysely<Database>, projectId: string, identi
     if (!list.some((x) => x.id === r.id)) list.push(r);
     byTitle.set(r.title, list);
   }
-  return (cid: CaseIdentifier): ProjectCase | undefined => {
+  return (cid: CaseIdentifier, exact = false): ProjectCase | undefined => {
     if (cid.external_id && byExternalId.has(cid.external_id)) return byExternalId.get(cid.external_id);
     if (cid.by_uuid && byId.has(cid.by_uuid)) return byId.get(cid.by_uuid);
     const titled = cid.by_path_title?.title ? byTitle.get(cid.by_path_title.title) : undefined;
     if (!titled?.length) return undefined;
     const suite = (cid.by_path_title?.suite_path ?? '').toLowerCase();
-    return titled.find((c) => c.suite_name.toLowerCase() === suite) ?? titled[0];
+    const inSuite = titled.find((c) => c.suite_name.toLowerCase() === suite);
+    return exact ? inSuite : (inSuite ?? titled[0]);
   };
 }
 
@@ -284,9 +286,12 @@ export async function recordResultsBatch(
         if (!resolvedPlanCase && cid.by_uuid) resolvedPlanCase = planCasesByUuid.get(cid.by_uuid);
         if (!resolvedPlanCase && cid.by_path_title?.title) {
           const title = cid.by_path_title.title.toLowerCase();
-          resolvedPlanCase =
-            planCasesByPathTitle.get(`${(cid.by_path_title.suite_path || '').toLowerCase()} / ${title}`) ??
-            existingPlanCases.find((c) => c.title.toLowerCase() === title);
+          resolvedPlanCase = planCasesByPathTitle.get(`${(cid.by_path_title.suite_path || '').toLowerCase()} / ${title}`);
+          // The plan's case of that title in another suite only when no case of the project is
+          // named exactly (that one is linked below): two files' tests may share a title.
+          if (!resolvedPlanCase && !findProjectCase(cid, true)) {
+            resolvedPlanCase = existingPlanCases.find((c) => c.title.toLowerCase() === title);
+          }
         }
 
         // Not in the plan yet: a case of this project may be linked to it -- but only once

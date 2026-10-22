@@ -70,6 +70,9 @@ describe('matching a JUnit test to a case', () => {
   it('names the suite a JUnit import would have used', () => {
     expect(junitSuiteName(test('a', { classname: 'com.shop.LoginTest' }))).toBe('LoginTest');
     expect(junitSuiteName(test('a'))).toBe('S');
+    // A file path: the file, without its test extensions.
+    expect(junitSuiteName(test('a', { classname: 'condor\\end-user\\01_Dashboard.spec.ts' }))).toBe('01_Dashboard');
+    expect(junitSuiteName(test('a', { classname: 'tests/checkout/payment.test.js' }))).toBe('payment');
   });
 });
 

@@ -1,5 +1,6 @@
 import sax from 'sax';
 import { MAX_DB_INTEGER } from '../limits/index.js';
+import { junitClassnameSuites } from './junitClassname.js';
 
 /**
  * JUnit XML as test *results* (what CI uploads after a build), as opposed to JUnitXmlParser, which
@@ -153,9 +154,10 @@ export function junitCaseId(test: JUnitTestResult): string | null {
 
 /**
  * The suite a JUnit import puts the test in (JUnitXmlParser): the last part of its classname
- * (com.shop.LoginTest → LoginTest), or its <testsuite> when there's no classname.
+ * (com.shop.LoginTest → LoginTest; tests/checkout/payment.spec.ts → payment), or its <testsuite>
+ * when there's no classname.
  */
 export function junitSuiteName(test: JUnitTestResult): string {
-  const parts = test.classname.split('.').map((s) => s.trim()).filter(Boolean);
+  const parts = junitClassnameSuites(test.classname);
   return parts.length ? parts[parts.length - 1] : test.suite;
 }

@@ -124,7 +124,7 @@ curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20buil
 **Matching tests to Tessick cases.** Each test in the file is matched to a case of the project, in this order:
 1. A `tessick_id` property on the test. In pytest: `record_property("tessick_id", "SHOP-101")`.
 2. A readable id in the test's name: `SHOP-101 logs in`, `[SHOP-101] logs in`, `logs in (SHOP-101)`.
-3. Its suite and title. A JUnit import of the same file creates cases this way: one suite per class (the last part of `classname`), one case per test, named after it. So the simplest setup is to **import your JUnit file once** (Import in the web app, or `POST /api/v1/projects/{projectId}/imports/execute` with `"format": "JUNIT_XML"`), add the cases to the plan if you like, and upload each build's file from then on.
+3. Its suite and title. A JUnit import of the same file creates cases this way: one suite per class (the last part of `classname`) or per test file (Playwright, Vitest: `tests/checkout/payment.spec.ts` gives tests › checkout › payment), one case per test, named after it. So the simplest setup is to **import your JUnit file once** (Import in the web app, or `POST /api/v1/projects/{projectId}/imports/execute` with `"format": "JUNIT_XML"`), add the cases to the plan if you like, and upload each build's file from then on.
 
 A matched case that isn't in the plan yet is added to it, if it's approved. A test that matches no case isn't recorded; it's listed in the response, so you can see what isn't tracked.
 

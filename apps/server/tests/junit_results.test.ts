@@ -165,4 +165,45 @@ describe('JUnit results and runs by name', () => {
     const titles = (planCases.cases ?? planCases.plan_cases).map((c: any) => c.title);
     expect(titles).toEqual(expect.arrayContaining(['adds an item', 'removes an item']));
   });
+
+  it('a Playwright report (file-path classnames) imports as a folder tree, and its results match by file and title', async () => {
+    // One <testsuite> per file, named like the classname; two files share a folder and a test title.
+    const file = (path: string, title: string, outcome = '') =>
+      `<testsuite name="${path}" tests="1"><testcase name="${title}" classname="${path}" time="2.5">${outcome}</testcase></testsuite>`;
+    const report = `<testsuites tests="3">
+      ${file('e2e\\shop\\cart.spec.ts', 'opens')}
+      ${file('e2e\\shop\\checkout.spec.ts', 'opens', '<failure message="timed out"/>')}
+      ${file('e2e\\admin\\reports.spec.ts', 'exports a report')}
+    </testsuites>`;
+    const project = body(await call(admin, 'POST', '/api/v1/projects', { name: 'Playwright', prefix: 'PW' })).project;
+    const importRequest = { file_content: report, format: 'JUNIT_XML', configuration: { field_mappings: [], duplicate_resolution: { default_action: 'CREATE_NEW' } } };
+
+    const dry = body(await call(admin, 'POST', `/api/v1/projects/${project.id}/imports/dry-run`, { file_content: report, format: 'JUNIT_XML' }));
+    // e2e, shop, cart, checkout, admin, reports: no suite per <testsuite>, none for ".spec" or "ts".
+    expect(dry.dry_run_summary).toMatchObject({ total_suites_detected: 6, total_cases_detected: 3 });
+    const preview = (nodes: any[]): any[] => nodes.map((n) => [n.name, n.cases_count, ...(n.children.length ? [preview(n.children)] : [])]);
+    expect(preview(dry.hierarchy_preview)).toEqual([['e2e', 0, [['shop', 0, [['cart', 1], ['checkout', 1]]], ['admin', 0, [['reports', 1]]]]]]);
+
+    const imported = await call(admin, 'POST', `/api/v1/projects/${project.id}/imports/execute`, importRequest);
+    expect(imported.statusCode, imported.payload).toBe(200);
+    expect(body(imported).summary).toMatchObject({ imported_suites_count: 6, imported_cases_count: 3 });
+
+    // Both "opens" cases exist; each result goes to the one in its own file.
+    const plan = body(await call(admin, 'POST', `/api/v1/projects/${project.id}/plans`, { name: 'Nightly' })).plan;
+    const res = await upload(admin, `/api/v1/plans/${plan.id}/results/junit?run_name=build-1`, report);
+    expect(res.statusCode, res.payload).toBe(201);
+    const tree = body(await call(admin, 'GET', `/api/v1/projects/${project.id}/spec-tree`));
+    const suiteNames = new Map<string, string>();
+    const walk = (nodes: any[]) => nodes.forEach((n) => (suiteNames.set(n.id, n.name), walk(n.children)));
+    walk(tree.suites);
+    const recorded = body(res).results.map((r: any) => {
+      const c = tree.cases.find((x: any) => x.id === r.test_case_id);
+      return [suiteNames.get(c.test_suite_id), c.title, r.verdict];
+    });
+    expect(recorded).toEqual([
+      ['cart', 'opens', 'PASSED'],
+      ['checkout', 'opens', 'FAILED'],
+      ['reports', 'exports a report', 'PASSED'],
+    ]);
+  });
 });
