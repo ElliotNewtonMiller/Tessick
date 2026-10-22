@@ -316,22 +316,103 @@ describe('Custom Fields: admin definition CRUD & Spec-mode value CRUD', () => {
     await call('POST', '/api/v1/admin/custom-fields', { entity_type: 'TestCase', name: 'global_area', field_label: 'Area', field_type: 'TEXT' });
 
     const listed = JSON.parse((await call('GET', '/api/v1/admin/custom-fields?entity_type=TestCase')).payload).definitions;
-    expect(listed.map((d: any) => [d.name, d.project_id, d.project_name])).toEqual([
-      ['global_area', null, null],
-      ['cf_team', project.id, 'Imported Fields'],
+    expect(listed.map((d: any) => [d.name, d.all_projects, d.projects])).toEqual([
+      ['global_area', true, []],
+      ['cf_team', false, [{ id: project.id, name: 'Imported Fields' }]],
     ]);
     const field = listed[1];
 
     // Editable like a global field: relabel it and make it required with a default.
     const patched = await call('PATCH', `/api/v1/admin/custom-fields/${field.id}`, { field_label: 'Owning team', is_required: true, default_value: 'Unassigned' });
     expect(patched.statusCode, patched.payload).toBe(200);
-    expect(JSON.parse(patched.payload).definition).toMatchObject({ field_label: 'Owning team', is_required: true, project_id: project.id });
+    expect(JSON.parse(patched.payload).definition).toMatchObject({ field_label: 'Owning team', is_required: true, all_projects: false, project_ids: [project.id] });
 
     // Deletable: it has a value, so it warns first.
     expect((await call('DELETE', `/api/v1/admin/custom-fields/${field.id}`)).statusCode).toBe(409);
     expect((await call('DELETE', `/api/v1/admin/custom-fields/${field.id}?force=true`)).statusCode).toBe(204);
     const after = JSON.parse((await call('GET', '/api/v1/admin/custom-fields')).payload).definitions;
     expect(after.map((d: any) => d.name)).toEqual(['global_area']);
+  });
+
+  it("a field's projects can be set: removing one warns first and deletes its values there, adding one gives its cases the default", async () => {
+    const { app, seed } = serverInstance;
+    const { token } = await loginAsAdmin(app);
+    const auth = { authorization: `Bearer ${token}` };
+    const call = (method: string, url: string, payload?: unknown) => app.inject({ method, url, headers: auth, ...(payload !== undefined ? { payload } : {}) });
+    const json = (res: any) => JSON.parse(res.payload);
+
+    // A second project with one case (the seed project has ten).
+    const other = json(await call('POST', '/api/v1/projects', { name: 'Atlas', prefix: 'ATL' })).project;
+    const otherSuite = json(await call('POST', `/api/v1/projects/${other.id}/suites`, { name: 'Flight' })).suite;
+    const otherCase = json(await call('POST', `/api/v1/projects/${other.id}/cases`, { test_suite_id: otherSuite.id, title: 'Atlas case' })).test_case;
+    const seedCase = seed.caseIds[0];
+
+    const field = json(
+      await call('POST', '/api/v1/admin/custom-fields', { entity_type: 'TestCase', name: 'squad', field_label: 'Squad', field_type: 'TEXT', default_value: 'Core' })
+    ).definition;
+    expect(field).toMatchObject({ all_projects: true, project_ids: [] });
+    await call('PUT', `/api/v1/cases/${otherCase.id}/custom-fields/${field.id}`, { value: 'Rockets' });
+    const valueOn = async (caseId: string) => json(await call('GET', `/api/v1/cases/${caseId}/custom-fields`)).values.find((v: any) => v.definition.id === field.id);
+
+    // Limiting it to the seed project would delete Atlas's values: a warning first, nothing changed.
+    const limit = { all_projects: false, project_ids: [seed.projectId] };
+    const warned = await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, limit);
+    expect(warned.statusCode).toBe(409);
+    expect(json(warned)).toMatchObject({ code: 'CUSTOM_FIELD_PROJECTS_IN_USE', affected_projects: [{ project_id: other.id, project_name: 'Atlas', value_count: 1 }] });
+    expect((await valueOn(otherCase.id)).value).toBe('Rockets');
+
+    const limited = await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects?force=true`, limit);
+    expect(limited.statusCode, limited.payload).toBe(200);
+    expect(json(limited)).toMatchObject({ removed_value_count: 1, definition: { all_projects: false, projects: [{ id: seed.projectId }] } });
+    expect(await valueOn(otherCase.id)).toBeUndefined(); // Atlas's cases no longer have the field
+    expect((await valueOn(seedCase)).value).toBe('Core');
+
+    // Adding Atlas back gives its case the default.
+    const both = await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, { all_projects: false, project_ids: [seed.projectId, other.id] });
+    expect(json(both)).toMatchObject({ removed_value_count: 0, seeded_count: 1 });
+    expect((await valueOn(otherCase.id)).value).toBe('Core');
+
+    // Back to all projects: nothing to remove.
+    expect(json(await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, { all_projects: true })).definition).toMatchObject({ all_projects: true, project_ids: [] });
+
+    // A field needs at least one project, and only real ones.
+    expect((await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, { all_projects: false, project_ids: [] })).statusCode).toBe(400);
+    expect((await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, { all_projects: false, project_ids: ['nope'] })).statusCode).toBe(400);
+    expect((await call('PUT', `/api/v1/admin/custom-fields/${field.id}/projects`, {})).statusCode).toBe(400);
+  });
+
+  it('a field can be created for chosen projects; names only clash within a shared project; deleting a project deletes the fields only it had', async () => {
+    const { app, seed } = serverInstance;
+    const { token } = await loginAsAdmin(app);
+    const auth = { authorization: `Bearer ${token}` };
+    const call = (method: string, url: string, payload?: unknown) => app.inject({ method, url, headers: auth, ...(payload !== undefined ? { payload } : {}) });
+    const json = (res: any) => JSON.parse(res.payload);
+    const other = json(await call('POST', '/api/v1/projects', { name: 'Atlas', prefix: 'ATL' })).project;
+    const otherSuite = json(await call('POST', `/api/v1/projects/${other.id}/suites`, { name: 'Flight' })).suite;
+    const otherCase = json(await call('POST', `/api/v1/projects/${other.id}/cases`, { test_suite_id: otherSuite.id, title: 'Atlas case' })).test_case;
+    const create = (name: string, projectIds: string[]) =>
+      call('POST', '/api/v1/admin/custom-fields', { entity_type: 'TestCase', name, field_label: name, field_type: 'TEXT', project_ids: projectIds });
+
+    const onlyAtlas = json(await create('gate', [other.id])).definition;
+    expect(onlyAtlas).toMatchObject({ all_projects: false, projects: [{ id: other.id, name: 'Atlas' }] });
+    const fieldNames = async (caseId: string) => json(await call('GET', `/api/v1/cases/${caseId}/custom-fields`)).values.map((v: any) => v.definition.name);
+    expect(await fieldNames(otherCase.id)).toContain('gate');
+    expect(await fieldNames(seed.caseIds[0])).not.toContain('gate');
+
+    // The same name for another project is fine; adding a project where it's taken isn't.
+    const seedGate = json(await create('gate', [seed.projectId])).definition;
+    expect((await create('gate', [other.id])).statusCode).toBe(409);
+    const clash = await call('PUT', `/api/v1/admin/custom-fields/${seedGate.id}/projects`, { all_projects: false, project_ids: [seed.projectId, other.id] });
+    expect(clash.statusCode).toBe(409);
+    expect(json(clash).code).toBe('FIELD_NAME_TAKEN');
+    expect((await create('bad', ['nope'])).statusCode).toBe(400);
+
+    // A field shared by both projects survives Atlas's deletion; Atlas's own goes with it.
+    const shared = json(await create('shared', [seed.projectId, other.id])).definition;
+    expect((await call('DELETE', `/api/v1/projects/${other.id}?force=true`)).statusCode).toBe(204);
+    const left = json(await call('GET', '/api/v1/admin/custom-fields')).definitions;
+    expect(left.map((d: any) => d.id).sort()).toEqual([seedGate.id, shared.id].sort());
+    expect(left.find((d: any) => d.id === shared.id).project_ids).toEqual([seed.projectId]);
   });
 
   it('refuses to create OR update a required field without a usable default value', async () => {

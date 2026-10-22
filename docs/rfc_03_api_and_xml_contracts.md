@@ -96,7 +96,7 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 | API tokens | `GET`/`POST /projects/{projectId}/api-tokens`, `DELETE /api-tokens/{tokenId}` (revokes) |
 | Webhooks | `GET /webhook-events`, `GET`/`POST /projects/{projectId}/webhooks`, `GET`/`PATCH`/`DELETE /webhooks/{webhookId}`, `POST /webhooks/{webhookId}/rotate-secret`, `POST /webhooks/{webhookId}/ping`, `GET /webhooks/{webhookId}/deliveries` (paged), `GET /webhook-deliveries/{deliveryId}`, `POST /webhook-deliveries/{deliveryId}/redeliver` (§7.3) |
 | Users and roles | `GET`/`POST /admin/users`, `PATCH /admin/users/{userId}` (status), `PATCH /admin/users/{userId}/roles`, `GET`/`PUT /admin/users/{userId}/permission-overrides[?project_id=]`, `POST /admin/users/{userId}/reset-password`, `GET`/`POST /admin/roles`, `PATCH`/`DELETE /admin/roles/{roleId}`, `GET /admin/permissions` |
-| Custom field definitions | `GET`/`POST /admin/custom-fields`, `PATCH`/`DELETE /admin/custom-fields/{fieldId}` |
+| Custom field definitions | `GET`/`POST /admin/custom-fields`, `PATCH`/`DELETE /admin/custom-fields/{fieldId}`, `PUT /admin/custom-fields/{fieldId}/projects` (all projects or chosen ones; 409 `CUSTOM_FIELD_PROJECTS_IN_USE` before deleting values, `?force=true`) |
 | Email settings | `GET`/`PUT /admin/email-settings`, `POST /admin/email-settings/test`, `GET /admin/last-email` |
 | Audit | `GET /admin/audit-logs` (the Security Audit Log; paged, filters `action`, `actor_id`, `since`) |
 | Operations | `GET /health` (no sign-in) |
@@ -400,7 +400,7 @@ The dry run lists every column that isn't an existing custom field, with:
 
 The user picks an action for each:
 - `DROP`: ignore the column.
-- `AUTO_CREATE`: create a new **project-scoped** custom field (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas. The field then appears in the Admin Panel's Custom Fields tab (`GET /admin/custom-fields`, with `project_id` and `project_name`), where it can be edited or deleted.
+- `AUTO_CREATE`: create a new custom field for this project (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas. In the Admin Panel's Custom Fields tab it can then be edited, deleted, or given more projects.
 - `ROUTE_TO_EXISTING`: put the values into an existing global or project custom field.
 
 Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import. A NUMBER field keeps the first number in a value and drops the text around it ("Sprint 34" → 34; a minus counts only at the start or after a space); a value with no number is skipped (`No number in "…"`).

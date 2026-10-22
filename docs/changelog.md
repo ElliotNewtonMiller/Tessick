@@ -2714,3 +2714,56 @@ Tests:
 - New `apps/server/tests/import_ids_and_numbers.test.ts` (2):
   - a TestLink file with ids 331 and 145 imports into CON as CON-331 and CON-145; `/cases/CON-331` works; a second dry run finds both as duplicates; the next new case is CON-332;
   - a NUMBER field from "Sprint 34", "7" and "none" stores 34 and 7, and skips the third with its reason.
+
+## Custom fields for chosen projects (2026-10-22)
+
+Elliot asked for custom fields to be assignable to projects, with a dropdown and removable project chips, and with removals warning the way deletes do.
+
+**Model** (migration `012_custom_field_projects`):
+- A field applies to **all projects** (`applies_to_all_projects = 1`), or to the projects listed in the new `custom_field_projects` table. Rows cascade with the field and with the project.
+- `custom_field_definitions.project_id` is gone. Fields that had it (made by imports) keep that one project, so existing databases upgrade in place. Rolling back keeps one project per field.
+- **Names:** an all-projects field's name is unique among all-projects fields (the old global index, now `WHERE applies_to_all_projects = 1`). A field for chosen projects can't share a name with another such field in any of its projects; the repository checks this, since a list can't be a simple index. As before, a project field may share a name with an all-projects one.
+
+**Repository** (`CustomFieldRepository`):
+- Every "which fields does this project have" question already went through `listVisibleToProject`, `getDefinition(id, projectId)` and `getValuesFor*`. Those now read the assignments, so case and suite values, filters, reports, exports, bulk changes, MCP and imports all follow the new scope with no other change.
+- Definitions carry `all_projects` and `project_ids` instead of `project_id`.
+- `createDefinition` takes `project_ids`, or `project_id` from imports.
+- The new `setProjects(id, { all_projects, project_ids }, { force })`:
+  - refuses an empty list, an unknown project, or a name clash in a new project;
+  - without `force`, reports the projects that would lose values and how many each, and changes nothing;
+  - with `force`, it deletes those values, rewrites the assignments, and gives newly covered projects' cases the default. All of this runs in one transaction.
+- `seedDefaultValueForAllEntities` can be limited to some projects and skips entities that already have a value.
+- Deleting a project (`deleteWithForce`) deletes the fields only it had; a field shared with other projects just loses it.
+
+**API:**
+- `PUT /api/v1/admin/custom-fields/:id/projects` (`?force=true`): 200 `{ definition, removed_value_count, seeded_count }`, or 409 `CUSTOM_FIELD_PROJECTS_IN_USE` with `affected_projects` (`project_id`, `project_name`, `value_count`) and a readable `detail`. Audit row `CUSTOM_FIELD_PROJECTS_CHANGED` (from/to and counts).
+- `POST /admin/custom-fields` takes `project_ids`.
+- Admin responses add `projects` (id and name).
+- **Breaking change for API readers:** `CustomFieldDefinition` replaces `project_id` with `all_projects` and `project_ids`, and the list's `project_name` (added this morning) is gone.
+- The import wizard's field options keep `project_id` (null for all-projects fields).
+- 113 documented routes.
+
+**Admin Panel** (Custom Fields tab):
+- A **Projects** row at the top of each field's form. It shows the chips, or an "All projects" chip, plus a dropdown: "Limit to a project…" when the field has all projects, otherwise "Add a project…" with "All projects" and the projects not yet chosen.
+- A chip's × removes that project. The last project's × is disabled, with a tooltip saying to delete the field instead.
+- For a saved field each change applies at once. A change that would delete values shows the server's warning in the amber banner, with Cancel and "Remove Anyway". The toast reports values removed or defaults applied.
+- For a new field the chips are sent with the create.
+- The list marks a field for chosen projects as "Condor, Atlas only", or "A, B +2 more".
+
+**Docs:** RFC 01 (ER diagram, tables, scope rule), RFC 03 (route map, `AUTO_CREATE`), CLAUDE.md/AGENTS.md (custom field rules).
+
+Tests:
+- `custom_fields_admin_and_values.test.ts` +2:
+  - setting projects: limiting a field warns with Atlas's count and changes nothing, then deletes that value with `force`; adding Atlas back seeds its case with the default; all projects again; empty, unknown and missing input get 400;
+  - creating for chosen projects: only those cases have the field; names may repeat across projects, but not when a new create or an added project shares one (409); unknown projects get 400; deleting a project deletes its own field and keeps the shared one with the other project.
+- `migrations.test.ts` +1: 012 turns a global field into all projects and an imported one into its project; rolling back restores `project_id`.
+- Updated for the new shape: `custom_field_definitions` (`project_id` became `all_projects`/`project_ids`; the raw-insert test now checks the all-projects index), `batch_and_xml` (the imported field's assignment), `openapi` (113).
+
+**Verified live** on a production build with two projects, "Condor" and "Atlas":
+- A field for all projects with a value in Atlas showed the "All projects" chip.
+- "Limit to a project… → Condor" warned "'Team' has 1 value in a project it would no longer apply to: Atlas (1). Those values will be deleted."
+- "Remove Anyway" gave "✓ Projects updated. 1 value removed.", the list said "Condor only", and Condor's × was disabled.
+- Adding Atlas made both chips removable ("Condor, Atlas only").
+- A new field "Gate" limited to Atlas before saving was created as "Atlas only".
+
+704 tests pass; typecheck clean.

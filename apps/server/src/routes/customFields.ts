@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database, CustomFieldDefinition } from '@testify/db';
 import { CustomFieldRepository, TestCaseRepository, TestSuiteRepository } from '@testify/db';
 import {
   CUSTOM_FIELD_TYPES,
@@ -65,6 +65,16 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
   const caseRepo = new TestCaseRepository(db);
   const suiteRepo = new TestSuiteRepository(db);
 
+  /** The names of these projects, by id (for showing which projects a field applies to). */
+  const projectNames = async (ids: string[]): Promise<Map<string, string>> =>
+    new Map(ids.length > 0 ? (await db.selectFrom('projects').select(['id', 'name']).where('id', 'in', ids).execute()).map((p) => [p.id, p.name]) : []);
+
+  /** Definitions with `projects`: the id and name of each project a project field applies to. */
+  const withProjects = async <D extends CustomFieldDefinition>(definitions: D[]) => {
+    const names = await projectNames([...new Set(definitions.flatMap((d) => d.project_ids))]);
+    return definitions.map((d) => ({ ...d, projects: d.project_ids.map((id) => ({ id, name: names.get(id) ?? null })) }));
+  };
+
   // ---- Definition CRUD (admin-only, gated by CUSTOM_FIELD_MANAGE) ----
 
   app.get(
@@ -72,16 +82,10 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
     { schema: A.listDefinitionsSchema, preHandler: requirePermission('CUSTOM_FIELD_MANAGE', db, jwtSecret) },
     async (request) => {
       const { entity_type: entityType } = request.query as { entity_type?: string };
-      // Global fields and every project's own (made by imports), each project field with its
-      // project's name so the Admin Panel can say where it applies.
+      // Every field: those for all projects, and those for chosen projects (with their names,
+      // so the Admin Panel can say where each applies).
       const definitions = await fieldRepo.listAllScopes(isEntityType(entityType) ? entityType : undefined);
-      const projectIds = [...new Set(definitions.map((d) => d.project_id).filter((id): id is string => id !== null))];
-      const projectNames = new Map(
-        projectIds.length > 0
-          ? (await db.selectFrom('projects').select(['id', 'name']).where('id', 'in', projectIds).execute()).map((p) => [p.id, p.name])
-          : []
-      );
-      return { definitions: definitions.map((d) => ({ ...d, project_name: d.project_id === null ? null : (projectNames.get(d.project_id) ?? null) })) };
+      return { definitions: await withProjects(definitions) };
     }
   );
 
@@ -90,7 +94,7 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
     { schema: A.createDefinitionSchema, preHandler: requirePermission('CUSTOM_FIELD_MANAGE', db, jwtSecret) },
     async (request, reply) => {
       const activeUser = request.user!;
-      const { entity_type: entityType, name, field_label, field_type, is_required, default_value, validation_regex, options } =
+      const { entity_type: entityType, name, field_label, field_type, is_required, default_value, validation_regex, options, project_ids: projectIdsRaw } =
         (request.body as any) || {};
 
       if (!isEntityType(entityType)) {
@@ -101,6 +105,16 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
       }
       if (!(CUSTOM_FIELD_TYPES as readonly string[]).includes(field_type)) {
         return sendError(reply, 400, `field_type must be one of: ${CUSTOM_FIELD_TYPES.join(', ')}`);
+      }
+      // Optional: the projects it applies to. Left out or empty: all projects.
+      if (projectIdsRaw !== undefined && (!Array.isArray(projectIdsRaw) || projectIdsRaw.some((p: unknown) => typeof p !== 'string'))) {
+        return sendError(reply, 400, 'project_ids must be a list of project ids', { invalid_params: [{ name: 'project_ids', reason: 'must be a list of project ids' }] });
+      }
+      const projectIds: string[] = projectIdsRaw ?? [];
+      if (projectIds.length > 0) {
+        const known = await projectNames(projectIds);
+        const unknown = projectIds.filter((p) => !known.has(p));
+        if (unknown.length > 0) return sendError(reply, 400, `Unknown project: ${unknown.join(', ')}`, { invalid_params: [{ name: 'project_ids', reason: 'names a project that doesn\'t exist' }] });
       }
 
       const requiredError = requiredFieldDefaultError(
@@ -123,6 +137,7 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
           default_value: default_value ?? null,
           validation_regex: validation_regex ?? null,
           options: Array.isArray(options) ? options : undefined,
+          project_ids: projectIds,
         });
 
         // Freeze the default into a real value row for every pre-existing entity right now,
@@ -140,13 +155,13 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
             action: 'CUSTOM_FIELD_DEFINITION_CREATED',
             resource_type: 'custom_field_definition',
             resource_id: definition.id,
-            diff: JSON.stringify({ entity_type: entityType, name, field_label, field_type, seeded_count: seededCount }),
+            diff: JSON.stringify({ entity_type: entityType, name, field_label, field_type, project_ids: projectIds, seeded_count: seededCount }),
             ...requestOrigin(request),
             created_at: now,
           })
           .execute();
 
-        return reply.status(201).send({ definition, seeded_count: seededCount });
+        return reply.status(201).send({ definition: (await withProjects([definition]))[0], seeded_count: seededCount });
       } catch (err: any) {
         if (sendInvalidPattern(reply, err)) return;
         if (err.message?.startsWith('UNKNOWN_ENTITY_TYPE') || err.message?.startsWith('UNKNOWN_FIELD_TYPE')) {
@@ -223,7 +238,7 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
           })
           .execute();
 
-        return reply.status(200).send({ definition, applied_default_count: appliedDefaultCount });
+        return reply.status(200).send({ definition: (await withProjects([definition]))[0], applied_default_count: appliedDefaultCount });
       } catch (err: any) {
         if (sendInvalidPattern(reply, err)) return;
         if (err.message?.startsWith('FIELD_NAME_TAKEN')) {
@@ -231,6 +246,77 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
         }
         throw err; // unexpected: the global error handler logs it and answers 500
       }
+    }
+  );
+
+  // PUT /api/v1/admin/custom-fields/:id/projects?force=true -- the projects a field applies to.
+  // A project it no longer applies to loses the field's values there: without force, a 409 names
+  // those projects and counts; with force, the values go. New projects get the default.
+  app.put(
+    '/api/v1/admin/custom-fields/:id/projects',
+    { schema: A.setDefinitionProjectsSchema, preHandler: requirePermission('CUSTOM_FIELD_MANAGE', db, jwtSecret) },
+    async (request, reply) => {
+      const activeUser = request.user!;
+      const { id } = request.params as { id: string };
+      const { force } = request.query as { force?: string };
+      const { all_projects: allProjects, project_ids: projectIdsRaw } = (request.body as any) || {};
+      if (typeof allProjects !== 'boolean') {
+        return sendError(reply, 400, 'all_projects (true or false) is required', { invalid_params: [{ name: 'all_projects', reason: 'must be true or false' }] });
+      }
+      if (projectIdsRaw !== undefined && (!Array.isArray(projectIdsRaw) || projectIdsRaw.some((p: unknown) => typeof p !== 'string'))) {
+        return sendError(reply, 400, 'project_ids must be a list of project ids', { invalid_params: [{ name: 'project_ids', reason: 'must be a list of project ids' }] });
+      }
+
+      const before = await fieldRepo.getDefinitionAnyScope(id);
+      if (!before) return sendError(reply, 404, 'Custom field not found');
+      let result;
+      try {
+        result = await fieldRepo.setProjects(id, { all_projects: allProjects, project_ids: projectIdsRaw ?? [] }, { force: force === 'true' });
+      } catch (err: any) {
+        if (String(err?.message).startsWith('FIELD_NAME_TAKEN')) return sendError(reply, 409, err.message, { code: 'FIELD_NAME_TAKEN' });
+        if (isPublicError(err)) return sendError(reply, 400, err.message, { invalid_params: [{ name: 'project_ids', reason: err.message }] });
+        throw err;
+      }
+      if (!result) return sendError(reply, 404, 'Custom field not found');
+
+      if (!result.changed) {
+        const names = await projectNames(result.affected_projects.map((a) => a.project_id));
+        const affected = result.affected_projects.map((a) => ({ ...a, project_name: names.get(a.project_id) ?? null }));
+        const total = affected.reduce((n, a) => n + a.value_count, 0);
+        const where = affected.map((a) => `${a.project_name ?? a.project_id} (${a.value_count})`).join(', ');
+        return sendError(
+          reply,
+          409,
+          `'${before.field_label}' has ${total} value${total === 1 ? '' : 's'} in ${affected.length === 1 ? 'a project' : 'projects'} it would no longer apply to: ${where}. Those values will be deleted.`,
+          { code: 'CUSTOM_FIELD_PROJECTS_IN_USE', affected_projects: affected }
+        );
+      }
+
+      await db
+        .insertInto('audit_logs')
+        .values({
+          id: crypto.randomUUID(),
+          actor_id: activeUser.id,
+          actor_type: 'USER',
+          action: 'CUSTOM_FIELD_PROJECTS_CHANGED',
+          resource_type: 'custom_field_definition',
+          resource_id: id,
+          diff: JSON.stringify({
+            from: { all_projects: before.all_projects, project_ids: before.project_ids },
+            to: { all_projects: result.definition.all_projects, project_ids: result.definition.project_ids },
+            removed_value_count: result.removed_value_count,
+            seeded_count: result.seeded_count,
+          }),
+          ...requestOrigin(request),
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      return reply.status(200).send({
+        definition: (await withProjects([result.definition]))[0],
+        removed_value_count: result.removed_value_count,
+        seeded_count: result.seeded_count,
+      });
     }
   );
 

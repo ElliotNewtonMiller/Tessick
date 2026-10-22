@@ -178,8 +178,18 @@ export class ProjectRepository {
 
       const entityIds = [...caseIds, ...suiteIds];
       if (entityIds.length) await trx.deleteFrom('custom_field_values').where('entity_id', 'in', entityIds).execute();
+      // Custom fields for this project alone go with it; a field shared with other projects just
+      // loses this one (its custom_field_projects row cascades with the project).
       const projectDefIds = await ids(
-        trx.selectFrom('custom_field_definitions').select('id').where('project_id', '=', id).execute()
+        trx
+          .selectFrom('custom_field_projects as cfp')
+          .innerJoin('custom_field_definitions as d', 'd.id', 'cfp.custom_field_definition_id')
+          .select('d.id')
+          .where('d.applies_to_all_projects', '=', 0)
+          .groupBy('d.id')
+          .having((eb) => eb.fn.countAll(), '=', 1)
+          .having((eb) => eb.fn.max('cfp.project_id'), '=', id)
+          .execute()
       );
       if (projectDefIds.length) {
         await trx.deleteFrom('custom_field_values').where('custom_field_definition_id', 'in', projectDefIds).execute();

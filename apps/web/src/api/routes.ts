@@ -110,6 +110,7 @@ export const api = {
     auditLogs: `${V1}/admin/audit-logs`,
     customFields: `${V1}/admin/custom-fields`,
     customField: (fieldId: string, forced?: boolean) => force(`${V1}/admin/custom-fields/${enc(fieldId)}`, forced),
+    customFieldProjects: (fieldId: string, forced?: boolean) => force(`${V1}/admin/custom-fields/${enc(fieldId)}/projects`, forced),
     emailSettings: `${V1}/admin/email-settings`,
     emailSettingsTest: `${V1}/admin/email-settings/test`,
     lastEmail: `${V1}/admin/last-email`,

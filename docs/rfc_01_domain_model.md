@@ -125,7 +125,8 @@ erDiagram
     projects ||--o{ test_suites : contains
     projects ||--o{ test_cases : contains
     projects ||--o{ test_plans : owns
-    projects ||--o{ custom_field_definitions : "project-scoped fields"
+    projects ||--o{ custom_field_projects : "fields for chosen projects"
+    custom_field_definitions ||--o{ custom_field_projects : "applies to"
     projects ||--o{ api_tokens : binds
     projects ||--o{ report_schedules : owns
 
@@ -182,7 +183,8 @@ erDiagram
 
 | Table | Key columns | Notes |
 | :--- | :--- | :--- |
-| `custom_field_definitions` | `project_id` (null = global), `entity_type`, `name`, `field_label`, `field_type`, `is_required`, `default_value`, `validation_regex` | Entity types: `TestCase`, `TestSuite`. Field types: `TEXT`, `NUMBER`, `CHECKBOX`, `DATE`, `SINGLE_SELECT`, `MULTI_SELECT`. Names are unique per scope (two partial unique indexes: global, and per project). |
+| `custom_field_definitions` | `applies_to_all_projects` (1 = every project), `entity_type`, `name`, `field_label`, `field_type`, `is_required`, `default_value`, `validation_regex` | Entity types: `TestCase`, `TestSuite`. Field types: `TEXT`, `NUMBER`, `CHECKBOX`, `DATE`, `SINGLE_SELECT`, `MULTI_SELECT`. An all-projects field's name is unique among all-projects fields (a partial unique index); a field for chosen projects must not share a name with another such field in any of its projects (checked by the repository). |
+| `custom_field_projects` | `custom_field_definition_id`, `project_id` | The projects a field applies to when `applies_to_all_projects` is 0. Rows go with the field or the project (cascade). |
 | `custom_field_options` | `custom_field_definition_id`, `option_label`, `option_value`, `position` | For the select types. |
 | `custom_field_values` | `custom_field_definition_id`, `entity_type`, `entity_id`, `string_value`, `number_value`, `boolean_value`, `date_value`, `json_value` | One typed column per value; `json_value` holds MULTI_SELECT arrays. |
 
@@ -262,7 +264,7 @@ Results don't record custom field values (see §2.3, point 4).
 - `MULTI_SELECT`: a set of the field's options.
 
 Behavior around definitions:
-- **Scope:** fields are defined globally by admins, for test cases or test suites. Imports can create **project-scoped** fields, which apply only to that project's cases. The Admin Panel's Custom Fields tab lists both kinds (project fields marked "<project> only") and edits and deletes them alike.
+- **Scope:** a field, for test cases or test suites, applies to **all projects** or to **chosen projects**. Admins set this in the Admin Panel (the Projects chips on a field); a field made by an import starts with its project. Removing a project deletes the field's values there, after a warning; adding one gives its existing cases the default. A field always has at least one project, and deleting a project deletes the fields only it had.
 - **Required fields:** a required field must always have a usable default. Creating a field writes its default into every existing case or suite. Making a field required fills blank values with the default.
 - **Options:** removing an option deselects it everywhere.
 

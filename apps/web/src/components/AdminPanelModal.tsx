@@ -84,9 +84,11 @@ interface CustomFieldOption {
 
 interface CustomFieldDefinition {
   id: string;
-  /** null: a global field. Otherwise the one project it applies to (made by an import). */
-  project_id: string | null;
-  project_name: string | null;
+  /** true: every project's cases (or suites). false: only those of project_ids. */
+  all_projects: boolean;
+  project_ids: string[];
+  /** project_ids with their names. */
+  projects?: Array<{ id: string; name: string | null }>;
   entity_type: CustomFieldEntityType;
   name: string;
   field_label: string;
@@ -231,6 +233,13 @@ export function AdminPanelModal({
     label: string;
     detail: string;
   } | null>(null);
+  // The projects the selected field applies to. For a new field it's sent with the create; for a
+  // saved one each change is applied at once (PUT .../projects). A change that would delete
+  // values in a project first fills projectsPrompt (the server's 409), and "Remove Anyway"
+  // sends it again with force.
+  const [fieldScope, setFieldScope] = useState<{ all: boolean; ids: string[] }>({ all: true, ids: [] });
+  const [projectsPrompt, setProjectsPrompt] = useState<{ detail: string; scope: { all: boolean; ids: string[] } } | null>(null);
+  const [isSavingProjects, setIsSavingProjects] = useState(false);
 
   // API Tokens tab state. Tokens are project-scoped (api_tokens.project_id is NOT NULL),
   // so this tab carries its own project picker independent of the main workspace header's.
@@ -803,6 +812,8 @@ export function AdminPanelModal({
     setFieldDefaultValue(field.default_value ?? "");
     setFieldValidationRegex(field.validation_regex ?? "");
     setFieldOptions(field.options.map((o) => ({ ...o })));
+    setFieldScope({ all: field.all_projects, ids: field.project_ids });
+    setProjectsPrompt(null);
   };
 
   const handleNewField = () => {
@@ -817,6 +828,44 @@ export function AdminPanelModal({
     setFieldDefaultValue("");
     setFieldValidationRegex("");
     setFieldOptions([]);
+    setFieldScope({ all: true, ids: [] });
+    setProjectsPrompt(null);
+  };
+
+  /** Applies a change to the selected field's projects (see fieldScope). */
+  const applyFieldProjects = async (scope: { all: boolean; ids: string[] }, forced = false) => {
+    setErrorMessage(null);
+    if (isNewField || !selectedFieldId) {
+      setFieldScope(scope);
+      return;
+    }
+    setIsSavingProjects(true);
+    try {
+      const res = await fetch(api.admin.customFieldProjects(selectedFieldId, forced), {
+        method: "PUT",
+        headers: jsonHeaders(),
+        body: JSON.stringify({ all_projects: scope.all, project_ids: scope.all ? [] : scope.ids }),
+      });
+      const data = await res.json();
+      if (res.status === 409 && data.code === "CUSTOM_FIELD_PROJECTS_IN_USE") {
+        setProjectsPrompt({ detail: data.detail, scope });
+        return;
+      }
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to change the field's projects");
+      setProjectsPrompt(null);
+      setFieldScope({ all: data.definition.all_projects, ids: data.definition.project_ids });
+      await fetchCustomFields();
+      onCustomFieldsChanged?.();
+      const notes = [
+        data.removed_value_count > 0 ? `${data.removed_value_count} value${data.removed_value_count === 1 ? "" : "s"} removed` : "",
+        data.seeded_count > 0 ? `default applied to ${data.seeded_count} record${data.seeded_count === 1 ? "" : "s"}` : "",
+      ].filter(Boolean);
+      flashSuccess(`✓ Projects updated.${notes.length ? ` ${notes.join("; ")}.` : ""}`);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to change the field's projects");
+    } finally {
+      setIsSavingProjects(false);
+    }
   };
 
   const isOptionType = fieldType === "SINGLE_SELECT" || fieldType === "MULTI_SELECT";
@@ -897,7 +946,9 @@ export function AdminPanelModal({
           method: isNewField ? "POST" : "PATCH",
           headers: jsonHeaders(),
           body: JSON.stringify(
-            isNewField ? { entity_type: fieldEntityType, name: fieldName, field_type: fieldType, ...basePayload } : basePayload,
+            isNewField
+              ? { entity_type: fieldEntityType, name: fieldName, field_type: fieldType, project_ids: fieldScope.all ? [] : fieldScope.ids, ...basePayload }
+              : basePayload,
           ),
         },
       );
@@ -2342,12 +2393,15 @@ export function AdminPanelModal({
                             {CUSTOM_FIELD_TYPE_OPTIONS.find((t) => t.value === f.field_type)?.label}
                             {f.is_required ? " · required" : ""}
                           </div>
-                          {f.project_id && (
+                          {!f.all_projects && (
                             <div
-                              title="Made by an import: applies only to this project's cases"
+                              title={`Only in: ${(f.projects ?? []).map((p) => p.name ?? p.id).join(", ")}`}
                               style={{ fontSize: "10px", marginTop: "3px", color: selectedFieldId === f.id ? "#e0f2fe" : "#fbbf24" }}
                             >
-                              {f.project_name ?? "One project"} only
+                              {(() => {
+                                const names = (f.projects ?? []).map((p) => p.name ?? "?");
+                                return names.length <= 2 ? `${names.join(", ")} only` : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
+                              })()}
                             </div>
                           )}
                         </div>
@@ -2425,13 +2479,132 @@ export function AdminPanelModal({
                   <h3 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px 0", color: "#38bdf8" }}>
                     {isNewField ? "New Custom Field" : `Editing: ${fieldLabel}`}
                   </h3>
+                  {/* PROJECTS: which projects' cases (or suites) have this field. */}
                   {(() => {
-                    const projectField = !isNewField ? customFields.find((f) => f.id === selectedFieldId && f.project_id) : undefined;
-                    return projectField ? (
-                      <p style={{ fontSize: "12px", color: "#fde68a", margin: "-4px 0 12px 0", lineHeight: 1.5 }}>
-                        Made by an import: applies only to cases in <strong>{projectField.project_name ?? "one project"}</strong>.
-                      </p>
-                    ) : null;
+                    const selected = customFields.find((f) => f.id === selectedFieldId);
+                    const nameOf = (id: string) =>
+                      projects.find((p) => p.id === id)?.name ?? selected?.projects?.find((p) => p.id === id)?.name ?? "Unknown project";
+                    const addable = projects.filter((p) => fieldScope.all || !fieldScope.ids.includes(p.id));
+                    const chip = (label: string, onRemove?: () => void, removeTitle?: string) => (
+                      <span
+                        key={label}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "3px 4px 3px 10px",
+                          borderRadius: "999px",
+                          backgroundColor: "#0c4a6e",
+                          border: "1px solid #0369a1",
+                          color: "#e0f2fe",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {label}
+                        {onRemove !== undefined || removeTitle ? (
+                          <button
+                            type="button"
+                            onClick={onRemove}
+                            disabled={!onRemove || isSavingProjects}
+                            title={removeTitle}
+                            aria-label={`Remove ${label}`}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: onRemove ? "#bae6fd" : "#475569",
+                              cursor: onRemove ? "pointer" : "not-allowed",
+                              fontSize: "13px",
+                              lineHeight: 1,
+                              padding: "0 4px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        ) : (
+                          <span style={{ width: "4px" }} />
+                        )}
+                      </span>
+                    );
+                    return (
+                      <div style={{ marginBottom: "14px" }}>
+                        <label style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "4px" }}>Projects</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" }}>
+                          {fieldScope.all
+                            ? chip("All projects")
+                            : fieldScope.ids.map((id) =>
+                                chip(
+                                  nameOf(id),
+                                  fieldScope.ids.length > 1 ? () => applyFieldProjects({ all: false, ids: fieldScope.ids.filter((x) => x !== id) }) : undefined,
+                                  fieldScope.ids.length > 1 ? `Remove ${nameOf(id)}` : "A field needs at least one project. To remove it everywhere, delete the field."
+                                )
+                              )}
+                          {(addable.length > 0 || !fieldScope.all) && (
+                            <select
+                              value=""
+                              disabled={isSavingProjects}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) return;
+                                if (v === "__all__") applyFieldProjects({ all: true, ids: [] });
+                                else if (fieldScope.all) applyFieldProjects({ all: false, ids: [v] });
+                                else applyFieldProjects({ all: false, ids: [...fieldScope.ids, v] });
+                              }}
+                              style={{
+                                backgroundColor: "#0f172a",
+                                color: "#cbd5e1",
+                                border: "1px solid #334155",
+                                borderRadius: "4px",
+                                padding: "4px 6px",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="">{fieldScope.all ? "Limit to a project…" : "Add a project…"}</option>
+                              {!fieldScope.all && <option value="__all__">All projects</option>}
+                              {addable.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                        {projectsPrompt && (
+                          <div
+                            style={{
+                              marginTop: "8px",
+                              padding: "10px 12px",
+                              backgroundColor: "#78350f",
+                              border: "1px solid #92400e",
+                              borderRadius: "6px",
+                              color: "#fde68a",
+                              fontSize: "12px",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            ⚠️ {projectsPrompt.detail}
+                            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                              <button
+                                type="button"
+                                onClick={() => setProjectsPrompt(null)}
+                                style={{ padding: "6px 12px", backgroundColor: "#334155", border: "none", borderRadius: "4px", color: "#fff", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSavingProjects}
+                                onClick={() => applyFieldProjects(projectsPrompt.scope, true)}
+                                style={{ padding: "6px 12px", backgroundColor: "#dc2626", border: "none", borderRadius: "4px", color: "#fff", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}
+                              >
+                                Remove Anyway
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
                   })()}
 
                   <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>

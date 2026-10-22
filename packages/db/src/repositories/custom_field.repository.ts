@@ -21,7 +21,10 @@ export interface CustomFieldOption {
 
 export interface CustomFieldDefinition {
   id: string;
-  project_id: string | null;
+  /** true: every project's cases (or suites). false: only those of `project_ids`. */
+  all_projects: boolean;
+  /** The projects it applies to when not all_projects (empty otherwise). */
+  project_ids: string[];
   entity_type: CustomFieldEntityType;
   name: string;
   field_label: string;
@@ -36,9 +39,10 @@ export interface CustomFieldDefinition {
 
 export interface CreateCustomFieldDefinitionInput {
   id?: string;
-  // Omitted/null (default): a global field, exactly today's only behavior. A string scopes
-  // the field to that one project -- used by the import wizard's AUTO_CREATE path.
+  // Neither given (default): a field for all projects. `project_id` (the import wizard's
+  // AUTO_CREATE path) or `project_ids` limits it to those projects.
   project_id?: string | null;
+  project_ids?: string[];
   entity_type: CustomFieldEntityType;
   name: string;
   field_label: string;
@@ -64,9 +68,26 @@ export type DeleteCustomFieldDefinitionResult =
   | { deleted: true }
   | { deleted: false; blockedByValueCount: number; affectedEntityIds: string[]; fieldLabel?: string };
 
+/** Which projects a field applies to: all of them, or `project_ids` (at least one). */
+export interface CustomFieldProjectScope {
+  all_projects: boolean;
+  project_ids?: string[];
+}
+
+export type SetCustomFieldProjectsResult =
+  | { changed: true; definition: CustomFieldDefinition; removed_value_count: number; seeded_count: number }
+  /** Without force: projects that would lose values, and how many each. Nothing was changed. */
+  | { changed: false; affected_projects: Array<{ project_id: string; value_count: number }> };
+
 export interface CustomFieldValueEntry {
   definition: CustomFieldDefinition;
   value: unknown;
+}
+
+/** All-projects fields first, then by name. */
+function allProjectsFirst(a: { all_projects: boolean; name: string }, b: { all_projects: boolean; name: string }): number {
+  if (a.all_projects !== b.all_projects) return a.all_projects ? -1 : 1;
+  return a.name.localeCompare(b.name);
 }
 
 export class CustomFieldRepository {
@@ -85,7 +106,8 @@ export class CustomFieldRepository {
     return this.db.transaction().execute(fn);
   }
 
-  private async attachOptions(definitions: Array<Omit<CustomFieldDefinition, 'options'>>): Promise<CustomFieldDefinition[]> {
+  /** Adds each definition's options and, for one limited to projects, its project ids. */
+  private async attachOptions(definitions: Array<Omit<CustomFieldDefinition, 'options' | 'project_ids'>>): Promise<CustomFieldDefinition[]> {
     if (definitions.length === 0) return [];
 
     const optionRows = await this.db
@@ -102,13 +124,29 @@ export class CustomFieldRepository {
       optionsByDefinitionId.set(row.custom_field_definition_id, list);
     }
 
-    return definitions.map((d) => ({ ...d, options: optionsByDefinitionId.get(d.id) ?? [] }));
+    const projectRows = await this.db
+      .selectFrom('custom_field_projects')
+      .select(['custom_field_definition_id', 'project_id'])
+      .where('custom_field_definition_id', 'in', definitions.map((d) => d.id))
+      .execute();
+    const projectsByDefinitionId = new Map<string, string[]>();
+    for (const row of projectRows) {
+      const list = projectsByDefinitionId.get(row.custom_field_definition_id) ?? [];
+      list.push(row.project_id);
+      projectsByDefinitionId.set(row.custom_field_definition_id, list);
+    }
+
+    return definitions.map((d) => ({
+      ...d,
+      options: optionsByDefinitionId.get(d.id) ?? [],
+      project_ids: d.all_projects ? [] : (projectsByDefinitionId.get(d.id) ?? []).sort(),
+    }));
   }
 
-  private toDefinition(row: CustomFieldDefinitionsTable & { id: string }): Omit<CustomFieldDefinition, 'options'> {
+  private toDefinition(row: CustomFieldDefinitionsTable & { id: string }): Omit<CustomFieldDefinition, 'options' | 'project_ids'> {
     return {
       id: row.id,
-      project_id: row.project_id,
+      all_projects: row.applies_to_all_projects === 1,
       entity_type: row.entity_type as CustomFieldEntityType,
       name: row.name,
       field_label: row.field_label,
@@ -121,13 +159,14 @@ export class CustomFieldRepository {
     };
   }
 
-  /** `projectId` omitted/undefined: today's exact behavior, global-only (project_id IS
-   * NULL). A string: that project's OWN definitions only, NOT merged with global -- callers
-   * wanting "global ∪ project" use listVisibleToProject() below instead. No existing caller
-   * passes a second argument, so this is fully backward compatible. */
+  /** `projectId` omitted: the fields for all projects. A string: the fields limited to projects
+   * that include that one (not the all-projects ones; listVisibleToProject merges both). */
   async listDefinitions(entityType?: CustomFieldEntityType, projectId?: string | null): Promise<CustomFieldDefinition[]> {
     let query = this.db.selectFrom('custom_field_definitions').selectAll();
-    query = projectId === undefined ? query.where('project_id', 'is', null) : query.where('project_id', '=', projectId);
+    query =
+      projectId == null
+        ? query.where('applies_to_all_projects', '=', 1)
+        : query.where('applies_to_all_projects', '=', 0).where('id', 'in', this.assignedTo(projectId));
     if (entityType) {
       query = query.where('entity_type', '=', entityType);
     }
@@ -135,80 +174,79 @@ export class CustomFieldRepository {
     return this.attachOptions(rows.map((r) => this.toDefinition(r)));
   }
 
-  /** Every definition, global and every project's own (fields made by imports), for the Admin
-   * Panel: global first, then by project id, then by name. `project_id` tells them apart. */
+  /** Every definition, for the Admin Panel: the all-projects ones first, then by name. */
   async listAllScopes(entityType?: CustomFieldEntityType): Promise<CustomFieldDefinition[]> {
     let query = this.db.selectFrom('custom_field_definitions').selectAll();
     if (entityType) query = query.where('entity_type', '=', entityType);
     const rows = await query.execute();
-    const sorted = rows
-      .map((r) => this.toDefinition(r))
-      .sort((a, b) => {
-        if ((a.project_id === null) !== (b.project_id === null)) return a.project_id === null ? -1 : 1;
-        return (a.project_id ?? '').localeCompare(b.project_id ?? '') || a.name.localeCompare(b.name);
-      });
-    return this.attachOptions(sorted);
+    return this.attachOptions(rows.map((r) => this.toDefinition(r)).sort(allProjectsFirst));
   }
 
-  /** Returns the union of a project's own custom field definitions and every global
-   * (project_id IS NULL) definition, for the given entity type -- the merge-list lookup the
-   * import wizard's "map to existing field" dropdown and the ingestion routes' "is this
-   * name already known" checks both need. Global definitions are listed first, then
-   * project-scoped ones, both alphabetized. A project-scoped field is allowed to share a
-   * name with a global field (they're validated against two separate uniqueness scopes),
-   * so "name" is not a safe de-dupe key across this merged list. */
+  /** The ids of the fields limited to projects that include `projectId` (a subquery). */
+  private assignedTo(projectId: string) {
+    return this.db.selectFrom('custom_field_projects').select('custom_field_definition_id').where('project_id', '=', projectId);
+  }
+
+  /** The fields a project's cases (or suites) have: every all-projects field, and every field
+   * limited to projects that include this one. All-projects fields first, then by name. Two
+   * fields may share a name here (an all-projects field and a project one), so "name" is not a
+   * safe de-dupe key across this list. */
   async listVisibleToProject(projectId: string, entityType?: CustomFieldEntityType): Promise<CustomFieldDefinition[]> {
     let query = this.db
       .selectFrom('custom_field_definitions')
       .selectAll()
-      .where((eb) => eb.or([eb('project_id', 'is', null), eb('project_id', '=', projectId)]));
+      .where((eb) => eb.or([eb('applies_to_all_projects', '=', 1), eb('id', 'in', this.assignedTo(projectId))]));
     if (entityType) {
       query = query.where('entity_type', '=', entityType);
     }
     const rows = await query.execute();
-    const sorted = rows
-      .map((r) => this.toDefinition(r))
-      .sort((a, b) => {
-        if ((a.project_id === null) !== (b.project_id === null)) return a.project_id === null ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-    return this.attachOptions(sorted);
+    return this.attachOptions(rows.map((r) => this.toDefinition(r)).sort(allProjectsFirst));
   }
 
-  /** `projectId` omitted/undefined: today's exact behavior, global-only lookup by id. A
-   * string widens the lookup to also match that project's own definitions -- needed so
-   * setValue() (below) can resolve a project-scoped definition id. */
+  /** `projectId` omitted/null: an all-projects field by id. A string: any field that project's
+   * cases have (needed so setValue() can resolve a project field). */
   async getDefinition(id: string, projectId?: string | null): Promise<CustomFieldDefinition | undefined> {
     let query = this.db.selectFrom('custom_field_definitions').selectAll().where('id', '=', id);
-    // null and undefined both mean "global-only, today's exact behavior" -- only an actual
-    // project id string widens the lookup to also match that project's own definitions.
     query =
       projectId == null
-        ? query.where('project_id', 'is', null)
-        : query.where((eb) => eb.or([eb('project_id', 'is', null), eb('project_id', '=', projectId)]));
+        ? query.where('applies_to_all_projects', '=', 1)
+        : query.where((eb) => eb.or([eb('applies_to_all_projects', '=', 1), eb('id', 'in', this.assignedTo(projectId))]));
     const row = await query.executeTakeFirst();
     if (!row) return undefined;
     const [definition] = await this.attachOptions([this.toDefinition(row)]);
     return definition;
   }
 
-  /** Name uniqueness pre-check, scoped by `projectId` (null = global scope, a string = that
-   * project's own scope), mirroring role.repository.ts's roleExists/ROLE_NAME_TAKEN
-   * convention. The migration's two partial unique indexes back this at the DB level too,
-   * as a race-condition safety net -- this check is what produces the friendly error
-   * message. */
-  private async nameTaken(entityType: CustomFieldEntityType, name: string, projectId: string | null, excludeId?: string): Promise<boolean> {
+  /** Name uniqueness pre-check for a field with `scope`: an all-projects field's name must be
+   * unique among all-projects fields (also enforced by the uq_custom_field_def_all_projects
+   * index); a project field's name must be unique among the project fields sharing one of its
+   * projects. A project field may share a name with an all-projects field. Gives the friendly
+   * FIELD_NAME_TAKEN message. */
+  private async nameTaken(entityType: CustomFieldEntityType, name: string, scope: CustomFieldProjectScope, excludeId?: string): Promise<boolean> {
     let query = this.db
       .selectFrom('custom_field_definitions')
       .select('id')
       .where('entity_type', '=', entityType)
       .where('name', '=', name);
-    query = projectId === null ? query.where('project_id', 'is', null) : query.where('project_id', '=', projectId);
+    query = scope.all_projects
+      ? query.where('applies_to_all_projects', '=', 1)
+      : query
+          .where('applies_to_all_projects', '=', 0)
+          .where(
+            'id',
+            'in',
+            this.db.selectFrom('custom_field_projects').select('custom_field_definition_id').where('project_id', 'in', scope.project_ids?.length ? scope.project_ids : ['-'])
+          );
     if (excludeId) {
       query = query.where('id', '!=', excludeId);
     }
     const row = await query.executeTakeFirst();
     return Boolean(row);
+  }
+
+  private static nameTakenMessage(entityType: string, name: string, scope: CustomFieldProjectScope): string {
+    const where = scope.all_projects ? 'for all projects' : 'in one of these projects';
+    return `FIELD_NAME_TAKEN: a '${entityType}' field named '${name}' already exists ${where}`;
   }
 
   async createDefinition(input: CreateCustomFieldDefinitionInput): Promise<CustomFieldDefinition> {
@@ -219,10 +257,10 @@ export class CustomFieldRepository {
       throw new Error(`UNKNOWN_FIELD_TYPE: '${input.field_type}' is not a registered custom field type`);
     }
     assertValidationPattern(input.validation_regex);
-    const scopedProjectId = input.project_id ?? null;
-    if (await this.nameTaken(input.entity_type, input.name, scopedProjectId)) {
-      const scope = scopedProjectId === null ? 'global' : `project-scoped (project ${scopedProjectId})`;
-      throw new Error(`FIELD_NAME_TAKEN: a ${scope} '${input.entity_type}' field named '${input.name}' already exists`);
+    const projectIds = [...new Set(input.project_ids?.length ? input.project_ids : input.project_id ? [input.project_id] : [])];
+    const scope: CustomFieldProjectScope = { all_projects: projectIds.length === 0, project_ids: projectIds };
+    if (await this.nameTaken(input.entity_type, input.name, scope)) {
+      throw new Error(CustomFieldRepository.nameTakenMessage(input.entity_type, input.name, scope));
     }
 
     const now = new Date().toISOString();
@@ -233,7 +271,7 @@ export class CustomFieldRepository {
         .insertInto('custom_field_definitions')
         .values({
           id,
-          project_id: scopedProjectId,
+          applies_to_all_projects: scope.all_projects ? 1 : 0,
           entity_type: input.entity_type,
           name: input.name,
           field_label: input.field_label,
@@ -245,6 +283,13 @@ export class CustomFieldRepository {
           updated_at: now,
         })
         .execute();
+
+      if (projectIds.length > 0) {
+        await trx
+          .insertInto('custom_field_projects')
+          .values(projectIds.map((projectId) => ({ custom_field_definition_id: id, project_id: projectId, created_at: now })))
+          .execute();
+      }
 
       if (input.options && input.options.length > 0) {
         await trx
@@ -262,7 +307,7 @@ export class CustomFieldRepository {
       }
     });
 
-    return (await this.getDefinition(id, scopedProjectId))!;
+    return (await this.getDefinitionAnyScope(id))!;
   }
 
   /**
@@ -289,7 +334,7 @@ export class CustomFieldRepository {
    * coerce it for the field's type (nothing sensible to seed either way -- matches
    * getValuesForEntity's own read-time fallback treating an unusable default as no default).
    */
-  async seedDefaultValueForAllEntities(definition: CustomFieldDefinition): Promise<number> {
+  async seedDefaultValueForAllEntities(definition: CustomFieldDefinition, onlyProjectIds?: string[]): Promise<number> {
     if (definition.default_value === null) return 0;
     const coerced = resolveDefaultValue(definition.field_type, definition.default_value, {
       options: definition.options,
@@ -302,9 +347,19 @@ export class CustomFieldRepository {
     });
 
     const table: 'test_cases' | 'test_suites' = definition.entity_type === 'TestCase' ? 'test_cases' : 'test_suites';
-    let query = this.db.selectFrom(table).select('id');
-    if (definition.project_id !== null) {
-      query = query.where('project_id', '=', definition.project_id);
+    // `onlyProjectIds`: just those projects (projects just added to the field, setProjects).
+    const projectIds = onlyProjectIds ?? (definition.all_projects ? null : definition.project_ids);
+    if (projectIds && projectIds.length === 0) return 0;
+    let query = this.db
+      .selectFrom(table)
+      .select('id')
+      .where(
+        'id',
+        'not in',
+        this.db.selectFrom('custom_field_values').select('entity_id').where('custom_field_definition_id', '=', definition.id)
+      );
+    if (projectIds) {
+      query = query.where('project_id', 'in', projectIds);
     }
     const entities = await query.execute();
     if (entities.length === 0) return 0;
@@ -395,13 +450,9 @@ export class CustomFieldRepository {
     const existing = await this.getDefinitionAnyScope(id);
     if (!existing) return undefined;
 
-    if (
-      input.name !== undefined &&
-      input.name !== existing.name &&
-      (await this.nameTaken(existing.entity_type, input.name, existing.project_id, id))
-    ) {
-      const scope = existing.project_id === null ? 'global' : `project-scoped (project ${existing.project_id})`;
-      throw new Error(`FIELD_NAME_TAKEN: a ${scope} '${existing.entity_type}' field named '${input.name}' already exists`);
+    const scope: CustomFieldProjectScope = { all_projects: existing.all_projects, project_ids: existing.project_ids };
+    if (input.name !== undefined && input.name !== existing.name && (await this.nameTaken(existing.entity_type, input.name, scope, id))) {
+      throw new Error(CustomFieldRepository.nameTakenMessage(existing.entity_type, input.name, scope));
     }
 
     assertValidationPattern(input.validation_regex);
@@ -501,6 +552,110 @@ export class CustomFieldRepository {
     if (!row) return undefined;
     const [definition] = await this.attachOptions([this.toDefinition(row)]);
     return definition;
+  }
+
+  /** How many values this field has on each project's cases (or suites). */
+  private async valueCountsByProject(definition: CustomFieldDefinition): Promise<Map<string, number>> {
+    const base = this.db
+      .selectFrom('custom_field_values as v')
+      .where('v.custom_field_definition_id', '=', definition.id)
+      .where('v.entity_type', '=', definition.entity_type);
+    const rows =
+      definition.entity_type === 'TestCase'
+        ? await base
+            .innerJoin('test_cases as e', 'e.id', 'v.entity_id')
+            .select(['e.project_id', (eb) => eb.fn.countAll<number>().as('value_count')])
+            .groupBy('e.project_id')
+            .execute()
+        : await base
+            .innerJoin('test_suites as e', 'e.id', 'v.entity_id')
+            .select(['e.project_id', (eb) => eb.fn.countAll<number>().as('value_count')])
+            .groupBy('e.project_id')
+            .execute();
+    return new Map(rows.map((r) => [r.project_id, Number(r.value_count)]));
+  }
+
+  /**
+   * Sets the projects a field applies to: all of them, or `project_ids` (at least one, each an
+   * existing project). A project it no longer applies to loses the field's values on its cases
+   * (or suites): without `force`, if any would be lost, nothing changes and the answer says
+   * which projects and how many (the warn-then-confirm pattern of deleteDefinition). Projects it
+   * newly applies to get the field's default written to their existing cases, as
+   * createDefinition's seeding does. Throws a plain Error (a message for users) for an empty
+   * list, an unknown project or a name that clashes there.
+   */
+  async setProjects(id: string, scope: CustomFieldProjectScope, opts: { force?: boolean } = {}): Promise<SetCustomFieldProjectsResult | undefined> {
+    const existing = await this.getDefinitionAnyScope(id);
+    if (!existing) return undefined;
+    const projectIds = scope.all_projects ? [] : [...new Set(scope.project_ids ?? [])];
+    if (!scope.all_projects && projectIds.length === 0) {
+      throw new Error('A field needs at least one project. To remove it from every project, delete the field.');
+    }
+    if (projectIds.length > 0) {
+      const known = new Set((await this.db.selectFrom('projects').select('id').where('id', 'in', projectIds).execute()).map((r) => r.id));
+      const unknown = projectIds.filter((p) => !known.has(p));
+      if (unknown.length > 0) throw new Error(`Unknown project: ${unknown.join(', ')}`);
+    }
+    const next: CustomFieldProjectScope = { all_projects: scope.all_projects, project_ids: projectIds };
+    if (await this.nameTaken(existing.entity_type, existing.name, next, id)) {
+      throw new Error(CustomFieldRepository.nameTakenMessage(existing.entity_type, existing.name, next));
+    }
+
+    // Projects whose values would go: any project with values that the new scope leaves out.
+    const counts = await this.valueCountsByProject(existing);
+    const keep = new Set(projectIds);
+    const affected = next.all_projects
+      ? []
+      : [...counts.entries()].filter(([projectId, n]) => n > 0 && !keep.has(projectId)).map(([project_id, value_count]) => ({ project_id, value_count }));
+    if (affected.length > 0 && !opts.force) return { changed: false, affected_projects: affected };
+
+    // Projects that gain the field (for the default): with all projects, every project it
+    // didn't have before; otherwise the new ones, unless it had all projects already.
+    const before = new Set(existing.project_ids);
+    const gained = next.all_projects
+      ? existing.all_projects
+        ? []
+        : (await this.db.selectFrom('projects').select('id').execute()).map((r) => r.id).filter((p) => !before.has(p))
+      : existing.all_projects
+        ? []
+        : projectIds.filter((p) => !before.has(p));
+
+    const now = new Date().toISOString();
+    let removed = 0;
+    let seeded = 0;
+    let definition!: CustomFieldDefinition;
+    await this.runInTransaction(async (trx) => {
+      if (affected.length > 0) {
+        const table = existing.entity_type === 'TestCase' ? 'test_cases' : 'test_suites';
+        const result = await trx
+          .deleteFrom('custom_field_values')
+          .where('custom_field_definition_id', '=', id)
+          .where(
+            'entity_id',
+            'in',
+            trx.selectFrom(table).select('id').where('project_id', 'in', affected.map((a) => a.project_id))
+          )
+          .executeTakeFirst();
+        removed = Number(result.numDeletedRows ?? 0);
+      }
+      await trx
+        .updateTable('custom_field_definitions')
+        .set({ applies_to_all_projects: next.all_projects ? 1 : 0, updated_at: now })
+        .where('id', '=', id)
+        .execute();
+      await trx.deleteFrom('custom_field_projects').where('custom_field_definition_id', '=', id).execute();
+      if (projectIds.length > 0) {
+        await trx
+          .insertInto('custom_field_projects')
+          .values(projectIds.map((projectId) => ({ custom_field_definition_id: id, project_id: projectId, created_at: now })))
+          .execute();
+      }
+      // In the same transaction (a repository on `trx` runs inside it).
+      const inTrx = new CustomFieldRepository(trx);
+      definition = (await inTrx.getDefinitionAnyScope(id))!;
+      if (gained.length > 0) seeded = await inTrx.seedDefaultValueForAllEntities(definition, gained);
+    });
+    return { changed: true, definition, removed_value_count: removed, seeded_count: seeded };
   }
 
   /**

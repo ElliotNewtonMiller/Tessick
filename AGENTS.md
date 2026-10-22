@@ -116,10 +116,10 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Manual (UI) results are never timed: duration is null. Only batch/CI results carry durations.
 
 **Custom fields:**
-- Defined globally by admins. Imports can also create project-scoped ones, which apply to that project only. The Admin Panel lists and manages both (`listAllScopes`; edits look a field up in any scope).
+- A field applies to all projects or to chosen ones (`applies_to_all_projects`, `custom_field_projects`); admins set this with the Projects chips in the Admin Panel (`PUT /admin/custom-fields/:id/projects`). Imports create fields for their project. Which fields a project has always comes from `CustomFieldRepository.listVisibleToProject`.
 - Values are **not versioned** and not recorded on results. The UI only allows editing them while the case is a DRAFT. Elliot chose this; don't "fix" it unprompted.
 - A required field must always have a usable default, enforced on create and update. CHECKBOX fields can't be required.
-- Creating a field writes its default into every existing case or suite. Making a field required fills blank values with the default. Removing an option deselects it everywhere.
+- Creating a field writes its default into every existing case or suite it applies to; so does adding a project. Removing a project deletes the field's values there (warn first, then `force`). A field keeps at least one project. Making a field required fills blank values with the default. Removing an option deselects it everywhere.
 - Validation regexes run in a `node:vm` sandbox with a 50 ms limit.
 
 **Search and ids:**

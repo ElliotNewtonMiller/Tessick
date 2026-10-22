@@ -257,11 +257,16 @@ export const SHARED_SCHEMAS: Schema[] = [
   {
     $id: 'CustomFieldDefinition',
     type: 'object',
-    required: ['id', 'project_id', 'entity_type', 'name', 'field_label', 'field_type', 'is_required', 'default_value', 'validation_regex', 'options', 'created_at', 'updated_at'],
+    required: ['id', 'all_projects', 'project_ids', 'entity_type', 'name', 'field_label', 'field_type', 'is_required', 'default_value', 'validation_regex', 'options', 'created_at', 'updated_at'],
     properties: {
       id: str('The definition id (definitionId)'),
-      project_id: nullableStr('null for a global field (made in the Admin Panel); a project id for one made by an import, which applies only to that project'),
-      project_name: nullableStr("In the Admin Panel's list: the name of the project a project field belongs to (null for a global field)"),
+      all_projects: { type: 'boolean', description: "true: every project's cases (or suites) have it. false: only those of `project_ids` (a field made by an import starts with its project)" },
+      project_ids: { type: 'array', items: { type: 'string' }, description: 'The projects it applies to when not `all_projects` (empty otherwise)' },
+      projects: {
+        type: 'array',
+        description: 'In the Admin routes: each of `project_ids` with its name',
+        items: { type: 'object', required: ['id', 'name'], properties: { id: str(), name: nullableStr() } },
+      },
       entity_type: oneOf(['TestCase', 'TestSuite']),
       name: str(),
       field_label: str('Shown in the app'),

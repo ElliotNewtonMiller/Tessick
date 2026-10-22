@@ -268,7 +268,7 @@ const definitionFields = {
 export const listDefinitionsSchema = {
   tags: FIELDS,
   summary: 'List custom fields',
-  description: 'Every custom field: global ones (made here) first, then each project\'s own (made by imports; `project_id` and `project_name` say which project). Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
+  description: 'Every custom field: those for all projects first, then those for chosen projects (`all_projects`, `project_ids`, and `projects` with names). Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
   querystring: { type: 'object', properties: { entity_type: oneOf(['TestCase', 'TestSuite'], 'Only fields of this kind.') } },
   response: { 200: list('definitions', 'CustomFieldDefinition', 'The fields'), ...authedErrors() },
 };
@@ -277,11 +277,16 @@ export const createDefinitionSchema = {
   tags: FIELDS,
   summary: 'Create a custom field',
   description:
-    'A global field, shown on every case (or suite) in every project. A default is written into every existing one (`seeded_count` says how many). `entity_type` and `field_type` can\'t change later. Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
+    'A field for every project\'s cases (or suites), or, with `project_ids`, for those projects only (change them later with PUT .../projects). A default is written into every existing case or suite it applies to (`seeded_count` says how many). `entity_type` and `field_type` can\'t change later. Needs `CUSTOM_FIELD_MANAGE`.' + NO_TOKENS,
   body: handlerValidated({
     type: 'object',
     required: ['entity_type', 'name', 'field_label', 'field_type'],
-    properties: { entity_type: oneOf(['TestCase', 'TestSuite']), field_type: oneOf(CUSTOM_FIELD_TYPES), ...definitionFields },
+    properties: {
+      entity_type: oneOf(['TestCase', 'TestSuite']),
+      field_type: oneOf(CUSTOM_FIELD_TYPES),
+      ...definitionFields,
+      project_ids: { type: 'array', items: { type: 'string' }, description: 'The projects it applies to. Left out or empty: all projects.' },
+    },
   }),
   response: {
     201: {
@@ -319,6 +324,41 @@ export const deleteDefinitionSchema = {
   params: idParams('id'),
   querystring: FORCE_QUERY,
   response: { 204: NO_CONTENT, ...authedErrors(404, [409, '`CUSTOM_FIELD_IN_USE`']) },
+};
+
+export const setDefinitionProjectsSchema = {
+  tags: FIELDS,
+  summary: "Set a custom field's projects",
+  description:
+    'All projects (`all_projects: true`), or the projects in `project_ids` (at least one). A project the field no longer applies to loses its values there: if any would be lost, the answer is 409 `CUSTOM_FIELD_PROJECTS_IN_USE` with `affected_projects` (each project and its value count), and `?force=true` deletes them. Projects it newly applies to get its default on their existing cases (`seeded_count`). Needs `CUSTOM_FIELD_MANAGE`.' +
+    NO_TOKENS,
+  params: idParams('id'),
+  querystring: FORCE_QUERY,
+  body: handlerValidated({
+    type: 'object',
+    required: ['all_projects'],
+    properties: {
+      all_projects: { type: 'boolean' },
+      project_ids: { type: 'array', items: { type: 'string' }, description: 'With `all_projects: false`: the projects, at least one' },
+    },
+  }),
+  response: {
+    200: {
+      description: 'Changed',
+      type: 'object',
+      required: ['definition', 'removed_value_count', 'seeded_count'],
+      properties: {
+        definition: { $ref: 'CustomFieldDefinition#' },
+        removed_value_count: { type: 'integer', description: 'Values deleted in projects it no longer applies to' },
+        seeded_count: { type: 'integer', description: 'Cases or suites in new projects given the default' },
+      },
+    },
+    ...authedErrors(
+      [400, 'An empty project list, an unknown project, or `INVALID_REQUEST`'],
+      404,
+      [409, '`CUSTOM_FIELD_PROJECTS_IN_USE` (send `?force=true` to delete those values), or `FIELD_NAME_TAKEN` in a new project']
+    ),
+  },
 };
 
 // ---- Email settings ----

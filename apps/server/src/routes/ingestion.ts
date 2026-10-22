@@ -890,7 +890,8 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
         name: d.name,
         field_label: d.field_label,
         field_type: d.field_type,
-        project_id: d.project_id,
+        // null: a field for all projects; this project's id: one limited to chosen projects.
+        project_id: d.all_projects ? null : targetProjectId,
       })),
     });
   });

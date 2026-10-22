@@ -190,4 +190,30 @@ describe('migrateToLatest', () => {
     expect((await migrator.migrateTo('010_webhooks')).error).toBeUndefined();
     expect(await columns()).not.toContain('paused_at');
   }, 30_000);
+
+  it('012 gives each existing field its scope: a global one all projects, an imported one its project; rolling back restores project_id', async () => {
+    const migrator = new Migrator({ db, provider: { getMigrations: async () => MIGRATIONS } });
+    expect((await migrator.migrateTo('011_webhook_pausing')).error).toBeUndefined();
+    const now = new Date().toISOString();
+    await db.insertInto('projects').values({ id: 'p1', name: 'Condor', prefix: 'CON', created_at: now, updated_at: now } as any).execute();
+    const field = (id: string, projectId: string | null) =>
+      ({ id, project_id: projectId, entity_type: 'TestCase', name: 'team', field_label: 'Team', field_type: 'TEXT', is_required: 0, created_at: now, updated_at: now }) as any;
+    await db.insertInto('custom_field_definitions' as any).values([field('global', null), field('imported', 'p1')]).execute();
+
+    expect(await migrateToLatest(db)).toContain('012_custom_field_projects');
+    const defs = await db.selectFrom('custom_field_definitions' as any).select(['id', 'applies_to_all_projects']).orderBy('id').execute();
+    expect(defs).toEqual([
+      { id: 'global', applies_to_all_projects: 1 },
+      { id: 'imported', applies_to_all_projects: 0 },
+    ]);
+    expect(await db.selectFrom('custom_field_projects' as any).select(['custom_field_definition_id', 'project_id']).execute()).toEqual([
+      { custom_field_definition_id: 'imported', project_id: 'p1' },
+    ]);
+
+    expect((await migrator.migrateTo('011_webhook_pausing')).error).toBeUndefined();
+    expect(await db.selectFrom('custom_field_definitions' as any).select(['id', 'project_id']).orderBy('id').execute()).toEqual([
+      { id: 'global', project_id: null },
+      { id: 'imported', project_id: 'p1' },
+    ]);
+  }, 30_000);
 });

@@ -140,16 +140,24 @@ export interface AuditLogsTable {
 
 export interface CustomFieldDefinitionsTable {
   id: string;
-  project_id: string | null;
   entity_type: string; // 'TestCase' | 'TestSuite'
   name: string;
   field_label: string;
   field_type: string; // 'TEXT' | 'NUMBER' | 'CHECKBOX' | 'DATE' | 'SINGLE_SELECT' | 'MULTI_SELECT'
   is_required: Generated<number>; // 0 or 1
+  /** 1: every project's cases (or suites); 0: only the projects in custom_field_projects. */
+  applies_to_all_projects: Generated<number>;
   default_value: string | null;
   validation_regex: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** The projects a custom field applies to, when it isn't all of them. */
+export interface CustomFieldProjectsTable {
+  custom_field_definition_id: string;
+  project_id: string;
+  created_at: string;
 }
 
 export interface CustomFieldOptionsTable {
@@ -306,6 +314,7 @@ export interface Database {
   test_step_results: TestStepResultsTable;
   audit_logs: AuditLogsTable;
   custom_field_definitions: CustomFieldDefinitionsTable;
+  custom_field_projects: CustomFieldProjectsTable;
   custom_field_options: CustomFieldOptionsTable;
   custom_field_values: CustomFieldValuesTable;
   users: UsersTable;

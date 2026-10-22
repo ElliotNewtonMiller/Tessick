@@ -106,12 +106,12 @@ describe('CustomFieldRepository', () => {
       field_label: 'Owner (from import)',
       field_type: 'TEXT',
     });
-    expect(projectOwner.project_id).toBe(project.id);
+    expect(projectOwner).toMatchObject({ all_projects: false, project_ids: [project.id] });
 
     // This feature's global 'TestCase'-scoped field named 'owner' is unaffected.
     const globalOwner = await fieldRepo.createDefinition({ entity_type: 'TestCase', name: 'owner', field_label: 'Owner', field_type: 'TEXT' });
     expect(globalOwner.name).toBe('owner');
-    expect(globalOwner.project_id).toBeNull();
+    expect(globalOwner).toMatchObject({ all_projects: true, project_ids: [] });
 
     const listed = await fieldRepo.listDefinitions();
     expect(listed).toHaveLength(1);
@@ -157,7 +157,7 @@ describe('CustomFieldRepository', () => {
       expect(otherVisible.map((d) => d.id)).toEqual([global1.id]);
     });
 
-    it('a project-scoped field can share a name with a global field, but not with another field in the same project (backed by the DB index, not just the pre-check)', async () => {
+    it('a project-scoped field can share a name with a global field, but not with another field in the same project; two all-projects fields can\'t share one (the DB index too)', async () => {
       const { project } = await makeCaseAndSuite();
       await fieldRepo.createDefinition({ entity_type: 'TestCase', name: 'dup_name', field_label: 'Global', field_type: 'TEXT' });
 
@@ -171,13 +171,13 @@ describe('CustomFieldRepository', () => {
         fieldRepo.createDefinition({ project_id: project.id, entity_type: 'TestCase', name: 'dup_name', field_label: 'Project 2', field_type: 'TEXT' })
       ).rejects.toThrow(/FIELD_NAME_TAKEN/);
 
-      // The DB-level partial unique index itself rejects it too, bypassing the repo's pre-check.
+      // Two all-projects fields with one name: the DB index rejects it, bypassing the pre-check.
       await expect(
         db
           .insertInto('custom_field_definitions')
           .values({
             id: 'raw-dup-0000-0000-000000000001',
-            project_id: project.id,
+            applies_to_all_projects: 1,
             entity_type: 'TestCase',
             name: 'dup_name',
             field_label: 'Raw dup',
@@ -212,7 +212,7 @@ describe('CustomFieldRepository', () => {
       // Renaming to a name only taken globally (not in this project) succeeds.
       const renamed = await fieldRepo.updateDefinition(projectField.id, { name: 'taken_globally' });
       expect(renamed?.name).toBe('taken_globally');
-      expect(renamed?.project_id).toBe(project.id);
+      expect(renamed?.project_ids).toEqual([project.id]);
     });
 
     it('deleteDefinition can find and delete a project-scoped-by-id definition', async () => {

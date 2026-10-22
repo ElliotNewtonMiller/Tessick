@@ -352,7 +352,10 @@ ${tc('SEL-4', 'Done', '')}
       // use -- entity_type 'TestCase' (not the old raw-SQL path's undeclared
       // 'TestCaseVersion'), project-scoped (not global), real field_type validation.
       expect(cfDef?.entity_type).toBe('TestCase');
-      expect(cfDef?.project_id).toBe(seed.projectId);
+      // For this project only.
+      expect(cfDef?.applies_to_all_projects).toBe(0);
+      const assigned = await db.selectFrom('custom_field_projects').select('project_id').where('custom_field_definition_id', '=', cfDef!.id).execute();
+      expect(assigned.map((r) => r.project_id)).toEqual([seed.projectId]);
       expect(cfDef?.field_type).toBe('TEXT');
 
       const cfVal = await db.selectFrom('custom_field_values').selectAll().where('custom_field_definition_id', '=', cfDef!.id).executeTakeFirst();
