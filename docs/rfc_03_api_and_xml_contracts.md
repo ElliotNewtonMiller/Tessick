@@ -361,7 +361,7 @@ export interface IFileParser {
 | `<testsuite name="...">` | Suite name | Nesting preserved. |
 | `<details>` | Suite details | |
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
-| `<externalid>` | Case external id | Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). |
+| `<externalid>` | Case external id | TestLink exports the number alone (`331`); it becomes `<project prefix>-331`. Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). |
 | `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
 | `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
@@ -403,7 +403,9 @@ The user picks an action for each:
 - `AUTO_CREATE`: create a new **project-scoped** custom field (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas. The field then appears in the Admin Panel's Custom Fields tab (`GET /admin/custom-fields`, with `project_id` and `project_name`), where it can be edited or deleted.
 - `ROUTE_TO_EXISTING`: put the values into an existing global or project custom field.
 
-Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import.
+Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import. A NUMBER field keeps the first number in a value and drops the text around it ("Sprint 34" → 34; a minus counts only at the start or after a space); a value with no number is skipped (`No number in "…"`).
+
+**Case ids**, in every format: an id that is a number, or a prefix, a dash and a number (`331`, `CON-331`, `OLD-331`), becomes the project's prefix and that number (`CON-331`). Other ids (TestRail's `C501`) are kept as written. Duplicates are matched on the rewritten id, and cases created later continue from the highest number.
 
 ```json
 {

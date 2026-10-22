@@ -2691,3 +2691,26 @@ Elliot reported that custom fields created by an import don't appear in the cust
 **Verified live** on a production build (port 3995): imported a CSV into a "Condor" project, creating a TEXT and a SINGLE_SELECT field. The Custom Fields tab (count 2) listed both as "Condor only", the edit form showed the import note, and relabelling "Team" to "Owning team" saved ("✓ Custom field saved.") with the badge kept.
 
 693 tests pass; typecheck clean.
+
+## Imports keep case numbers under the project's prefix; NUMBER fields keep the number (2026-10-22)
+
+Elliot is moving the Condor project from TestLink into a Testify project with the same prefix, CON, and wants its case ids (CON-331, CON-145, ...) kept. He also wants a value like "Sprint 34" imported into a NUMBER field to read 34.
+
+**Case ids** (`projectCaseId` / `applyProjectCaseIds`, `packages/core/src/ingestion/importFieldValues.ts`, applied right after parsing in both the dry run and the import):
+- **The gap:** an id from the file was already kept when it was free. But a TestLink export holds only the number (`<externalid>331</externalid>`; TestLink keeps the prefix separately), so cases arrived as "331". That id doesn't match the readable-id format, so it wasn't usable in CI matching or `/cases/CON-331`, and it never matched an existing CON-331 as a duplicate.
+- **The rule, for every format:** an id that is a number, or `<prefix>-<number>`, becomes the project's prefix plus that number: `331`, `CON-331` and `OLD-331` all become `CON-331`, and leading zeros go. Anything else is kept as written (TestRail's `C501`, `TC-AUTH-1`).
+- **Duplicates** are matched on the rewritten id, so re-importing the same file finds them. A case created afterwards continues from the highest number (CON-332 after CON-331).
+- **Behavior change:** a case exported from project SHOP and imported into project COPY now becomes COPY-101 rather than keeping SHOP-101, so every id in a project carries the project's prefix. Tests that expected the foreign prefix were updated: `import_roundtrip`, `exports` (CSV re-import), and three in `batch_and_xml`.
+
+**NUMBER fields** (`numberFromText`): when an import writes into a NUMBER field (new or existing), it keeps the first number and drops the text around it.
+- "Sprint 34" → 34, "2.5 hrs" → 2.5, "-3" → -3. A minus counts only at the start or after a space, so "Sprint-34" is 34.
+- A value with no number is skipped and listed in `skipped_custom_field_value_warnings` (`No number in "none"`). Other values of the import go ahead.
+- The Import wizard explains this under FIELD TYPE when NUMBER is chosen, and shows up to three of the column's values as they'll be stored ("Sprint 34" → 34, "none" → skipped). The web app keeps its own copy of the rule, like `fieldLabelFromKey`.
+
+**Docs:** RFC 03 §6.2 (`<externalid>`) and §6.4 (NUMBER values; case ids).
+
+Tests:
+- `packages/core/tests/importFieldValues.test.ts` +6: numbers (first number, decimals, the minus rule, none), and case ids (re-prefixing, leading zeros, kept as written, empty, a whole tree).
+- New `apps/server/tests/import_ids_and_numbers.test.ts` (2):
+  - a TestLink file with ids 331 and 145 imports into CON as CON-331 and CON-145; `/cases/CON-331` works; a second dry run finds both as duplicates; the next new case is CON-332;
+  - a NUMBER field from "Sprint 34", "7" and "none" stores 34 and 7, and skips the third with its reason.

@@ -341,7 +341,7 @@ describe('Data export: definitions and execution results', () => {
         .selectFrom('test_cases')
         .selectAll()
         .where('project_id', '=', otherProject.id)
-        .where('external_id', '=', 'SHOP-101')
+        .where('external_id', '=', 'REIM-101') // SHOP-101's number under this project's prefix
         .executeTakeFirst();
       expect(reimportedHighCase?.priority).toBe('HIGH');
 

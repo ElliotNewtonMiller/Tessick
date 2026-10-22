@@ -51,7 +51,8 @@ describe('Export, then import into another project', () => {
 
       const before = await snapshot(seed.projectId);
       const after = await snapshot(other.id);
-      expect(after).toEqual(before);
+      // Each case keeps its number under the new project's prefix: SHOP-101 -> COPY-101.
+      expect(after).toEqual(Object.fromEntries(Object.entries(before).map(([id, c]) => [id.replace(/^SHOP-/, 'COPY-'), c])));
       expect(Object.values(after).map((c: any) => c.priority)).toEqual(expect.arrayContaining(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']));
     });
   }

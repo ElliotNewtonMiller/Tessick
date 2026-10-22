@@ -228,7 +228,8 @@ ${tc('SEL-4', 'Done', '')}
       expect(status.distinct_values).toEqual(['N/A', 'Done', 'To Do']);
       // These cases have no steps -- each EMPTY_STEPS warning names its case and suite.
       const emptySteps = JSON.parse(dry.payload).warnings.filter((w: any) => w.code === 'EMPTY_STEPS');
-      expect(emptySteps.map((w: any) => w.case_external_id)).toEqual(['SEL-1', 'SEL-2', 'SEL-3', 'SEL-4']);
+      // The file's ids keep their numbers under the project's prefix (SEL-1 -> SHOP-1).
+      expect(emptySteps.map((w: any) => w.case_external_id)).toEqual(['SHOP-1', 'SHOP-2', 'SHOP-3', 'SHOP-4']);
       expect(emptySteps[0]).toMatchObject({ case_title: 'Case SEL-1', suite_path: 'Select Fields' });
 
       const res = await app.inject({
@@ -267,7 +268,7 @@ ${tc('SEL-4', 'Done', '')}
       expect(multi.def.field_type).toBe('MULTI_SELECT');
       expect(multi.options).toEqual(['ui', 'api', 'slow']);
 
-      const caseId = (await db.selectFrom('test_cases').select('id').where('external_id', '=', 'SEL-3').executeTakeFirstOrThrow()).id;
+      const caseId = (await db.selectFrom('test_cases').select('id').where('external_id', '=', 'SHOP-3').executeTakeFirstOrThrow()).id;
       const values = await app.inject({
         method: 'GET',
         url: `/api/v1/cases/${caseId}/custom-fields`,
@@ -481,7 +482,8 @@ ${tc('SEL-4', 'Done', '')}
         payload: { file_content: xmlPayload, format: 'TESTLINK_XML' },
       });
       expect(okRes.statusCode).toBe(200);
-      const caseInDb = await db.selectFrom('test_cases').selectAll().where('external_id', '=', 'TOK-1').executeTakeFirst();
+      // TOK-1 keeps its number under the project's prefix.
+      const caseInDb = await db.selectFrom('test_cases').selectAll().where('external_id', '=', 'SHOP-1').executeTakeFirst();
       expect(caseInDb?.project_id).toBe(seed.projectId);
 
       const otherProject = await new ProjectRepository(db).create({ name: 'Other Project', prefix: 'OTHR' });
@@ -562,10 +564,10 @@ ${tc('SEL-4', 'Done', '')}
       expect(body.summary.imported_cases_count).toBe(1);
       expect(body.summary.skipped_custom_field_values_count).toBe(1);
       expect(body.skipped_custom_field_value_warnings).toHaveLength(1);
-      expect(body.skipped_custom_field_value_warnings[0]).toMatchObject({ case_external_id_or_title: 'SKIP-1', incoming_key: 'cf_env' });
+      expect(body.skipped_custom_field_value_warnings[0]).toMatchObject({ case_external_id_or_title: 'SHOP-1', incoming_key: 'cf_env' });
 
       // The case itself was still created despite the one bad value.
-      const caseInDb = await db.selectFrom('test_cases').selectAll().where('external_id', '=', 'SKIP-1').executeTakeFirst();
+      const caseInDb = await db.selectFrom('test_cases').selectAll().where('external_id', '=', 'SHOP-1').executeTakeFirst();
       expect(caseInDb).toBeDefined();
       const valueRow = await db
         .selectFrom('custom_field_values')

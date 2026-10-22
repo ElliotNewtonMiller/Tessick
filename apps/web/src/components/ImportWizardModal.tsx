@@ -15,6 +15,15 @@ function fieldLabelFromKey(key: string): string {
   return words ? words[0].toUpperCase() + words.slice(1) : key;
 }
 
+/** What a NUMBER field keeps of an imported value: its first number ("Sprint 34" → 34), or null.
+ *  The same rule as numberFromText in packages/core/src/ingestion/importFieldValues.ts. */
+function numberFromText(value: string): number | null {
+  const match = /(^|\s)?(-?)(\d+(?:\.\d+)?)/.exec(value);
+  if (!match) return null;
+  const negative = match[2] === "-" && (match.index === 0 || match[1] !== undefined);
+  return negative ? -Number(match[3]) : Number(match[3]);
+}
+
 type WizardStep = "UPLOAD" | "MAPPING" | "DUPLICATES" | "CONFIRM" | "RESULTS";
 
 type FieldFormatId = "" | "TESTLINK_XML" | "NATIVE_JSON" | "STANDARD_CSV" | "JUNIT_XML" | "TESTRAIL_CSV";
@@ -637,6 +646,16 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
                             </option>
                           ))}
                         </select>
+                        {selectedChoice.field_type === "NUMBER" && (
+                          <div style={{ marginTop: "8px", fontSize: "11px", color: "#94a3b8", lineHeight: 1.5 }}>
+                            Each value keeps its number and drops the text around it. A value with no number is skipped.
+                            {(selectedUnmapped.distinct_values?.length ? selectedUnmapped.distinct_values : selectedUnmapped.sample_values ?? []).slice(0, 3).map((v) => (
+                              <div key={v} style={{ fontFamily: "monospace", color: "#cbd5e1" }}>
+                                “{v}” → {numberFromText(v) ?? "skipped"}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {(selectedChoice.field_type === "SINGLE_SELECT" || selectedChoice.field_type === "MULTI_SELECT") &&
                           (() => {
                             const options = previewSelectOptions(selectedUnmapped, selectedChoice.field_type!);

@@ -13,6 +13,8 @@ import {
   inferFieldType,
   collectImportFieldOptions,
   splitMultiSelectValue,
+  numberFromText,
+  applyProjectCaseIds,
   MAX_DISTINCT_IMPORT_VALUES,
   type IFileParser,
   type ParsedSuite,
@@ -220,6 +222,9 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
       for await (const suite of selectedParser.parseStream(stream)) {
         parsedSuites.push(suite);
       }
+      // The file's case ids as this project's ids (TestLink's "331" -> "CON-331"), so they're
+      // kept and duplicates are recognised.
+      applyProjectCaseIds(parsedSuites, project.prefix);
 
       // Inspection counters and data
       let totalSuitesDetected = 0;
@@ -434,6 +439,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
       for await (const suite of selectedParser.parseStream(stream)) {
         parsedSuites.push(suite);
       }
+      applyProjectCaseIds(parsedSuites, project.prefix);
 
       const dupConfig = configuration.duplicate_resolution || { default_action: 'VERSION_UP' };
       const configuredMappings = configuration.field_mappings || [];
@@ -759,12 +765,18 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                 const defId = customFieldIdMap.get(k.toLowerCase());
                 if (defId && v) {
                   try {
+                    const fieldType = fieldTypeByDefId.get(defId);
+                    // A NUMBER field keeps the number and drops the text around it ("Sprint 34" -> 34).
+                    const number = fieldType === 'NUMBER' ? numberFromText(v) : null;
+                    if (fieldType === 'NUMBER' && number === null) throw new Error(`No number in "${String(v).slice(0, 60)}"`);
                     const value =
-                      fieldTypeByDefId.get(defId) === 'MULTI_SELECT' && typeof v === 'string'
-                        ? splitMultiSelectValue(v)
-                        : typeof v === 'string' && fieldTypeByDefId.get(defId) === 'SINGLE_SELECT'
-                          ? v.trim()
-                          : v;
+                      fieldType === 'NUMBER'
+                        ? number
+                        : fieldType === 'MULTI_SELECT' && typeof v === 'string'
+                          ? splitMultiSelectValue(v)
+                          : typeof v === 'string' && fieldType === 'SINGLE_SELECT'
+                            ? v.trim()
+                            : v;
                     await customFieldRepo.setValue(defId, 'TestCase', caseId, value, targetProjectId!);
                   } catch (err: any) {
                     skippedCustomFieldValuesCount++;
