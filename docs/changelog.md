@@ -2577,3 +2577,51 @@ Tests:
 **Verified live** on a production build: the TestLink cases with `&mdash;`/`&#8212;` in CDATA now import as a real em dash, `"format": "CSV"` downloads CSV, and `XLSX` gets the 400.
 
 684 tests pass; typecheck clean.
+
+## Security: browser headers, stronger password hashing (2026-10-22)
+
+Elliot's boss is weighing Testify as a replacement for TestLink, whose 1.9.20 has published SQL injection, stored XSS and file-upload vulnerabilities. A review of Testify's security found two small gaps, and Elliot asked for both to be fixed.
+
+**Browser security headers** (new `apps/server/src/securityHeaders.ts`, an `onSend` hook registered first in `createServer`). Before, the server sent none. Every reply now has:
+- **Content-Security-Policy:**
+  - The web app's page may load only its own scripts and API, and Google Fonts (index.html's stylesheet). Inline styles are allowed (index.html has a `<style>` block and React sets style attributes); inline scripts and `eval` aren't. Images: its own, and `data:`.
+  - Every other reply (JSON, files, errors) allows nothing to load.
+  - A reply that already has a policy keeps it: `/docs` (Swagger UI's `staticCSP`).
+- **No framing** (clickjacking): `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+- **Also:** `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`, and a `Permissions-Policy` turning off camera, microphone, geolocation, payment and USB.
+- **HSTS** (`max-age=31536000`, one year) only on replies served over HTTPS, seen through `X-Forwarded-Proto` with `TRUST_PROXY=true`. Subdomains aren't included, since they may be other services.
+
+No new dependency (not helmet). The Vite dev server doesn't send these; the production server does.
+
+**Password hashing** (`packages/db/src/repositories/user.repository.ts`):
+- **Stronger:** PBKDF2-SHA512 at **210,000** iterations (OWASP's recommendation; it was 100,000), 16-byte salt, 64-byte key. About 100 ms per hash on Elliot's laptop.
+- **Versioned format:** `pbkdf2_sha512$<iterations>$<salt>$<key>`, so the setting can be raised again later. Old `<salt>:<key>` hashes still verify (at 100,000). `verifyCredentials` re-hashes them at today's setting on the user's next successful sign-in, only if the hash hasn't changed meanwhile. No migration; nobody has to reset a password.
+- **No longer blocks the server:** hashing used `pbkdf2Sync`, which froze every other request while it ran (it would have been about 100 ms per sign-in). It now uses async `pbkdf2` on Node's thread pool.
+- **Timing no longer reveals usernames:** a sign-in for an unknown account returned at once, while a known one took a hash, so timing told an attacker which usernames exist. Unknown and disabled accounts now check the password against a decoy hash too.
+- **Malformed stored values** fail verification instead of throwing.
+- `hashPassword`/`verifyPassword` are now async and take/return the whole stored string. The dev-fixture seed uses them.
+
+**Docs:**
+- RFC 04 §4.1 (password storage) and a new threat-model entry, §6.1 #8 (browser attacks: XSS, clickjacking, downgrade).
+- `docs/deployment.md` (HSTS behind the proxy; the proxy needn't add headers).
+- CLAUDE.md/AGENTS.md (layout, sign-ins, headers convention).
+
+Tests:
+- New `packages/db/tests/password_hashing.test.ts` (5):
+  - the format and iterations, random salts, verification;
+  - old hashes verify and are marked for re-hashing;
+  - malformed values are refused without throwing;
+  - an old hash is upgraded on the first correct sign-in (not on a wrong one), keeps working and isn't replaced again;
+  - unknown and disabled accounts are refused.
+- New `apps/server/tests/security_headers.test.ts` (4):
+  - API replies and errors get the nothing-policy and the other headers, and no HSTS over HTTP;
+  - the web app's page gets its policy, with no unsafe script sources;
+  - `/docs` keeps Swagger's policy;
+  - HSTS over HTTPS through a trusted proxy, and not over HTTP.
+
+**Verified live** on a production build with the demo data:
+- Signed in, then used the Reports view (charts drawn, Inter and JetBrains Mono loaded from Google Fonts), the Import wizard and the Admin Panel.
+- A `securitypolicyviolation` listener recorded **no** violations.
+- `/docs` renders all 112 operations. Its console shows one inline-style violation, under the policy its own library sets (`staticCSP`), which this change leaves alone. Nothing on the page is visibly affected.
+
+693 tests pass; typecheck clean.

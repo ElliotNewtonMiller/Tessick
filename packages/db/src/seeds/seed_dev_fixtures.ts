@@ -30,8 +30,7 @@ export async function seedDevFixtures(db: Kysely<Database>): Promise<void> {
 
   // Users covering every built-in role, plus one permission override, so the Admin Panel's
   // Matrix/Templates/override UI have something real to look at immediately.
-  const { hash, salt } = hashPassword(DEV_FIXTURE_PASSWORD);
-  const passwordHash = `${salt}:${hash}`;
+  const passwordHash = await hashPassword(DEV_FIXTURE_PASSWORD);
 
   const users = [
     { id: devId('u', 1), username: 'test_lead', email: 'test_lead@testify.local', role: 'Test Lead' },

@@ -1,6 +1,7 @@
 import type { Kysely, Selectable, Insertable, Updateable } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import crypto from 'node:crypto';
+import { promisify } from 'node:util';
 import type { Database, UsersTable } from '../types.js';
 import { validatePasswordPolicy } from '@testify/core';
 import type { RoleName } from './role.repository.js';
@@ -25,16 +26,49 @@ export interface UpdateCredentialsInput {
   newPassword?: string;
 }
 
-export function hashPassword(password: string, saltHex?: string): { hash: string; salt: string } {
-  const salt = saltHex || crypto.randomBytes(16).toString('hex');
-  const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512');
-  return { hash: derivedKey.toString('hex'), salt };
+/**
+ * Passwords are stored as `pbkdf2_sha512$<iterations>$<salt>$<key>` (hex): PBKDF2-HMAC-SHA512 with
+ * a 16-byte random salt and a 64-byte key, at OWASP's recommended 210,000 iterations. Hashes made
+ * before 2026-10-22 are `<salt>:<key>` at 100,000 iterations; they still verify, and
+ * verifyCredentials re-hashes them at today's setting when their user next signs in.
+ * Hashing runs on Node's thread pool, so a sign-in doesn't hold up other requests.
+ */
+export const PASSWORD_HASH_ITERATIONS = 210_000;
+const LEGACY_HASH_ITERATIONS = 100_000;
+const pbkdf2 = promisify(crypto.pbkdf2);
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const key = await pbkdf2(password, salt, PASSWORD_HASH_ITERATIONS, 64, 'sha512');
+  return `pbkdf2_sha512$${PASSWORD_HASH_ITERATIONS}$${salt}$${key.toString('hex')}`;
 }
 
-export function verifyPassword(password: string, storedHash: string, salt: string): boolean {
-  const { hash } = hashPassword(password, salt);
-  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(storedHash, 'hex'));
+function parsePasswordHash(stored: string): { iterations: number; salt: string; key: Buffer } | null {
+  const current = /^pbkdf2_sha512\$(\d+)\$([0-9a-f]+)\$([0-9a-f]+)$/.exec(stored);
+  if (current) return { iterations: Number(current[1]), salt: current[2], key: Buffer.from(current[3], 'hex') };
+  const legacy = /^([0-9a-f]+):([0-9a-f]+)$/.exec(stored);
+  if (legacy) return { iterations: LEGACY_HASH_ITERATIONS, salt: legacy[1], key: Buffer.from(legacy[2], 'hex') };
+  return null;
 }
+
+/** Whether `password` matches a stored hash (either format). */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parsed = parsePasswordHash(stored);
+  if (!parsed || parsed.key.length === 0 || parsed.iterations < 1) return false;
+  const key = await pbkdf2(password, parsed.salt, parsed.iterations, parsed.key.length, 'sha512');
+  return crypto.timingSafeEqual(key, parsed.key);
+}
+
+/** True when a stored hash was made with weaker settings than today's. */
+export function passwordNeedsRehash(stored: string): boolean {
+  const parsed = parsePasswordHash(stored);
+  return !parsed || !stored.startsWith('pbkdf2_sha512$') || parsed.iterations < PASSWORD_HASH_ITERATIONS;
+}
+
+/** A hash of no one's password, checked when a sign-in names no account, so that answer takes as
+ * long as a wrong password would (the time doesn't tell which usernames exist). */
+let decoyHash: Promise<string> | null = null;
+const getDecoyHash = () => (decoyHash ??= hashPassword(crypto.randomBytes(16).toString('hex')));
 
 export class UserRepository {
   constructor(private db: Kysely<Database>) {}
@@ -66,13 +100,13 @@ export class UserRepository {
 
     const now = new Date().toISOString();
     const adminId = '0191c4d0-0000-7000-8000-000000000001';
-    const { hash, salt } = hashPassword(options.password);
+    const passwordHash = await hashPassword(options.password);
 
     const adminUser: NewUser = {
       id: adminId,
       username: 'admin',
       email: 'admin@testify.local',
-      password_hash: `${salt}:${hash}`,
+      password_hash: passwordHash,
       status: 'ACTIVE',
       must_change_password: options.mustChangePassword ?? false,
       created_at: now,
@@ -104,13 +138,13 @@ export class UserRepository {
 
     const now = new Date().toISOString();
     const id = input.id || uuidv7();
-    const { hash, salt } = hashPassword(input.password);
+    const passwordHash = await hashPassword(input.password);
 
     const newUser: NewUser = {
       id,
       username: input.username,
       email: input.email,
-      password_hash: `${salt}:${hash}`,
+      password_hash: passwordHash,
       status: input.status ?? 'ACTIVE',
       created_at: now,
       updated_at: now,
@@ -167,8 +201,7 @@ export class UserRepository {
       if (!validation.valid) {
         throw new Error(`PASSWORD_POLICY_VIOLATION: ${validation.reason}`);
       }
-      const { hash, salt } = hashPassword(input.newPassword);
-      updateData.password_hash = `${salt}:${hash}`;
+      updateData.password_hash = await hashPassword(input.newPassword);
       updateData.must_change_password = false;
     }
 
@@ -186,11 +219,11 @@ export class UserRepository {
     if (!validation.valid) {
       throw new Error(`PASSWORD_POLICY_VIOLATION: ${validation.reason}`);
     }
-    const { hash, salt } = hashPassword(newPassword);
+    const passwordHash = await hashPassword(newPassword);
     await this.db
       .updateTable('users')
       .set({
-        password_hash: `${salt}:${hash}`,
+        password_hash: passwordHash,
         must_change_password: true,
         failed_login_count: 0,
         locked_until: null,
@@ -232,20 +265,30 @@ export class UserRepository {
   /** True when `password` is this user's current password. */
   async isCurrentPassword(userId: string, password: string): Promise<boolean> {
     const user = await this.findById(userId);
-    const [salt, storedHash] = user?.password_hash.split(':') ?? [];
-    return !!salt && !!storedHash && verifyPassword(password, storedHash, salt);
+    return !!user && (await verifyPassword(password, user.password_hash));
   }
 
+  /**
+   * The user these credentials sign in, or null. The password is checked even for an unknown or
+   * disabled account, so every refusal takes about as long. A hash made with older settings is
+   * replaced by one at today's (see hashPassword).
+   */
   async verifyCredentials(identifier: string, password: string): Promise<User | null> {
     const user = await this.findByUsernameOrEmail(identifier);
-    if (!user || user.status === 'DISABLED') {
+    if (!user) {
+      await verifyPassword(password, await getDecoyHash());
       return null;
     }
 
-    const [salt, storedHash] = user.password_hash.split(':');
-    if (!salt || !storedHash) return null;
+    const isValid = await verifyPassword(password, user.password_hash);
+    if (!isValid || user.status === 'DISABLED') return null;
 
-    const isValid = verifyPassword(password, storedHash, salt);
-    return isValid ? user : null;
+    if (passwordNeedsRehash(user.password_hash)) {
+      const upgraded = await hashPassword(password);
+      // Only if it hasn't changed meanwhile (a concurrent password change wins).
+      await this.db.updateTable('users').set({ password_hash: upgraded }).where('id', '=', user.id).where('password_hash', '=', user.password_hash).execute();
+      return { ...user, password_hash: upgraded };
+    }
+    return user;
   }
 }

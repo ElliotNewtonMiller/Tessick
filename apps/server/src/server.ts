@@ -35,6 +35,7 @@ import { runDueSchedules } from './services/reportEmailService.js';
 import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, ConfigError } from './config.js';
 import { loggerOptions, registerRequestLogging, registerHealthRoute } from './observability.js';
 import { registerWebApp } from './webApp.js';
+import { registerSecurityHeaders } from './securityHeaders.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
 import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
@@ -63,6 +64,8 @@ export async function createServer(
   // `logStream` to read the log.
   const app = Fastify({ ...loggerOptions(resolveLogLevel(), options.logStream), trustProxy: process.env.TRUST_PROXY === 'true' });
   registerRequestLogging(app);
+  // Browser security headers (Content-Security-Policy, no framing, HSTS over HTTPS) on every reply.
+  registerSecurityHeaders(app);
   // Per-process rate limits for API tokens, exports and report emails (services/rateLimits.ts).
   app.decorate('rateLimits', createRateLimits());
   // Unexpected errors (database errors, bugs) are logged here and answered with a generic

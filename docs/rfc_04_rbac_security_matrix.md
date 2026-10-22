@@ -144,7 +144,7 @@ Every role, override, status and password change in the Admin Panel goes through
 Testify has two kinds of credentials: **sign-ins** for people, and **machine API tokens** for CI pipelines and agents.
 
 ### 4.1 Interactive User Sessions
-- **Passwords** are checked against a password policy (`packages/core/src/security/passwordPolicy.ts`) and stored as a PBKDF2-SHA512 hash (100,000 iterations) with a per-user salt.
+- **Passwords** are checked against a password policy (`packages/core/src/security/passwordPolicy.ts`) and stored as a PBKDF2-SHA512 hash at 210,000 iterations (OWASP's recommendation) with a 16-byte random salt, as `pbkdf2_sha512$<iterations>$<salt>$<key>` (`UserRepository`). Hashes from before 2026-10-22 (100,000 iterations, `<salt>:<key>`) still work and are re-hashed at the current setting when their user next signs in. Hashing runs on Node's thread pool, so sign-ins don't stall other requests. A sign-in naming an unknown account still checks a password, so response times don't reveal which usernames exist.
 - **Sign-in tokens:** HMAC-SHA256 JWTs carrying `sub` (user id), `username`, `sid` (session id) and `exp`, valid for 7 days, signed with `JWT_SECRET`. The web app keeps its token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` over HTTPS) and sends `X-Testify-Client: web` on every change, as a CSRF guard. Scripts send the token as `Authorization: Bearer`.
 - **Server-side sessions:** every token names a session row (`sessions` table), checked on every request. A session ends when any of these happens:
   - 8 hours pass without a request (each request extends it);
@@ -389,6 +389,17 @@ Mitigations:
 - Only the event is sent: no credentials, and the receiver's answer is kept only as its first 2 KB in the delivery log, visible to `WEBHOOK_MANAGE` holders.
 - Each delivery is signed (HMAC-SHA256 with a per-webhook secret, encrypted at rest with `SECRETS_KEY`, shown once), so receivers can reject forgeries and replays.
 - Test content in Slack-format messages is escaped, so it can't mention `@channel` or add links.
+
+#### 8. Browser Attacks: Cross-Site Scripting, Clickjacking, Downgrade
+- **Risk:** Test content (titles, steps, notes, failure messages, imported files) is text from users and CI. Shown unsafely, it could run script in another user's browser and act with their session. Another site could also show Testify in a hidden frame to trick clicks, or an attacker on the network could strip HTTPS.
+- **Mitigation:**
+  - The web app is React, which escapes every value it displays; it never inserts raw HTML (`dangerouslySetInnerHTML` isn't used). Imported HTML (TestLink) is reduced to plain text.
+  - Every reply carries browser security headers (`apps/server/src/securityHeaders.ts`):
+    - a Content-Security-Policy. The web app's page may load only its own scripts and API, and Google Fonts. Inline styles are allowed, inline scripts aren't. Every other reply loads nothing. The `/docs` page keeps the policy its library sets.
+    - `frame-ancestors 'none'` and `X-Frame-Options: DENY` (no framing), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`, and a `Permissions-Policy` turning off camera, microphone, location, payment and USB.
+    - `Strict-Transport-Security: max-age=31536000` on replies served over HTTPS (through a proxy with `TRUST_PROXY=true`), so browsers then refuse plain HTTP. Subdomains aren't included, since they may be other services.
+  - The session cookie is `HttpOnly` (scripts can't read it) and `SameSite=Strict`, and every change needs the `X-Testify-Client` header (CSRF).
+- **Gaps:** the development web server (Vite, port 3000) doesn't send these headers; only the production server does.
 
 ---
 

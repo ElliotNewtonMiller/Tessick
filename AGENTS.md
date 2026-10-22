@@ -74,7 +74,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
-  src/{config,errors,audit,observability,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
+  src/{config,errors,audit,observability,securityHeaders,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
   scripts/build.mjs        esbuild bundle (workspace packages bundled, other dependencies external).
 apps/web/          React + Vite. src/App.tsx (~680 lines) calls the hooks, provides the context, lays out panes and modals, wires hotkeys.
   src/hooks/       One hook per feature: useSession, useScope (project/plan/run), useExecutionWorkspace, useSpecTree,
@@ -136,6 +136,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - The web app uses an HttpOnly `testify_session` cookie (`POST /auth/login` with `session: "cookie"`). Its writes must send `X-Testify-Client: web` (CSRF guard).
 - Scripts use `Authorization: Bearer <jwt>` from a plain login.
 - Every sign-in is a server-side session (`sessions` table): 8 hours idle, 7 days maximum.
+- Passwords are PBKDF2-SHA512 at 210,000 iterations (`hashPassword` in `user.repository.ts`, stored as `pbkdf2_sha512$<iterations>$<salt>$<key>`). Older hashes are upgraded when their user signs in. An unknown username still costs a password check, so timing doesn't reveal accounts.
 - Sign-out, a password change (which needs the current password), an admin's password reset, and disabling a user all end sessions.
 
 **Lockouts:**
@@ -205,6 +206,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Rate limits live in `services/rateLimits.ts`, per process: 120 exports per hour and 60 report emails per hour per caller.
   - Imports: at most 50 MB per file, 2 at a time.
   - CSV exports neutralize spreadsheet formulas.
+- **Browser security headers** (`securityHeaders.ts`) go on every reply: a Content-Security-Policy (the web app's page: its own scripts and API plus Google Fonts; everything else: nothing; a reply that sets its own, like `/docs`, keeps it), no framing, `nosniff`, `no-referrer`, and HSTS over HTTPS. Anything new the web app loads from elsewhere (a CDN, an image host) must be added to its policy there, or browsers block it.
 - **Sending responses:** only set `Content-Type: application/json` when there's a body. Fastify answers 400 to an empty JSON body.
 
 ## Web conventions
