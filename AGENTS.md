@@ -113,6 +113,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Re-recording a case that already has a result in the run needs `EXECUTE_OVERWRITE`. The exception is re-sending your own latest verdict (adding notes).
 - Results are refused on a CLOSED run and on retired links.
 - A run auto-closes the first time every case has a result, once only (marked by its `RUN_AUTO_CLOSED` audit row; older runs by `BUILD_AUTO_CLOSED`). Only results recorded one at a time trigger it: CI batches and JUnit uploads never auto-close a run (a build may send several files or be re-run); `close_run=true` closes it.
+- Fail and Block in the web app send `defer_auto_close`, so a run completed by them waits for their notes. The notes' result closes it, or `POST /runs/:runId/auto-close` does when the person leaves the case without notes (`useExecution`).
 - Manual (UI) results are never timed: duration is null. Only batch/CI results carry durations.
 
 **Custom fields:**

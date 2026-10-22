@@ -18,6 +18,21 @@ import { buildExecutionCaseOrder } from "../utils/executionCaseOrder";
 import { flattenSuiteOptions } from "../utils/suiteTree";
 import { authHeaders, jsonHeaders } from "../utils/session";
 import { api } from "../api/routes";
+import { errorCode, errorMessage } from "../api/errors";
+
+/** Notes the server didn't save, shown in the "Notes not saved" banner so they aren't lost. */
+export interface UnsavedNotes {
+  externalId: string;
+  notes: string;
+  reason: string;
+}
+
+/** A result whose run would have auto-closed, kept open until its notes arrive. */
+interface DeferredAutoClose {
+  runId: string;
+  resultId: string;
+  testPlanCaseId: string;
+}
 
 export interface ExecutionOptions {
   executionWorkspace: ExecutionWorkspace;
@@ -71,6 +86,9 @@ export function useExecution({
   // a status-bar message, especially when recording with the keyboard.
   // The yellow "Not permitted" banner's message, or null when it's hidden.
   const [executionDenied, setExecutionDenied] = useState<string | null>(null);
+  // Notes a refused or failed submit didn't save (null = none): a banner shows them with the
+  // reason, since the notes box has moved on (Ctrl+Enter advances) or been reset.
+  const [unsavedNotes, setUnsavedNotes] = useState<UnsavedNotes | null>(null);
   const notesInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Which verdict the notes textarea is currently "for" -- set whenever Fail/Block is
@@ -96,7 +114,68 @@ export function useExecution({
   // A refusal in one project says nothing about the next one.
   useEffect(() => {
     setExecutionDenied(null);
+    setUnsavedNotes(null);
   }, [selectedProjectId]);
+
+  const markRunClosed = useCallback(
+    (runId: string) => setRunsList((prev) => prev.map((r) => (r.id === runId ? { ...r, status: "CLOSED" } : r))),
+    [setRunsList],
+  );
+
+  // Fail and Block focus the notes box, so they record their result with the run's auto-close
+  // deferred: closing it now would make the server refuse the notes that follow (a closed run
+  // takes no results). The notes' own result then closes it; if the person leaves the case
+  // without notes (or the tab), finishDeferredAutoClose asks the server to do it.
+  const deferredAutoCloseRef = useRef<DeferredAutoClose | null>(null);
+  // Bumped by every result sent: a deferral whose answer arrives after a later result was sent
+  // in the same run is stale (that later result runs the auto-close check itself).
+  const submitSeqRef = useRef(0);
+  // Where the person is now, for a deferral whose answer arrives after they've moved on.
+  const activePlanCaseId = activeCase?.test_plan_case_id ?? null;
+  const hereRef = useRef({ mode: workspaceMode, runId: selectedRunId, planCaseId: activePlanCaseId });
+  hereRef.current = { mode: workspaceMode, runId: selectedRunId, planCaseId: activePlanCaseId };
+
+  const finishDeferredAutoClose = useCallback(
+    (keepalive = false) => {
+      const deferred = deferredAutoCloseRef.current;
+      if (!deferred) return;
+      deferredAutoCloseRef.current = null;
+      fetch(api.runAutoClose(deferred.runId), {
+        method: "POST",
+        headers: jsonHeaders(),
+        body: JSON.stringify({ test_result_id: deferred.resultId }),
+        // Still sent when the tab is closing (pagehide).
+        keepalive,
+      })
+        .then(async (res) => {
+          const data = res.ok ? await res.json().catch(() => ({})) : {};
+          if (data.run_status === "CLOSED") markRunClosed(deferred.runId);
+        })
+        .catch(() => {});
+    },
+    [markRunClosed],
+  );
+
+  // Leaving the case (another case, another run, Spec mode) without submitting notes.
+  useEffect(() => {
+    const deferred = deferredAutoCloseRef.current;
+    if (
+      deferred &&
+      (workspaceMode !== "EXECUTION" || deferred.runId !== selectedRunId || deferred.testPlanCaseId !== activePlanCaseId)
+    ) {
+      finishDeferredAutoClose();
+    }
+  }, [workspaceMode, selectedRunId, activePlanCaseId, finishDeferredAutoClose]);
+
+  // Leaving the page, or the workspace (signing out).
+  useEffect(() => {
+    const onPageHide = () => finishDeferredAutoClose(true);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      finishDeferredAutoClose();
+    };
+  }, [finishDeferredAutoClose]);
 
   // Custom field values for whichever case is active in Execution mode -- shown read-only
   // under the steps. Same clear-before-fetch discipline as the Spec-mode case's fetch in App (the
@@ -150,6 +229,7 @@ export function useExecution({
       if (!targetCase || !workspace) return;
       if (verdictBlockReason) {
         showToast(verdictBlockReason);
+        if (notes?.trim()) setUnsavedNotes({ externalId: targetCase.external_id, notes, reason: verdictBlockReason });
         return;
       }
 
@@ -158,6 +238,21 @@ export function useExecution({
       // note typed before hitting Pass/Skip shouldn't be silently discarded just because the
       // verdict isn't FAILED/BLOCKED.
       const resolvedNotes = notes || (failureNotes.trim() ? failureNotes : null);
+      // Fail/Block (not their notes): notes are coming, so don't let this result close the run.
+      const deferAutoClose = notes === undefined && (verdict === "FAILED" || verdict === "BLOCKED");
+      const runId = selectedRunId;
+      const seq = ++submitSeqRef.current;
+      // Any other result in the run runs the auto-close check itself, so it takes over a
+      // deferral -- cleared now, before the request, so leaving the case (Ctrl+Enter advances
+      // at once) can't close the run ahead of these notes. Restored if this one fails.
+      const takenOver = !deferAutoClose && deferredAutoCloseRef.current?.runId === runId ? deferredAutoCloseRef.current : null;
+      if (takenOver) deferredAutoCloseRef.current = null;
+      // A refused or failed submit: put back the deferral it took over, and if it carried
+      // notes, show them (they'd otherwise vanish with the optimistic update).
+      const notSaved = (reason: string) => {
+        if (takenOver && !deferredAutoCloseRef.current) deferredAutoCloseRef.current = takenOver;
+        if (resolvedNotes) setUnsavedNotes({ externalId: targetCase.external_id, notes: resolvedNotes, reason });
+      };
 
       // 1. OPTIMISTIC UI UPDATE (<10ms) -- also updates latest_notes, not just
       // latest_verdict, so returning to this case (without a full refetch) shows the note
@@ -193,7 +288,7 @@ export function useExecution({
       try {
         // The run selected in the dropdown (workspace.run is always the plan's newest run, so
         // using it recorded results against the wrong run whenever an older run was selected).
-        const response = await fetch(api.runResults(selectedRunId), {
+        const response = await fetch(api.runResults(runId), {
           method: "POST",
           headers: jsonHeaders(),
           body: JSON.stringify({
@@ -201,6 +296,7 @@ export function useExecution({
             verdict,
             status: "COMPLETED",
             notes: resolvedNotes,
+            ...(deferAutoClose ? { defer_auto_close: true } : {}),
             // No duration: manual execution isn't timed (this used to send a random
             // 200-1000ms, which made Reports' "Slowest" table meaningless).
           }),
@@ -212,11 +308,14 @@ export function useExecution({
             `Connected (Recorded ${targetCase.external_id} -> ${verdict})`,
           );
           const data = await response.json().catch(() => ({}));
-          const recordedRunId = selectedRunId;
-          if (data.run_status === "CLOSED") {
-            setRunsList((prev) =>
-              prev.map((r) => (r.id === recordedRunId ? { ...r, status: "CLOSED" } : r)),
-            );
+          if (data.run_status === "CLOSED") markRunClosed(runId);
+          if (data.auto_close_deferred && data.result?.id && seq === submitSeqRef.current) {
+            deferredAutoCloseRef.current = { runId, resultId: data.result.id, testPlanCaseId: targetCase.test_plan_case_id };
+            // Already moved on (the answer came after the person did): finish it now.
+            const here = hereRef.current;
+            if (here.mode !== "EXECUTION" || here.runId !== runId || here.planCaseId !== targetCase.test_plan_case_id) {
+              finishDeferredAutoClose();
+            }
           }
         } else if (response.status === 401) {
           // Session expired or token invalid -- the server now requires a real, current
@@ -228,23 +327,31 @@ export function useExecution({
         } else if (response.status === 403) {
           revertOptimisticUpdate();
           const denial = await response.json().catch(() => ({}));
-          if (denial.code === "RESULT_OVERWRITE_NOT_PERMITTED") {
-            setSyncStatus("Not permitted: your role can't change an existing result");
-            setExecutionDenied(OVERWRITE_DENIED_MESSAGE);
-          } else {
-            setSyncStatus("Not permitted: your role can't record results");
-            setExecutionDenied(RUN_DENIED_MESSAGE);
-          }
+          const message =
+            denial.code === "RESULT_OVERWRITE_NOT_PERMITTED" ? OVERWRITE_DENIED_MESSAGE : RUN_DENIED_MESSAGE;
+          setSyncStatus(
+            denial.code === "RESULT_OVERWRITE_NOT_PERMITTED"
+              ? "Not permitted: your role can't change an existing result"
+              : "Not permitted: your role can't record results",
+          );
+          // With notes, one banner: "Notes not saved", giving this reason.
+          notSaved(message);
+          if (!resolvedNotes) setExecutionDenied(message);
         } else {
           revertOptimisticUpdate();
-          setSyncStatus("API Error recording verdict");
+          const problem = await response.json().catch(() => ({}));
+          if (errorCode(problem) === "RUN_CLOSED") markRunClosed(runId);
+          setSyncStatus(`Not recorded: ${targetCase.external_id}`);
+          notSaved(errorMessage(problem) || `The server answered ${response.status}.`);
+          if (!resolvedNotes) showToast(errorMessage(problem) || "The result wasn't recorded.");
         }
       } catch (err) {
         revertOptimisticUpdate();
         setSyncStatus("Network Error");
+        notSaved("The server couldn't be reached.");
       }
     },
-    [activeCase, workspace, failureNotes, verdictBlockReason, selectedRunId, showToast],
+    [activeCase, workspace, failureNotes, verdictBlockReason, selectedRunId, showToast, markRunClosed, finishDeferredAutoClose],
   );
 
   // Execution mode: indices into workspace.cases that pass the active search/filter (all of
@@ -338,6 +445,8 @@ export function useExecution({
     syncStatus,
     executionDenied,
     setExecutionDenied,
+    unsavedNotes,
+    setUnsavedNotes,
     execCaseCustomFieldValues,
     activeExecCaseId,
     notesInputRef,

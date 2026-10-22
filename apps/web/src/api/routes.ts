@@ -35,6 +35,7 @@ export const api = {
   planRuns: (planId: string) => `${V1}/plans/${enc(planId)}/runs`,
   run: (runId: string, forced?: boolean) => force(`${V1}/runs/${enc(runId)}`, forced),
   runResults: (runId: string) => `${V1}/runs/${enc(runId)}/results`,
+  runAutoClose: (runId: string) => `${V1}/runs/${enc(runId)}/auto-close`,
 
   // Plan membership and the Execute queue
   planCases: (planId: string, params: { test_run_id?: string } = {}) => withQuery(`${V1}/plans/${enc(planId)}/cases`, params),

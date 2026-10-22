@@ -64,8 +64,16 @@ const latestVersion = (n: number) => {
 type Call = { method: string; path: string; body: any };
 let calls: Call[] = [];
 
-/** Serves the fixture above. `signedIn: null` makes /auth/me answer 401 (signed out). */
-function installApi(opts: { signedIn: ReturnType<typeof user> | null; executionStatus?: number; projectPermissions?: string[] }) {
+/** Serves the fixture above. `signedIn: null` makes /auth/me answer 401 (signed out).
+ *  `completesRun`: each result completes the run (it closes unless deferred). `notesStatus`:
+ *  how results carrying notes are answered (422: the run is closed). */
+function installApi(opts: {
+  signedIn: ReturnType<typeof user> | null;
+  executionStatus?: number;
+  projectPermissions?: string[];
+  completesRun?: boolean;
+  notesStatus?: number;
+}) {
   calls = [];
   const json = (data: unknown, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -88,11 +96,17 @@ function installApi(opts: { signedIn: ReturnType<typeof user> | null; executionS
     if (latest) return json(latestVersion(Number(latest[1])));
     if (/custom-fields$/.test(p)) return json({ values: [] });
     if (p === '/api/v1/runs/bld-1/results' && method === 'POST') {
+      if (body.notes && opts.notesStatus === 422) {
+        return json({ status: 422, code: 'RUN_CLOSED', detail: "Test run (ID: bld-1) is closed. Results can't be added to a closed run; reopen it first." }, 422);
+      }
       const status = opts.executionStatus ?? 201;
+      const deferred = Boolean(opts.completesRun && body.defer_auto_close);
+      const runStatus = opts.completesRun && !deferred ? 'CLOSED' : 'OPEN';
       return status === 201
-        ? json({ result: { id: 'exe-1', verdict: body.verdict, status: 'COMPLETED', created_at: T }, run_status: 'OPEN' }, 201)
+        ? json({ result: { id: 'exe-1', verdict: body.verdict, status: 'COMPLETED', created_at: T }, run_status: runStatus, auto_close_deferred: deferred }, 201)
         : json({ status, code: 'FORBIDDEN', detail: 'Forbidden: Insufficient privileges' }, status);
     }
+    if (p === '/api/v1/runs/bld-1/auto-close' && method === 'POST') return json({ run_status: 'CLOSED' });
     return json({ status: 404, code: 'NOT_FOUND', detail: `no fixture for ${method} ${p}` }, 404);
   });
   vi.stubGlobal('fetch', fake);
@@ -108,8 +122,13 @@ afterEach(() => {
 });
 
 /** Signs in (via /auth/me) and waits until the workspace has loaded the fixture's scope. */
-async function renderSignedIn(signedIn = ADMIN, executionStatus?: number, projectPermissions?: string[]) {
-  installApi({ signedIn, executionStatus, projectPermissions });
+async function renderSignedIn(
+  signedIn = ADMIN,
+  executionStatus?: number,
+  projectPermissions?: string[],
+  more: { completesRun?: boolean; notesStatus?: number } = {},
+) {
+  installApi({ signedIn, executionStatus, projectPermissions, ...more });
   render(<App />);
   await screen.findByRole('button', { name: /Sign Out/ });
   await waitFor(() => expect(screen.getByDisplayValue('Smoke Project (SMK)')).toBeTruthy());
@@ -195,5 +214,62 @@ describe('App smoke tests', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Pass$/ }));
     const banner = await screen.findByRole('alert');
     expect(within(banner).getByText(/Not permitted/)).toBeTruthy();
+  });
+  const resultPosts = () => calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/runs/bld-1/results');
+  const autoClosePosts = () => calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/runs/bld-1/auto-close');
+
+  /** Execute mode, Fail on the active case (SMK-1), then the notes box with `text` typed. */
+  async function failAndType(text: string) {
+    fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }));
+    for (const c of CASES) await screen.findAllByText(c.title);
+    fireEvent.click(await screen.findByRole('button', { name: /^Fail$/ }));
+    await waitFor(() => expect(resultPosts()).toHaveLength(1));
+    const notes = screen.getByPlaceholderText(/Type execution details or notes/) as HTMLTextAreaElement;
+    notes.focus();
+    fireEvent.change(notes, { target: { value: text } });
+    return notes;
+  }
+
+  it('Fail on the last missing result keeps the run open; Ctrl+Enter saves the notes, which close it', async () => {
+    await renderSignedIn(ADMIN, undefined, undefined, { completesRun: true });
+    const notes = await failAndType('Card form never loads');
+    expect(resultPosts()[0].body).toMatchObject({ test_plan_case_id: 'tpc-1', verdict: 'FAILED', defer_auto_close: true });
+    // The run is still open, so the notes box still takes notes.
+    expect(notes.disabled).toBe(false);
+    expect(screen.queryByDisplayValue(/\[CLOSED\]/)).toBeNull();
+
+    fireEvent.keyDown(notes, { key: 'Enter', ctrlKey: true });
+    await waitFor(() => expect(resultPosts()).toHaveLength(2));
+    expect(resultPosts()[1].body).toMatchObject({ test_plan_case_id: 'tpc-1', verdict: 'FAILED', notes: 'Card form never loads' });
+    expect(resultPosts()[1].body).not.toHaveProperty('defer_auto_close');
+    // The notes' result closed the run; no separate auto-close was needed.
+    await waitFor(() => expect(screen.getByDisplayValue(/Run 1 \[CLOSED\]/)).toBeTruthy());
+    expect(autoClosePosts()).toHaveLength(0);
+  });
+
+  it('leaving a failed case without notes finishes the deferred auto-close', async () => {
+    await renderSignedIn(ADMIN, undefined, undefined, { completesRun: true });
+    fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }));
+    for (const c of CASES) await screen.findAllByText(c.title);
+    fireEvent.click(await screen.findByRole('button', { name: /^Fail$/ }));
+    await waitFor(() => expect(resultPosts()).toHaveLength(1));
+    expect(autoClosePosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByText('Lock out after failures'));
+    await waitFor(() => expect(autoClosePosts()).toHaveLength(1));
+    expect(autoClosePosts()[0].body).toEqual({ test_result_id: 'exe-1' });
+    await waitFor(() => expect(screen.getByDisplayValue(/Run 1 \[CLOSED\]/)).toBeTruthy());
+  });
+
+  it('a refused note shows the "Notes not saved" banner with the reason and the text', async () => {
+    await renderSignedIn(ADMIN, undefined, undefined, { notesStatus: 422 });
+    const notes = await failAndType('Card form never loads');
+    fireEvent.keyDown(notes, { key: 'Enter', ctrlKey: true });
+    const banner = await screen.findByRole('alert');
+    expect(within(banner).getByText(/Notes not saved/)).toBeTruthy();
+    expect(within(banner).getByText(/SMK-1 weren't saved\. Test run \(ID: bld-1\) is closed/)).toBeTruthy();
+    expect(within(banner).getByText('Card form never loads')).toBeTruthy();
+    fireEvent.click(within(banner).getByRole('button', { name: 'OK' }));
+    expect(screen.queryByText(/Notes not saved/)).toBeNull();
   });
 });

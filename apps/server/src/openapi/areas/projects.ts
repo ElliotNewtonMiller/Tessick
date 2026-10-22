@@ -144,7 +144,8 @@ export const recordResultSchema = {
   summary: 'Record one result',
   description:
     'What Execute mode\'s verdict buttons and hotkeys call. Needs `EXECUTE_RUN`; changing a case\'s existing result in the run (a different verdict, or someone else\'s) needs `EXECUTE_OVERWRITE` too. ' +
-    'Results are never edited: a new one becomes the latest. Manual results are never timed. The run closes itself the first time every case in the plan has a result (`run_status`).',
+    'Results are never edited: a new one becomes the latest. Manual results are never timed. The run closes itself the first time every case in the plan has a result (`run_status`), ' +
+    'unless `defer_auto_close` is true: then it stays open (`auto_close_deferred`) until another result is recorded one at a time or `POST /api/v1/runs/{runId}/auto-close` is called.',
   params: idParams('runId'),
   body: handlerValidated({
     type: 'object',
@@ -154,6 +155,10 @@ export const recordResultSchema = {
       verdict: oneOf(VERDICTS),
       status: oneOf(RESULT_STATUSES, 'Default COMPLETED.'),
       notes: { type: ['string', 'null'], maxLength: 20000 },
+      defer_auto_close: {
+        type: 'boolean',
+        description: "Leave the run open even if this result completes it. The web app sends it for Fail and Block, whose notes follow (a closed run would refuse them). Default false.",
+      },
       step_results: {
         type: 'array',
         description: 'Steps of the version the case is pinned to in the plan',
@@ -174,10 +179,14 @@ export const recordResultSchema = {
     201: {
       description: 'Recorded',
       type: 'object',
-      required: ['result', 'run_status'],
+      required: ['result', 'run_status', 'auto_close_deferred'],
       properties: {
         result: { $ref: 'RecordedResult#' },
         run_status: oneOf(RUN_STATUSES, 'CLOSED if this result just closed the run.'),
+        auto_close_deferred: {
+          type: 'boolean',
+          description: 'True when this result completed the run but `defer_auto_close` kept it open: finish with `POST /api/v1/runs/{runId}/auto-close`.',
+        },
       },
     },
     ...authedErrors(
@@ -185,6 +194,37 @@ export const recordResultSchema = {
       [403, 'Missing `EXECUTE_RUN`, or `RESULT_OVERWRITE_NOT_PERMITTED`'],
       404,
       [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `CASE_REMOVED_FROM_PLAN`']
+    ),
+  },
+};
+
+export const finishAutoCloseSchema = {
+  tags: ['Runs and results'],
+  summary: 'Finish a deferred auto-close',
+  description:
+    'Closes the run if every case in its plan has a result and it has never auto-closed: the auto-close that a result recorded with `defer_auto_close` put off. ' +
+    'The web app calls it when someone leaves a failed or blocked case without submitting notes. Needs `EXECUTE_RUN`, and the result must be your own, recorded one at a time in this run.',
+  params: idParams('runId'),
+  body: handlerValidated({
+    type: 'object',
+    required: ['test_result_id'],
+    properties: {
+      test_result_id: { type: 'string', description: 'The result whose auto-close was deferred (`result.id` from recording it)' },
+    },
+  }),
+  response: {
+    200: {
+      description: 'Checked',
+      type: 'object',
+      required: ['run_status'],
+      properties: {
+        run_status: oneOf(RUN_STATUSES, 'CLOSED if the run is now closed (by this call or before it).'),
+      },
+    },
+    ...authedErrors(
+      [400, '`test_result_id` is missing'],
+      [403, 'Missing `EXECUTE_RUN`, or `AUTO_CLOSE_NOT_YOURS`: someone else\'s result, or one from CI'],
+      404
     ),
   },
 };

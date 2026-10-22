@@ -463,7 +463,7 @@ describe('Data export: definitions and execution results', () => {
       const summaries = JSON.parse(json.payload).suites.flatMap(function all(s: any): any[] { return [...s.cases, ...s.sub_suites.flatMap(all)]; }).map((c: any) => c.version.summary);
       expect(summaries).toContain('Before — after');
       expect(summaries).toContain('Escaped \\u2014 by the caller');
-      expect(json.payload).toContain('Before — after'); // the character itself, not —
+      expect(json.payload).toContain('Before — after'); // the character itself, not \u2014
 
       const csv = await app.inject({ method: 'POST', url: `/api/v1/projects/${seed.projectId}/exports/definitions`, headers: auth, payload: { format: 'STANDARD_CSV' } });
       expect(csv.payload).toContain('Before — after');

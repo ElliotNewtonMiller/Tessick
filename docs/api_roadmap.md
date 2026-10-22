@@ -12,7 +12,7 @@ Status values: **Not started**, **Planning**, **In progress**, **Done**, **Dropp
 ## Where the API stands (2026-10-12)
 
 **Good:**
-- **Coverage:** 113 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
+- **Coverage:** 114 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
 - **Security:** project-bound API tokens (`tf_ci_...`), permissions checked per project, rate limits and an audit log (RFC 04).
 - **CI:** a build uploads its JUnit XML report as it is (up to 20,000 tests), or sends JSON batches of up to 5,000 results, into a run named after the build (step 5).
 - **Consistent** (step 1, 2026-10-12): one address style, verbs and status codes, one error format, one name per id, "runs" and "results" throughout.
@@ -280,3 +280,4 @@ Many tools read that format, so the one file gives:
 | 2026-10-12 | Delivery is an outbox with claimed leases (several instances, at least once), retried after 1 min, 5 min, 30 min, 2 h, 8 h; one sender per webhook, so a dead receiver holds up only itself. | The per-webhook sender came from the live check: sending everything in one queue let one unreachable address delay every other webhook. |
 | 2026-10-14 | A webhook is paused automatically when every attempt has failed for 3 days (at least 10 attempts): a `WEBHOOK_AUTO_PAUSED` audit row and a note in the Webhooks tab; turning it on resumes it. | Decided with Elliot. |
 | 2026-10-14 | A Teams format: an Adaptive Card for Teams Workflows webhooks (Office 365 connectors are retired), with test content only in plain-text `TextRun`s. | |
+| 2026-10-15 | `defer_auto_close` on `POST /runs/{runId}/results`, and `POST /runs/{runId}/auto-close` to finish it: Fail/Block in the web app wait for their notes before the run auto-closes. | Decided with Elliot (over a grace exception for notes on a just-closed run, or recording Fail/Block only on submit): an auto-close that came first refused the notes. Finishing needs your own single result, so CI still never auto-closes. |

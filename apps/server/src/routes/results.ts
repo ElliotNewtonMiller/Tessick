@@ -9,7 +9,7 @@ import { requirePermission, requireAnyPermission, EXECUTION_READ_PERMISSIONS } f
 import { autoCloseRunIfComplete } from '../runAutoClose.js';
 import { actorType, requestOrigin } from '../audit.js';
 import { emitResultsRecorded, webhookActor } from '../services/webhookEvents.js';
-import { recordResultSchema, listRunResultsSchema, getResultSchema, RESULT_PAGE } from '../openapi/areas/projects.js';
+import { recordResultSchema, finishAutoCloseSchema, listRunResultsSchema, getResultSchema, RESULT_PAGE } from '../openapi/areas/projects.js';
 import { actorNames } from '../services/actorNames.js';
 import { commaList, readPage } from '../paging.js';
 import { VERDICTS } from '../openapi/schemas.js';
@@ -180,17 +180,52 @@ export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Data
         .execute();
     });
 
-    // 5. Webhooks, then auto-close the run once every case in its plan has a result.
+    // 5. Webhooks, then auto-close the run once every case in its plan has a result -- unless
+    // the caller defers it (the web app's Fail/Block, whose notes are still to come).
     await emitResultsRecorded(db, webhookActor(request.user), runId, 'UI', [{ test_case_id: planCase.test_case_id, verdict: body.verdict }]);
-    const runStatus = await autoCloseRunIfComplete(db, runId, {
+    const autoClose = await autoCloseRunIfComplete(db, runId, {
       id: actorId,
       type: request.user!.api_token ? 'SERVICE_ACCOUNT' : 'USER',
-    }, requestOrigin(request));
+    }, requestOrigin(request), { defer: body.defer_auto_close });
 
     return reply.status(201).send({
       result: { id: execId, test_run_id: runId, test_plan_case_id: body.test_plan_case_id, verdict: body.verdict, status: body.status, created_at: now },
-      run_status: runStatus,
+      run_status: autoClose.status,
+      auto_close_deferred: autoClose.deferred,
     });
+  });
+
+  // POST /api/v1/runs/:runId/auto-close -- the auto-close a result deferred (defer_auto_close),
+  // done now: the web app calls it when the person leaves a failed/blocked case without
+  // submitting notes. Only for the caller's own result recorded one at a time in this run, so it
+  // closes nothing that result couldn't have closed itself (CI uploads still never auto-close).
+  app.post('/api/v1/runs/:runId/auto-close', { schema: finishAutoCloseSchema, preHandler: requirePermission('EXECUTE_RUN', db, jwtSecret) }, async (request, reply) => {
+    const { runId } = request.params as { runId: string };
+    const resultId = (request.body as { test_result_id?: unknown } | undefined)?.test_result_id;
+    if (typeof resultId !== 'string' || !resultId.trim()) {
+      return sendError(reply, 400, 'test_result_id is required', {
+        invalid_params: [{ name: 'test_result_id', reason: 'is required' }],
+      });
+    }
+    const run = await db.selectFrom('test_runs').select('id').where('id', '=', runId).executeTakeFirst();
+    if (!run) return sendError(reply, 404, 'Run not found');
+    const result = await db
+      .selectFrom('test_results')
+      .select(['tester_id', 'source'])
+      .where('id', '=', resultId)
+      .where('test_run_id', '=', runId)
+      .executeTakeFirst();
+    if (!result) return sendError(reply, 404, 'Result not found in this run');
+    if (result.tester_id !== request.user!.id || result.source !== 'UI') {
+      return sendError(reply, 403, 'Only the person who recorded this result, one at a time, can finish its auto-close.', {
+        code: 'AUTO_CLOSE_NOT_YOURS',
+      });
+    }
+    const autoClose = await autoCloseRunIfComplete(db, runId, {
+      id: request.user!.id,
+      type: request.user!.api_token ? 'SERVICE_ACCOUNT' : 'USER',
+    }, requestOrigin(request));
+    return reply.status(200).send({ run_status: autoClose.status });
   });
 
   // ---- Reading results ----
