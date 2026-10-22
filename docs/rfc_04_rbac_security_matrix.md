@@ -46,7 +46,7 @@ Permissions are string constants named `<DOMAIN>_<ACTION>`, e.g. `SPEC_APPROVE`,
 | `RUN_MANAGE` | Planning | Create, edit, close, reopen and delete test runs (including CI creating a run by name with `run_name`). | **MEDIUM** |
 | `EXECUTE_RUN` | Execution | Record results (verdicts and notes) for test cases. | **MEDIUM** |
 | `EXECUTE_OVERWRITE` | Execution | Record a new result for a case that already has one in the run. Results are never edited; the new result becomes the latest. | **HIGH** |
-| `IMPORT_DATA` | Data | Import suites and cases (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON), including creating project-scoped custom fields while mapping. | **HIGH** |
+| `IMPORT_DATA` | Data | Import suites and cases (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON), including creating custom fields for that project while mapping. | **HIGH** |
 | `EXPORT_DATA` | Data | Export suites, cases and run results (JSON, CSV). | **HIGH** |
 | `REPORT_EMAIL` | Data | Email reports to any address and manage scheduled report emails. | **HIGH** |
 | `WEBHOOK_MANAGE` | Data | Set up webhooks that send the project's events to any address. Never grantable to an API token. | **HIGH** |

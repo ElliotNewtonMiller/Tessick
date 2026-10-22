@@ -120,7 +120,7 @@ flowchart TD
 - **Custom fields:** six types on test cases and suites (`packages/core/src/custom-fields/`), with required-field defaults and validation patterns.
 - **Sign-ins and accounts:** server-side sessions, the session cookie, lockouts and password resets.
 - **Different from the plan:**
-  - Custom fields are defined globally (`/api/v1/admin/custom-fields`), not under `/projects/{id}/custom-fields`; imports can still create project-scoped ones.
+  - Custom fields are defined globally (`/api/v1/admin/custom-fields`), not under `/projects/{id}/custom-fields`; a field applies to all projects or to chosen ones, and imports create fields for their project.
   - Role permissions are set by editing the role (`PATCH /api/v1/admin/roles/{roleId}`).
   - Projects have no settings form: `allow_draft_plan_linking` has no UI.
 

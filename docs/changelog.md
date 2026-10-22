@@ -2786,3 +2786,11 @@ Elliot asked that, when executing, the Suite Tree show only the folders that hol
 **Verified live** on a production build: a project with Checkout (› Payments, › Cart), Login and Search, and a plan with Payments' and Login's cases. Spec mode lists all five folders. Execute mode lists only Checkout › Payments and Login.
 
 Web tests (49) pass; typecheck clean.
+
+## Docs: stale references after today's changes (2026-10-22)
+
+A sweep for references made stale by today's work:
+- `api_roadmap.md`: 113 endpoints (the new `PUT /admin/custom-fields/:id/projects`).
+- RFC 04 (`IMPORT_DATA` row), `01_vertical_slices_roadmap.md` and the README: custom fields apply to all projects or chosen ones, and imports create fields for their project. These used to say "project-scoped".
+
+Everything else matched: CLAUDE.md and AGENTS.md are identical; RFC 01/02/03/04, the deployment guide and the API guides describe today's behavior.

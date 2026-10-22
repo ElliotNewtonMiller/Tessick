@@ -2,7 +2,7 @@
 
 Testify is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 
-- **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types.
+- **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types, for all projects or chosen ones.
 - **Execution**: test plans and test runs, with a keyboard-driven queue (`j`/`k` to move, `p`/`f`/`b`/`s` to record a verdict). CI systems send their JUnit XML reports, or results as JSON, through the API.
 - **Reports**: run summaries compared with the previous run, plan trends, flaky and slow tests, case history and breakdowns. They're available in the app, over the REST API, by email and over MCP for AI agents.
 - **Webhooks**: a project's events (a run finishing, tests failing, cases to review, imports) go to Slack, CI or your own code as they happen, signed, with retries.
