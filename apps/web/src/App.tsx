@@ -528,6 +528,8 @@ export default function App() {
         <AppHeader
           appView={appView}
           setAppView={setAppView}
+          workspaceMode={workspaceMode}
+          setWorkspaceMode={setWorkspaceMode}
           setImportWizardOpen={setImportWizardOpen}
           setExportModalOpen={setExportModalOpen}
           setAdminPanelOpen={setAdminPanelOpen}
@@ -574,7 +576,6 @@ export default function App() {
             suiteEditor={suiteEditor}
             execSuiteFilterId={execSuiteFilterId}
             setExecSuiteFilterId={setExecSuiteFilterId}
-            setWorkspaceMode={setWorkspaceMode}
             suiteNodes={suiteNodes}
             suiteTreeWidth={suiteTreeWidth}
             workspaceMode={workspaceMode}

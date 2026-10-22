@@ -2625,3 +2625,35 @@ Tests:
 - `/docs` renders all 112 operations. Its console shows one inline-style violation, under the policy its own library sets (`staticCSP`), which this change leaves alone. Nothing on the page is visibly affected.
 
 693 tests pass; typecheck clean.
+
+## A bigger header with the view switch and ⋯ menus (2026-10-22)
+
+Elliot asked for a header that's a little bigger and clearly separate from the Suite Tree and Spec panes, then to move the Execute/Spec toggle into it, and then for the ⋯ menus.
+
+**Bigger and separate** (`apps/web/src/components/layout/AppHeader.tsx`):
+- **Size:** 60px tall (from 48). The dropdowns and their labels are 13px (from 11), and the buttons are 12px with more padding.
+- **Separation:** a slightly lighter, blue-tinted background (`#141b2d`), a clearer bottom border and a soft shadow over the panes. Thin divider lines replace the "|" characters.
+- **Long names:** each dropdown is capped at 220px; a longer name is cut off with "…".
+- **Code:** the repeated inline styles became a few shared ones.
+
+**The view switch.** Spec / Execute / Reports is one switch at the start of the header, right after the logo.
+- The Execute/Spec toggle used to sit in the Suite Tree pane, which made a whole-workspace mode look like a tree setting. Reports was a separate header button that turned into "← Back to workspace". They're the app's three views, and Execute depends on the header's Run picker, so they now live together. From Reports, Spec or Execute goes straight back.
+- **Permissions are unchanged:** without `SPEC_VIEW`, Spec is disabled (with the same tooltip) and Reports is hidden.
+- **Unchanged too:** the app still starts in Spec mode, and the Execute suite filter is still separate.
+- The Suite Tree pane drops the toggle and its `setWorkspaceMode` prop.
+
+**⋯ menus** (new `apps/web/src/components/layout/PickerMenu.tsx`):
+- The switch made the header about 1,720px wide, so it wrapped on 1600px screens. Elliot chose to replace each picker's ➕ ✏️ 🗑️ buttons with one ⋯ menu: New / Edit / Delete, with Delete in red. That fits one row from 1600px.
+- Edit and Delete are greyed out with nothing selected. The menu lists only what the role may do, and isn't shown when that's nothing. Delete still goes through the warn-then-"Delete Anyway" flow.
+- **Keyboard:** Up/Down move between items and Escape closes the menu and returns focus to ⋯. Clicking outside or tabbing away also closes it.
+- **Shortcuts:** while the menu is open, keys don't reach the app's single-key shortcuts (`useHotkeyEngine` listens on `window`), so `p` can't record a verdict.
+- On narrower windows the header wraps onto two rows, with the buttons kept on the right (`marginLeft: auto`).
+
+**Docs:** RFC 02 (pane 1 no longer has the toggle; the view switch).
+
+**Verified** in a separate tab (`127.0.0.1:3000`) with the demo data:
+- **Width:** one 60px row at 1600 and 1920px; two rows at 1440px.
+- **Switch:** Execute shows the run queue, Reports opens with its `#/reports/...` link, and Spec returns and clears it. `aria-pressed` follows the view each time.
+- **Plan ⋯ menu:** lists its three items, with focus on the first. `p` reached no shortcut, Down moved to Edit, and Escape closed the menu and refocused ⋯. A click outside closes it, and "New plan" opens the Create New Test Plan dialog.
+
+Web tests (48) pass; typecheck clean.

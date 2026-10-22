@@ -19,13 +19,13 @@ interface SuiteTreePaneProps {
   suiteEditor: SuiteEditor;
   execSuiteFilterId: string | null;
   setExecSuiteFilterId: Dispatch<SetStateAction<string | null>>;
-  setWorkspaceMode: Dispatch<SetStateAction<"EXECUTION" | "SPECIFICATION">>;
   suiteNodes: SuiteTreeNode[];
   suiteTreeWidth: number;
   workspaceMode: "EXECUTION" | "SPECIFICATION";
 }
 
-/** Pane 1: the Execute/Spec toggle, search & filter, the suite form and the suite tree. */
+/** Pane 1: search & filter, the suite form and the suite tree. (The Spec / Execute / Reports
+ *  switch is in the header, AppHeader.) */
 export function SuiteTreePane({
   caseSearch,
   execution,
@@ -35,13 +35,12 @@ export function SuiteTreePane({
   suiteEditor,
   execSuiteFilterId,
   setExecSuiteFilterId,
-  setWorkspaceMode,
   suiteNodes,
   suiteTreeWidth,
   workspaceMode,
 }: SuiteTreePaneProps) {
   const { can, scope } = useApp();
-  const { hasPlanManagePermission, hasRunManagePermission, hasSpecCreatePermission, hasSpecDeletePermission, hasSpecEditPermission, hasSpecViewPermission } = can;
+  const { hasPlanManagePermission, hasRunManagePermission, hasSpecCreatePermission, hasSpecDeletePermission, hasSpecEditPermission } = can;
   const { handleToggleRunClosed, isTogglingRun, selectedPlanId, selectedRun, selectedRunId } = scope;
   const {
     caseFilter,
@@ -153,38 +152,6 @@ export function SuiteTreePane({
               + Suite
             </button>
           )}
-          {/* SPECIFICATION / EXECUTION MODE TOGGLE -- visible to any authenticated user
-              (per-case/suite plan-inclusion buttons are the part gated by PLAN_MANAGE,
-              not this toggle itself). */}
-          <div
-            style={{
-              display: "flex",
-              border: "1px solid #334155",
-              borderRadius: "4px",
-              overflow: "hidden",
-            }}
-          >
-            {(["EXECUTION", "SPECIFICATION"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setWorkspaceMode(m)}
-                disabled={m === "SPECIFICATION" && !hasSpecViewPermission}
-                title={m === "SPECIFICATION" && !hasSpecViewPermission ? "Your role can't view test specifications" : undefined}
-                style={{
-                  border: "none",
-                  padding: "3px 8px",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  cursor: m === "SPECIFICATION" && !hasSpecViewPermission ? "not-allowed" : "pointer",
-                  opacity: m === "SPECIFICATION" && !hasSpecViewPermission ? 0.4 : 1,
-                  backgroundColor: workspaceMode === m ? "#3b82f6" : "#1e293b",
-                  color: workspaceMode === m ? "#ffffff" : "#9ca3af",
-                }}
-              >
-                {m === "EXECUTION" ? "Execute" : "Spec"}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
