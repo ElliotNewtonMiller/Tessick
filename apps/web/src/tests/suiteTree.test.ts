@@ -7,6 +7,7 @@ import {
   pruneSuiteTree,
   rangeBetween,
   suiteInfoById,
+  suitesContaining,
   visibleSuiteOrder,
 } from '../utils/suiteTree';
 import type { SpecSuiteNode } from '../types';
@@ -26,6 +27,17 @@ describe('suiteTree', () => {
     const pruned = pruneSuiteTree(TREE, new Set(['a', 'a2']));
     expect(pruned.map((n) => n.id)).toEqual(['a']);
     expect(pruned[0].children.map((n) => n.id)).toEqual(['a2']);
+  });
+
+  it('suitesContaining keeps the suites holding cases and every suite above them', () => {
+    expect([...suitesContaining(TREE, new Set(['a1x']))].sort()).toEqual(['a', 'a1', 'a1x']);
+    expect([...suitesContaining(TREE, new Set(['a2', 'b']))].sort()).toEqual(['a', 'a2', 'b']);
+    expect(suitesContaining(TREE, new Set()).size).toBe(0);
+    // Pruned with it, Execute mode's tree drops the suites without the plan's cases.
+    const pruned = pruneSuiteTree(TREE, suitesContaining(TREE, new Set(['a1x'])));
+    expect(pruned.map((n) => n.id)).toEqual(['a']);
+    expect(pruned[0].children.map((n) => n.id)).toEqual(['a1']);
+    expect(pruned[0].children[0].children.map((n) => n.id)).toEqual(['a1x']);
   });
 
   it('buildSuiteNodes carries counts and Execute-mode results per suite', () => {

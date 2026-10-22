@@ -48,7 +48,7 @@ The workspace has three panes side by side, separated by draggable dividers.
 
 | Pane | Role | Width | Contents |
 | :--- | :--- | :--- | :--- |
-| **Pane 1** | Suite tree | Default `280px`, at least `140px` | Search and filter rows; the suite tree with counts, plan-inclusion toggles (Spec) or pass/fail pills (Execute); create, rename and delete buttons; drag-and-drop moving in Spec mode. |
+| **Pane 1** | Suite tree | Default `280px`, at least `140px` | Search and filter rows; the suite tree with counts, plan-inclusion toggles (Spec) or pass/fail pills (Execute); create, rename and delete buttons; drag-and-drop moving in Spec mode. In Execute mode the tree shows only the suites holding the plan's (or run's) cases, and the suites above them. |
 | **Pane 2** | Case list (Spec) or execution queue (Execute) | Default `420px`, at least `180px` | Virtualized list. Spec: version status boxes and plan toggles. Execute: verdict letters and the selected-suite filter. |
 | **Pane 3** | Details | The rest, at least `160px` | Spec: the case editor or Suite Details. Execute: the case's steps and custom fields, verdict buttons, notes and the hotkey badge. |
 

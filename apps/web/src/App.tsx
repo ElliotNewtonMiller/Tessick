@@ -12,7 +12,7 @@ import { ForcedPasswordChange } from "./components/ForcedPasswordChange";
 import { EntityManagementModal } from "./components/EntityManagementModal";
 import { OVERWRITE_DENIED_MESSAGE, RUN_DENIED_MESSAGE } from "./app/messages";
 import { permissionFlags } from "./utils/permissions";
-import { buildSuiteNodes, pruneSuiteTree } from "./utils/suiteTree";
+import { buildSuiteNodes, pruneSuiteTree, suitesContaining } from "./utils/suiteTree";
 import { usePaneLayout } from "./hooks/usePaneLayout";
 import { useSession } from "./hooks/useSession";
 import { useToast } from "./hooks/useToast";
@@ -163,11 +163,22 @@ export default function App() {
     }
   }
 
+  // Execute mode shows only the suites holding the plan's cases (and the suites above them).
   // With a search/filter active the tree only shows suites containing a match (plus their
   // ancestors, which suite_ids already includes) -- counts stay the suite's real totals.
-  const suiteNodes: SuiteTreeNode[] = specData
-    ? buildSuiteNodes(filterResult ? pruneSuiteTree(specData.suites, filterResult.suiteIds) : specData.suites, execCountsBySuite)
-    : [];
+  const executeSuiteIds =
+    workspaceMode === "EXECUTION" && specData ? suitesContaining(specData.suites, new Set(execCountsBySuite.keys())) : null;
+  let treeSuites = specData?.suites ?? [];
+  if (executeSuiteIds) treeSuites = pruneSuiteTree(treeSuites, executeSuiteIds);
+  if (filterResult) treeSuites = pruneSuiteTree(treeSuites, filterResult.suiteIds);
+  const suiteNodes: SuiteTreeNode[] = specData ? buildSuiteNodes(treeSuites, execCountsBySuite) : [];
+
+  // A folder filter on a suite the tree no longer shows (another plan or run) would hide every
+  // case behind a folder you can't see; drop it.
+  const execFilterHidden = Boolean(executeSuiteIds && execSuiteFilterId && workspace.cases.length > 0 && !executeSuiteIds.has(execSuiteFilterId));
+  useEffect(() => {
+    if (execFilterHidden) setExecSuiteFilterId(null);
+  }, [execFilterHidden]);
 
   // Execute mode: the active case, notes, recording results and queue order (hooks/useExecution.ts).
   const execution = useExecution({

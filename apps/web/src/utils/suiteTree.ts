@@ -11,6 +11,20 @@ export function pruneSuiteTree(nodes: SpecSuiteNode[], keep: Set<string>): SpecS
     .map((n) => ({ ...n, children: pruneSuiteTree(n.children, keep) }));
 }
 
+/** The suites holding any of these suites' cases: each suite in `withCases`, and every suite
+ * above one. Execute mode prunes the tree with it, to the suites holding the plan's cases. */
+export function suitesContaining(nodes: SpecSuiteNode[], withCases: Set<string>): Set<string> {
+  const keep = new Set<string>();
+  const visit = (n: SpecSuiteNode): boolean => {
+    let has = withCases.has(n.id);
+    for (const child of n.children) if (visit(child)) has = true;
+    if (has) keep.add(n.id);
+    return has;
+  };
+  nodes.forEach(visit);
+  return keep;
+}
+
 /** The Suite Tree's nodes, with Execute mode's passed/total counts per suite. */
 export function buildSuiteNodes(
   nodes: SpecSuiteNode[],

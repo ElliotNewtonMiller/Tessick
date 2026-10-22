@@ -2767,3 +2767,22 @@ Tests:
 - A new field "Gate" limited to Atlas before saving was created as "Atlas only".
 
 704 tests pass; typecheck clean.
+
+## Execute mode's tree shows only the plan's suites (2026-10-22)
+
+Elliot asked that, when executing, the Suite Tree show only the folders that hold cases in the plan.
+
+**Before:** both modes drew the project's whole suite tree. Execute mode showed folders with nothing to run, with "0/0" counts.
+
+**Now** (`App.tsx`, new `suitesContaining` in `utils/suiteTree.ts`):
+- In Execute mode, the tree is pruned to the suites holding the run's cases (`workspace.cases`, the same queue the Queue Grid shows), plus every suite above one, so the tree stays connected. A search or filter prunes on top of that, as before.
+- Spec mode is unchanged.
+- A folder filter (`execSuiteFilterId`) on a suite the tree no longer shows (another plan or run without its cases) is cleared, so it can't hide every case behind an invisible folder. This only happens once the queue has loaded, so a reload doesn't drop a valid filter.
+
+**Docs:** RFC 02 (pane 1).
+
+**Tests:** `apps/web/src/tests/suiteTree.test.ts` +1. `suitesContaining` keeps the suites with cases and their ancestors (a deep one; siblings in two branches; none). Pruning with it drops the suites without cases.
+
+**Verified live** on a production build: a project with Checkout (› Payments, › Cart), Login and Search, and a plan with Payments' and Login's cases. Spec mode lists all five folders. Execute mode lists only Checkout › Payments and Login.
+
+Web tests (49) pass; typecheck clean.
