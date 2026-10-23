@@ -71,8 +71,8 @@ curl -s "$TESTIFY/api/v1/projects" -H "Authorization: Bearer $TESTIFY_TOKEN" | j
 # The project's test plans
 curl -s "$TESTIFY/api/v1/projects/$PROJECT_ID/plans" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.plans[] | {id, name, status}'
 
-# A plan's test runs, newest first
-curl -s "$TESTIFY/api/v1/plans/$PLAN_ID/runs" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.runs[] | {id, name, status}'
+# A plan's test runs, newest first, 100 a page (next_cursor), each with its counts
+curl -s "$TESTIFY/api/v1/plans/$PLAN_ID/runs" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.runs[] | {id, name, status, pass_rate: .summary.pass_rate}'
 
 # One case, with its latest version and steps
 curl -s "$TESTIFY/api/v1/cases/SHOP-101" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '{case: .test_case.title, version: .latest_version.version_number}'

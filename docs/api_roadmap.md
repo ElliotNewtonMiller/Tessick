@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Findings 1 to 7, 9, 11, 12, 14 and 16 are done (2026-10-23); the rest are to fix.
+**Status:** in progress. Findings 1 to 7, 9, 11, 12, 14, 16 and 17 are done (2026-10-23); 13 is to fix, and 8, 10 and 15 wait on decisions.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -95,7 +95,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 14 | A project's `settings` is returned as a JSON string inside the JSON. | `settings` is an object in every project answer. | **Done** (changelog 2026-10-23) |
 | 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | | To do |
 | 16 | A webhook to an address refused at delivery retries for 11 hours instead of failing at once. | It fails at once, saying why. | **Done** (changelog 2026-10-23) |
-| 17 | MCP tools take only internal project ids, not prefixes (`DEMO`); runs carry no result counts, so a dashboard needs a call per run. | | To do |
+| 17 | MCP tools take only internal project ids, not prefixes (`DEMO`); runs carry no result counts, so a dashboard needs a call per run. | MCP's `project_id` takes an id or a prefix; a plan's run list gives each run's `summary` (the run summary report's counts). | **Done** (changelog 2026-10-23) |
 
 ## Steps
 

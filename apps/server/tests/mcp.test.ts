@@ -138,6 +138,20 @@ describe('MCP endpoint (POST /mcp)', () => {
     expect(fields.fields.map((f: any) => f.key)).toContain('priority');
   });
 
+  it('a project can be named by its prefix, as agents know it from case ids', async () => {
+    const { app, seed } = serverInstance;
+    const token = await loginAsAdmin(app);
+    for (const ref of ['SHOP', 'shop', seed.projectId]) {
+      const out = await callTool(app, token, 'list_plans_and_runs', { project_id: ref });
+      expect(out.isError, `${ref}: ${out.content[0].text}`).toBeFalsy();
+      expect(JSON.parse(out.content[0].text).plans.map((p: any) => p.id)).toContain(seed.planId);
+    }
+    const found = JSON.parse((await callTool(app, token, 'search_cases', { project_id: 'SHOP', q: 'SHOP-105' })).content[0].text);
+    expect(found.total_matches).toBe(1);
+    const unknown = await callTool(app, token, 'list_plans_and_runs', { project_id: 'NOPE' });
+    expect([unknown.isError, unknown.content[0].text]).toEqual([true, "Project 'NOPE' not found: give its id or prefix (see list_projects)."]);
+  });
+
   it("a user without SPEC_VIEW on the project can't read it", async () => {
     const { app, seed } = serverInstance;
     const admin = await loginAsAdmin(app);

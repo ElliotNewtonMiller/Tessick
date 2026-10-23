@@ -143,6 +143,22 @@ export const SHARED_SCHEMAS: Schema[] = [
       release_date: nullableStr('YYYY-MM-DD'),
       created_at: timestamp(),
       updated_at: timestamp(),
+      summary: {
+        type: 'object',
+        description: "In a plan's run list only: its results as the reports count them (each case's latest result; `untested` = none yet), so a dashboard needs no call per run",
+        required: ['total', 'passed', 'failed', 'blocked', 'skipped', 'untested', 'other', 'pass_rate', 'completion'],
+        properties: {
+          total: { type: 'integer', description: 'Cases in the run' },
+          passed: { type: 'integer' },
+          failed: { type: 'integer' },
+          blocked: { type: 'integer' },
+          skipped: { type: 'integer' },
+          untested: { type: 'integer' },
+          other: { type: 'integer', description: 'RETEST_REQUIRED and KNOWN_ISSUE' },
+          pass_rate: { type: 'number', description: 'passed / (total - untested - skipped)' },
+          completion: { type: 'number', description: '(total - untested) / total' },
+        },
+      },
     },
   },
   {

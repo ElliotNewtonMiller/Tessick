@@ -17,6 +17,7 @@ import {
 import {
   JsonExportSerializer,
   CsvExportSerializer,
+  summarizeVerdicts,
   type IFileSerializer,
   type DefinitionsExportBundle,
   type DefinitionsExportScope,
@@ -87,7 +88,12 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
     const page = readPage(request, reply, RUN_PAGE.defaultLimit);
     if (!page) return reply;
     const { rows, next_cursor } = await runRepo.listPage(planId, page);
-    return reply.status(200).send({ runs: rows, next_cursor });
+    // Each run's counts, by the rule every report uses (each case's latest result in the run).
+    const finals = await new TestResultRepository(db).getFinalResultsForRuns(planId, rows.map((r) => r.id));
+    const verdictsByRun = new Map<string, Array<string | null>>(rows.map((r) => [r.id, []]));
+    for (const f of finals) verdictsByRun.get(f.test_run_id)?.push(f.verdict);
+    const runs = rows.map((r) => ({ ...r, summary: summarizeVerdicts(verdictsByRun.get(r.id) ?? []) }));
+    return reply.status(200).send({ runs, next_cursor });
   });
 
   app.post(

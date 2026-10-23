@@ -3218,3 +3218,35 @@ Tests:
 **Verified live:**
 - the demo plan, given 600 extra runs, answered 100 with a `next_cursor`;
 - the web app at `127.0.0.1:3000` fetched two pages (`limit=500`, then the cursor), and its Run menu listed all 608, from "CI build 600" to "Run 1.0.1".
+
+## API audit, part 9: MCP takes project prefixes; runs carry their counts (2026-10-23)
+
+The audit's seventeenth finding, two small gaps for agents and dashboards.
+
+**MCP: a project by its prefix.**
+- **Before:** every MCP tool's `project_id` had to be the internal id. An agent that knew the project as `DEMO` (from case ids like `DEMO-8`) got "Project 'DEMO' not found" and had to call `list_projects` first.
+- **Now:** `requireProject`, which every tool goes through (write tools too), finds a project by id or, failing that, by prefix, in any case (`DEMO`, `demo`). It returns the id, so the REST calls behind the write tools are unchanged.
+  - A token still only reaches its own project.
+  - An unknown one says "give its id or prefix".
+  - The `MCP_WRITE` audit row resolves the prefix to the project too.
+  - Every tool's `project_id` is described as "its id or its prefix (e.g. SHOP)".
+
+**Runs carry their counts.**
+- **Before:** a dashboard showing a plan's runs with pass rates needed a `run_summary` report per run.
+- **Now:** each run in `GET /plans/{planId}/runs` has a `summary`: `total`, `passed`, `failed`, `blocked`, `skipped`, `untested`, `other`, `pass_rate` and `completion`.
+  - It's worked out by the same rule (`getFinalResultsForRuns`, each case's latest result in the run) and the same `summarizeVerdicts` as the run summary report, for the page's runs in one query.
+  - The `Run` schema lists it as in-list only.
+
+**Docs:**
+- `reports_api_and_mcp.md` (prefixes);
+- RFC 03 (the route map);
+- `api_getting_started.md` (the runs example);
+- `api_roadmap.md` (17 done; only 13 left to fix, and 8, 10 and 15 wait on Elliot's call).
+
+Tests:
+- `mcp.test.ts` +1: `list_plans_and_runs` with `SHOP`, `shop` and the id; `search_cases` with `SHOP`; an unknown prefix's message.
+- `api_lists.test.ts` +1: after a batch (one case re-run, its latest counting), the listed run's `summary` equals the `run_summary` report's, field by field.
+
+**Verified live** on the dev server with the demo data:
+- an MCP-only token's `list_plans_and_runs` with `project_id: "DEMO"` answered the demo's plan;
+- the runs list showed Run 1.0.8 at 12 cases, 6 passed, 3 failed, 2 untested, pass rate 0.6, and the runs before it likewise.

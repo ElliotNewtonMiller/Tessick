@@ -153,6 +153,23 @@ describe('API lists: paging and filters', () => {
     expect((await call(admin, 'GET', `${url}?limit=501`)).statusCode).toBe(400);
   });
 
+  it("each run in a plan's list carries its counts, the same as its run summary", async () => {
+    await call(admin, 'POST', `/api/v1/runs/${seed.buildId}/results/batch`, {
+      results: [
+        { case_identifier: { external_id: 'SHOP-101' }, verdict: 'PASSED' },
+        { case_identifier: { external_id: 'SHOP-102' }, verdict: 'FAILED' },
+        { case_identifier: { external_id: 'SHOP-103' }, verdict: 'FAILED' },
+        { case_identifier: { external_id: 'SHOP-103' }, verdict: 'PASSED' }, // re-run: the latest counts
+      ],
+    });
+    const run = body(await call(admin, 'GET', `/api/v1/plans/${seed.planId}/runs`)).runs.find((r: any) => r.id === seed.buildId);
+    expect(run.summary).toMatchObject({ passed: 2, failed: 1, blocked: 0 });
+    const report = body(await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/reports/run_summary`, { test_run_id: seed.buildId }));
+    for (const k of ['total', 'passed', 'failed', 'blocked', 'skipped', 'untested', 'other', 'pass_rate', 'completion']) {
+      expect(run.summary[k], k).toBe(report.summary[k]);
+    }
+  });
+
   it('the case history report refuses a cursor it never gave out', async () => {
     const res = await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/reports/case_history`, { test_case_id: 'SHOP-101', cursor: 'nonsense' });
     expect([res.statusCode, body(res).code]).toEqual([400, 'INVALID_CURSOR']);

@@ -24,10 +24,13 @@ Use search_cases / list_report_fields to find cases, and list_suites for the sui
 Rates are fractions between 0 and 1. ${REPORT_DEFINITIONS.flaky}
 Changing (the tools with readOnlyHint false, offered when the caller may use them): create_suite, create_case, update_case, update_cases, create_run, record_results, update_plan_cases. They act as the caller, with the caller's permissions, and every change is audit-logged as made through MCP. Cases you create start as DRAFT, and editing an approved case's summary, preconditions or steps makes a new DRAFT version: a person reviews and approves them in Testify, so tell the user what you created or changed (readable ids). There are no tools to approve, deprecate or delete. Prefer update_cases and update_plan_cases over one call per case.`;
 
+/** Every tool's project argument: an id or, as people and agents know a project, its prefix. */
+const PROJECT_ARG: JsonSchema = { type: 'string', description: 'The project: its id or its prefix (e.g. SHOP), from list_projects.' };
+
 /** The catalog's param schema as plain JSON Schema (nullable -> type: [t, "null"]). */
 function toJsonSchema(report: ReportDefinition): JsonSchema {
   const properties: Record<string, JsonSchema> = {
-    project_id: { type: 'string', description: 'Project id (from list_projects).' },
+    project_id: PROJECT_ARG,
   };
   for (const [key, p] of Object.entries(report.params.properties)) {
     const { nullable, ...rest } = p;
@@ -72,14 +75,20 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
 
   const canView = (user: AuthenticatedUser, projectId: string) => canViewProject(user, projectId, db);
 
-  async function requireProject(user: AuthenticatedUser, projectId: unknown): Promise<string> {
-    if (typeof projectId !== 'string' || !projectId) throw new ToolError('project_id is required (see list_projects).');
-    if (user.api_token && user.api_token.project_id !== projectId) {
+  /** A project by id or prefix (DEMO, demo): an agent knows the prefix from case ids like DEMO-8. */
+  async function findProject(ref: string) {
+    return (await projectRepo.findById(ref)) ?? (await projectRepo.findByPrefix(ref.trim().toUpperCase()));
+  }
+
+  async function requireProject(user: AuthenticatedUser, ref: unknown): Promise<string> {
+    if (typeof ref !== 'string' || !ref) throw new ToolError('project_id is required: the project\'s id or prefix (see list_projects).');
+    const project = await findProject(ref);
+    if (user.api_token && (!project || user.api_token.project_id !== project.id)) {
       throw new ToolError(`This API token can only read project '${user.api_token.project_id}'.`);
     }
-    if (!(await projectRepo.findById(projectId))) throw new ToolError(`Project '${projectId}' not found.`);
-    if (!(await canView(user, projectId))) throw new ToolError(`You don't have SPEC_VIEW on project '${projectId}'.`);
-    return projectId;
+    if (!project) throw new ToolError(`Project '${ref}' not found: give its id or prefix (see list_projects).`);
+    if (!(await canView(user, project.id))) throw new ToolError(`You don't have SPEC_VIEW on project '${project.prefix}'.`);
+    return project.id;
   }
 
   const baseTools: ToolDef[] = [
@@ -100,7 +109,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
       inputSchema: {
         type: 'object',
         properties: {
-          project_id: { type: 'string', description: 'Project id.' },
+          project_id: PROJECT_ARG,
           include_archived: { type: 'boolean', default: false },
           runs_per_plan: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
         },
@@ -128,7 +137,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
     {
       name: 'list_suites',
       description: "A project's test suites (folders of cases): id, name, full path (e.g. \"Payments / Checkout\"), parent and how many cases each holds directly.",
-      inputSchema: { type: 'object', properties: { project_id: { type: 'string' } }, required: ['project_id'], additionalProperties: false },
+      inputSchema: { type: 'object', properties: { project_id: PROJECT_ARG }, required: ['project_id'], additionalProperties: false },
       run: async (args, user) => {
         const projectId = await requireProject(user, args.project_id);
         const suites = await suiteRepo.findByProject(projectId);
@@ -150,7 +159,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
     {
       name: 'list_report_fields',
       description: 'Properties cases can be filtered or grouped by (built-ins and custom fields), with their kind and options -- use the keys in a "filter" ({ q, filters: [{ field, op, value }] }) or as breakdown group_by.',
-      inputSchema: { type: 'object', properties: { project_id: { type: 'string' } }, required: ['project_id'], additionalProperties: false },
+      inputSchema: { type: 'object', properties: { project_id: PROJECT_ARG }, required: ['project_id'], additionalProperties: false },
       run: async (args, user) => {
         const projectId = await requireProject(user, args.project_id);
         return json({
@@ -172,7 +181,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
       inputSchema: {
         type: 'object',
         properties: {
-          project_id: { type: 'string' },
+          project_id: PROJECT_ARG,
           q: { type: 'string', description: 'Matches external id, title, or the name of the case\'s suite or any suite above it.' },
           filters: { type: 'array', items: { type: 'object' }, description: 'See list_report_fields.' },
           test_plan_id: { type: 'string', description: "Needed for the 'in_plan' filter." },
@@ -199,7 +208,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
       description: "One test case's content: title, suite, priority, latest version (status, summary, preconditions, steps with expected results) and custom field values.",
       inputSchema: {
         type: 'object',
-        properties: { project_id: { type: 'string' }, test_case_id: { type: 'string', description: 'Case id or external id such as SHOP-12.' } },
+        properties: { project_id: PROJECT_ARG, test_case_id: { type: 'string', description: 'Case id or external id such as SHOP-12.' } },
         required: ['project_id', 'test_case_id'],
         additionalProperties: false,
       },
@@ -261,7 +270,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
 
   /** One Security Audit Log row per write tool call, so what agents did is easy to find. */
   async function auditWrite(request: FastifyRequest, user: AuthenticatedUser, tool: ToolDef, args: Record<string, any>, outcome: { ok: boolean; error?: string }) {
-    const project = typeof args.project_id === 'string' && (await projectRepo.findById(args.project_id)) ? args.project_id : null;
+    const project = typeof args.project_id === 'string' && args.project_id ? ((await findProject(args.project_id))?.id ?? null) : null;
     await db
       .insertInto('audit_logs')
       .values({

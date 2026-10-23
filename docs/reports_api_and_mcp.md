@@ -95,7 +95,7 @@ claude mcp add --transport http testify http://localhost:3001/mcp --header "Auth
 - **403 `TOKEN_INTERFACE_NOT_ALLOWED`:** a REST-only token.
 - **403 `TOKEN_PROJECT_MISMATCH`:** a project other than the token's.
 
-Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project. An argument a tool doesn't take is refused, with the list of the ones it does.
+Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project. `project_id` may be the project's id or its prefix (`SHOP`, as in its case ids). An argument a tool doesn't take is refused, with the list of the ones it does.
 
 **Reading** (`readOnlyHint: true`):
 

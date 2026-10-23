@@ -20,7 +20,7 @@ const VERDICTS = ['PASSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'RETEST_REQUIRED', '
 const PRIORITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const EXECUTION_TYPES = ['MANUAL', 'AUTOMATED'];
 
-const projectId: JsonSchema = { type: 'string', description: 'Project id (from list_projects).' };
+const projectId: JsonSchema = { type: 'string', description: 'The project: its id or its prefix (e.g. SHOP), from list_projects.' };
 const caseRef: JsonSchema = { type: 'string', description: 'Case id or readable id such as SHOP-12.' };
 const caseRefs: JsonSchema = { type: 'array', items: caseRef, minItems: 1, maxItems: 500 };
 const stepsSchema: JsonSchema = {
