@@ -7,6 +7,7 @@ import { sendError } from '../errors.js';
 import { BatchRecorded, recordResultsBatch } from '../services/batchResults.js';
 import { findOrCreateRun } from '../services/runByName.js';
 import { batchOptions } from './batchExecution.js';
+import { idempotencyHooks } from '../services/idempotency.js';
 import { junitResultsSchema, planJunitResultsSchema, JUNIT_MAX_TESTS, JUNIT_BODY_LIMIT_BYTES } from '../openapi/areas/projects.js';
 
 /**
@@ -66,6 +67,9 @@ export async function registerJUnitResultRoutes(app: FastifyInstance, db: Kysely
     junit.addContentTypeParser('*', { parseAs: 'string', bodyLimit: JUNIT_BODY_LIMIT_BYTES }, (_req, body, done) => done(null, body));
 
     const executeRun = requirePermission('EXECUTE_RUN', db, jwtSecret);
+    // An optional Idempotency-Key makes a retried upload answer as the first did (services/idempotency.ts).
+    const idempotency = idempotencyHooks(db);
+    const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true } };
 
     /** The parsed file, or null after answering 400. */
     function readJUnit(req: FastifyRequest, reply: FastifyReply): JUnitTestResult[] | null {
@@ -105,13 +109,13 @@ export async function registerJUnitResultRoutes(app: FastifyInstance, db: Kysely
       });
     }
 
-    junit.post('/api/v1/runs/:runId/results/junit', { schema: junitResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
+    junit.post('/api/v1/runs/:runId/results/junit', { schema: junitResultsSchema, ...hooks }, async (req, reply) => {
       const tests = readJUnit(req, reply);
       if (!tests) return reply;
       return record(req, reply, (req.params as { runId: string }).runId, tests, {});
     });
 
-    junit.post('/api/v1/plans/:planId/results/junit', { schema: planJunitResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
+    junit.post('/api/v1/plans/:planId/results/junit', { schema: planJunitResultsSchema, ...hooks }, async (req, reply) => {
       const tests = readJUnit(req, reply);
       if (!tests || !batchOptions(req, reply)) return reply;
       const run = await findOrCreateRun(db, req, reply, req.user!, (req.params as { planId: string }).planId, (req.query as JUnitQuery).run_name);

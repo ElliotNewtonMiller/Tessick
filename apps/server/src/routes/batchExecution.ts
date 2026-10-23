@@ -7,6 +7,7 @@ import { sendError } from '../errors.js';
 import { BatchRecorded, recordResultsBatch } from '../services/batchResults.js';
 import { findOrCreateRun } from '../services/runByName.js';
 import { batchResultsSchema, planBatchResultsSchema } from '../openapi/areas/projects.js';
+import { idempotencyHooks } from '../services/idempotency.js';
 
 const flag = (query: unknown, name: string) => {
   const v = (query as Record<string, unknown> | undefined)?.[name];
@@ -34,8 +35,11 @@ export function batchOptions(req: FastifyRequest, reply: FastifyReply): { allOrN
  */
 export async function registerBatchExecutionRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
   const executeRun = requirePermission('EXECUTE_RUN', db, jwtSecret);
+  // An optional Idempotency-Key makes a retried upload answer as the first did (services/idempotency.ts).
+  const idempotency = idempotencyHooks(db);
+  const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true } };
 
-  app.post('/api/v1/runs/:runId/results/batch', { schema: batchResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
+  app.post('/api/v1/runs/:runId/results/batch', { schema: batchResultsSchema, ...hooks }, async (req, reply) => {
     const { runId } = req.params as { runId: string };
     const options = batchOptions(req, reply);
     if (!options) return reply;
@@ -44,7 +48,7 @@ export async function registerBatchExecutionRoutes(app: FastifyInstance, db: Kys
     return reply.status(outcome.httpStatus).send(outcome.payload);
   });
 
-  app.post('/api/v1/plans/:planId/results/batch', { schema: planBatchResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
+  app.post('/api/v1/plans/:planId/results/batch', { schema: planBatchResultsSchema, ...hooks }, async (req, reply) => {
     const { planId } = req.params as { planId: string };
     const body = req.body as BatchResultsRequest | undefined;
     // A malformed request mustn't leave an empty run behind.

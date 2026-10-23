@@ -156,6 +156,20 @@ export const deleteRunSchema = {
 // ---- Results ----
 
 
+/** The optional Idempotency-Key of the result routes (services/idempotency.ts). */
+const IDEMPOTENCY_HEADERS = {
+  type: 'object',
+  properties: {
+    'idempotency-key': {
+      type: 'string',
+      description:
+        'Optional. A retry with the same key (after a timeout or a dropped connection) gets the first answer back, marked `Idempotent-Replayed: true`, instead of recording the results again. ' +
+        'Use a new key for each different request, e.g. `<build id>-<attempt>-<file>`; up to 255 printable characters, kept 24 hours. The same key with a different request is 422 `IDEMPOTENCY_KEY_REUSED`.',
+    },
+  },
+};
+const IDEMPOTENCY_409: [number, string] = [409, '`IDEMPOTENCY_KEY_IN_USE`: a request with this `Idempotency-Key` is still being handled; retry after `Retry-After` seconds'];
+
 export const recordResultSchema = {
   tags: ['Runs and results'],
   summary: 'Record one result',
@@ -164,6 +178,7 @@ export const recordResultSchema = {
     'Results are never edited: a new one becomes the latest. Manual results are never timed. The run closes itself the first time every case in the plan has a result (`run_status`), ' +
     'unless `defer_auto_close` is true: then it stays open (`auto_close_deferred`) until another result is recorded one at a time or `POST /api/v1/runs/{runId}/auto-close` is called.',
   params: idParams('runId'),
+  headers: IDEMPOTENCY_HEADERS,
   body: handlerValidated({
     type: 'object',
     required: ['test_plan_case_id', 'verdict'],
@@ -210,7 +225,8 @@ export const recordResultSchema = {
       [400, '`INVALID_RESULT`: `invalid_params` names each problem'],
       [403, 'Missing `EXECUTE_RUN`, or `RESULT_OVERWRITE_NOT_PERMITTED`'],
       404,
-      [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `CASE_REMOVED_FROM_PLAN`']
+      IDEMPOTENCY_409,
+      [422, '`RUN_CLOSED`, `PLAN_LOCKED`, `CASE_REMOVED_FROM_PLAN` or `IDEMPOTENCY_KEY_REUSED`']
     ),
   },
 };
@@ -332,6 +348,7 @@ export const batchResultsSchema = {
       close_run: oneOf(['true', 'false', '1', '0'], CLOSE_RUN),
     },
   },
+  headers: IDEMPOTENCY_HEADERS,
   body: handlerValidated({
     type: 'object',
     required: ['results'],
@@ -389,7 +406,8 @@ export const batchResultsSchema = {
     ...authedErrors(
       [400, '`INVALID_RESULT` (all-or-nothing, or a malformed request)'],
       404,
-      [422, '`RUN_CLOSED` or `PLAN_LOCKED`; with all-or-nothing, also an item\'s refusal']
+      IDEMPOTENCY_409,
+      [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also an item\'s refusal']
     ),
   },
 };
@@ -415,6 +433,7 @@ export const planBatchResultsSchema = {
     'So CI needs no step to create or look up the run. The response says which run (`run`). Needs `EXECUTE_RUN`.',
   params: idParams('planId'),
   querystring: { type: 'object', required: ['run_name'], properties: { ...RUN_NAME_QUERY, ...ALL_OR_NOTHING } },
+  headers: IDEMPOTENCY_HEADERS,
   body: batchResultsSchema.body,
   response: {
     201: { description: 'Every result was saved', ...batchResponse({ run: true }) },
@@ -423,7 +442,8 @@ export const planBatchResultsSchema = {
       [400, '`INVALID_RESULT`, or no `run_name`'],
       [403, 'Missing `EXECUTE_RUN`, or `RUN_MANAGE` to create the run'],
       404,
-      [422, '`RUN_CLOSED` or `PLAN_LOCKED`; with all-or-nothing, also an item\'s refusal']
+      IDEMPOTENCY_409,
+      [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also an item\'s refusal']
     ),
   },
 };
@@ -454,8 +474,9 @@ const junitErrors = (more: Array<number | [number, string]>) =>
     [400, '`INVALID_JUNIT` (not a JUnit XML report, no tests, or too many), or `INVALID_RESULT` with all-or-nothing'],
     ...more,
     404,
+    IDEMPOTENCY_409,
     [413, 'Over 50 MB'],
-    [422, '`RUN_CLOSED` or `PLAN_LOCKED`; with all-or-nothing, also a test\'s refusal']
+    [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also a test\'s refusal']
   );
 
 export const junitResultsSchema = {
@@ -465,6 +486,7 @@ export const junitResultsSchema = {
   consumes: ['application/xml'],
   params: idParams('runId'),
   querystring: { type: 'object', properties: JUNIT_QUERY },
+  headers: IDEMPOTENCY_HEADERS,
   body: junitBody,
   response: {
     201: { description: 'Every test was recorded', ...batchResponse({ junit: true }) },
@@ -480,6 +502,7 @@ export const planJunitResultsSchema = {
   consumes: ['application/xml'],
   params: idParams('planId'),
   querystring: { type: 'object', required: ['run_name'], properties: { ...RUN_NAME_QUERY, ...JUNIT_QUERY } },
+  headers: IDEMPOTENCY_HEADERS,
   body: junitBody,
   response: {
     201: { description: 'Every test was recorded', ...batchResponse({ run: true, junit: true }) },

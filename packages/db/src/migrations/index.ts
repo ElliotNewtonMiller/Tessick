@@ -14,6 +14,7 @@ import * as m011 from './011_webhook_pausing.js';
 import * as m012 from './012_custom_field_projects.js';
 import * as m013 from './013_api_token_interfaces.js';
 import * as m014 from './014_custom_field_numbers_double.js';
+import * as m015 from './015_idempotency_keys.js';
 
 /**
  * Every schema migration, in the order they run. The keys are permanent names, recorded in
@@ -38,6 +39,7 @@ export const MIGRATIONS: Record<string, Migration> = {
   '012_custom_field_projects': m012,
   '013_api_token_interfaces': m013,
   '014_custom_field_numbers_double': m014,
+  '015_idempotency_keys': m015,
 };
 
 const MIGRATION_TABLE = 'kysely_migration';

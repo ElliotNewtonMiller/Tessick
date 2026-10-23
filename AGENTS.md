@@ -68,7 +68,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
   src/services/    Logic shared by routes: adminGuard, caseFilterService, reportService, reportEmailService, mailer,
                    rateLimits, loginThrottle, resultValidation, resultOverwrite, stepValidation, secrets,
                    batchResults (recording a CI batch, JSON or JUnit), runByName (CI's run per build),
-                   webhooks (the delivery worker), webhookEvents (what each event sends), webhookTargets (address rules).
+                   webhooks (the delivery worker), webhookEvents (what each event sends), webhookTargets (address rules),
+                   idempotency (Idempotency-Key on the result routes).
   src/middleware/auth.ts   Authentication and permission checks (see "Auth and permissions").
   src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; writeTools.ts: write tools that call
                    the REST routes as the caller (internalRequests.ts).
@@ -117,6 +118,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - A run auto-closes the first time every case has a result, once only (marked by its `RUN_AUTO_CLOSED` audit row; older runs by `BUILD_AUTO_CLOSED`). Only results recorded one at a time trigger it: CI batches and JUnit uploads never auto-close a run (a build may send several files or be re-run); `close_run=true` closes it.
 - Fail and Block in the web app send `defer_auto_close`, so a run completed by them waits for their notes. The notes' result closes it, or `POST /runs/:runId/auto-close` does when the person leaves the case without notes (`useExecution`).
 - Manual (UI) results are never timed: duration is null. Only batch/CI results carry durations.
+- The result routes take an optional `Idempotency-Key` (`services/idempotency.ts`, table `idempotency_keys`): a retry of the same request gets the first answer back (`Idempotent-Replayed: true`), a different request with the key is `422 IDEMPOTENCY_KEY_REUSED`, one still running `409 IDEMPOTENCY_KEY_IN_USE`. Keys belong to the caller, project and route; only 2xx answers are kept, for 24 hours. Decided with Elliot over de-duplicating by content.
 
 **Custom fields:**
 - A field applies to all projects or to chosen ones (`applies_to_all_projects`, `custom_field_projects`); admins set this with the Projects chips in the Admin Panel (`PUT /admin/custom-fields/:id/projects`). Imports create fields for their project. Which fields a project has always comes from `CustomFieldRepository.listVisibleToProject`.

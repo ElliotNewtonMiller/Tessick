@@ -3037,3 +3037,56 @@ Tests:
   - MCP: an unknown argument refused naming the ones it takes, and an unknown key inside a filter named.
 - `caseFilter.test.ts`: errors are checked by name, and a filter with `values` is refused.
 - `case_search.test.ts`: the error names `filters[0].value`, and the detail starts with it.
+
+## API audit, part 4: Idempotency-Key on the result routes (2026-10-23)
+
+The audit's third finding: re-sending the same CI upload recorded every result twice. A retry after a network error inflates history, trends and flaky counts.
+
+**Decided with Elliot:**
+- an optional `Idempotency-Key` header, rather than de-duplicating by content (that would silently drop a genuine re-run whose report has no times);
+- on the three result routes (one result, JSON batch, JUnit; each into a run and into a plan's run by name);
+- kept 24 hours.
+
+**How it works** (`apps/server/src/services/idempotency.ts`; RFC 03 §3.5):
+- **Ownership:** a key belongs to its caller (`user:<id>` or `token:<id>`), the project and the route. Two projects' CI jobs both using `build-42` never meet, and nobody is answered from another caller's request. It's checked after the permission check, so a revoked token gets nothing back.
+- **The first request** inserts the key as `IN_PROGRESS` (`INSERT ... ON CONFLICT DO NOTHING` on the unique scope), before its route runs.
+- **The answer:** the route-level `onSend` keeps a 2xx answer (status and body; 207 included) as `COMPLETE`. Any other answer deletes the key, so a retry after fixing the problem (a closed run reopened, say) runs.
+- **The same request again** gets the kept answer with `Idempotent-Replayed: true`. "The same" is a SHA-256 of the route's ids, the sorted query string and the body. The route doesn't run, so nothing is recorded, and no webhook or audit row repeats.
+- **A different request with the key** gets `422 IDEMPOTENCY_KEY_REUSED`. A script that reused one key for several files (or for a re-run of the build) would otherwise lose those results.
+- **A request while the first is still running** gets `409 IDEMPOTENCY_KEY_IN_USE` with `Retry-After: 2`.
+- **A key held for over 10 minutes** means its request never finished (the server stopped). The next request with it takes it over and runs; only one retry can, through a compare-and-set on `created_at`. Its results may or may not have been saved, which the docs say.
+- **The key itself** is 1-255 printable ASCII characters, plain or quoted as the IETF draft writes it (`"abc"` = `abc`). Anything else gets 400 naming `Idempotency-Key`.
+- **Storage:** migration `015_idempotency_keys`, in the database, so several server instances share it. It cascades with its project. An expired key is deleted when it's used again, and every expired key hourly, from the server's startup (`purgeExpiredIdempotencyKeys`).
+- **Not covered:** MCP's `record_result`. MCP calls are JSON-RPC, and agents' retries are a separate question.
+- **Without the header**, nothing changes.
+
+**Docs:**
+- RFC 03: a new §3.5, and the two codes in §4.2.
+- RFC 01: the `idempotency_keys` table.
+- `api_getting_started.md`:
+  - retries;
+  - the GitHub Actions example now sends `Idempotency-Key: ${{ github.run_id }}-${{ github.run_attempt }}-report.xml` with `curl --retry 3`;
+  - the two codes in the error table.
+- `reports_api_and_mcp.md`.
+- CLAUDE.md/AGENTS.md: the results rule; services.
+- `api_roadmap.md`: finding 3 done.
+- The OpenAPI spec documents the header and the 409/422 on all five routes.
+
+Tests:
+- New `apps/server/tests/idempotency.test.ts` (10):
+  - a replay: the same status and body, marked replayed, the results recorded once, one webhook delivery queued, not two; without a key a repeat still records;
+  - JUnit into a run by name: one run, one result, `run.created: true` in both answers, quoted and plain key the same;
+  - the same key with a different body or a different query: 422, nothing recorded;
+  - a failed request (run closed) frees the key, and the retry after reopening runs;
+  - the same key from a token and on the JUnit route are separate keys;
+  - one result at a time: the same result id back;
+  - in progress: 409 with `Retry-After: 2`; held over 10 minutes: taken over; expired: free again;
+  - four concurrent retries: 201s and 409s, the results recorded once;
+  - a project's keys go when it's force-deleted;
+  - bad keys (256 characters, `""`, non-ASCII) refused, naming the header.
+
+**Verified live** on the dev server with the demo data, using real `curl` and a REST-only CI token:
+- the first JUnit upload into `run_name=Build 900` answered 201 and created the run;
+- the retry with the same key answered 201 with `idempotent-replayed: true` and the same summary;
+- the same key with a changed file answered `422 IDEMPOTENCY_KEY_REUSED`;
+- the run has 2 results, not 4.

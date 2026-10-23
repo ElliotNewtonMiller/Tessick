@@ -9,6 +9,7 @@ import { requirePermission, requireAnyPermission, EXECUTION_READ_PERMISSIONS } f
 import { autoCloseRunIfComplete } from '../runAutoClose.js';
 import { actorType, requestOrigin } from '../audit.js';
 import { emitResultsRecorded, webhookActor } from '../services/webhookEvents.js';
+import { idempotencyHooks } from '../services/idempotency.js';
 import { recordResultSchema, finishAutoCloseSchema, listRunResultsSchema, getResultSchema, RESULT_PAGE } from '../openapi/areas/projects.js';
 import { actorNames } from '../services/actorNames.js';
 import { commaList, readPage } from '../paging.js';
@@ -21,7 +22,14 @@ import { VERDICTS } from '../openapi/schemas.js';
  * (routes/batchExecution.ts).
  */
 export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
-  app.post('/api/v1/runs/:runId/results', { schema: recordResultSchema, preHandler: requirePermission('EXECUTE_RUN', db, jwtSecret), config: { stripNul: true } }, async (request, reply) => {
+  // An optional Idempotency-Key makes a retried request answer as the first did (services/idempotency.ts).
+  const idempotency = idempotencyHooks(db);
+  app.post('/api/v1/runs/:runId/results', {
+    schema: recordResultSchema,
+    preHandler: [requirePermission('EXECUTE_RUN', db, jwtSecret), idempotency.preHandler],
+    onSend: idempotency.onSend,
+    config: { stripNul: true },
+  }, async (request, reply) => {
     const actorId = request.user!.id;
     const { runId } = request.params as { runId: string };
     // Verdict, status and step verdicts must be known values (they're stored as plain strings).

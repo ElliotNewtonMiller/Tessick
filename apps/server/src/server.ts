@@ -40,6 +40,7 @@ import { registerNulGuard, unstorableValueMessage } from './storableInput.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
 import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
+import { purgeExpiredIdempotencyKeys } from './services/idempotency.js';
 import { encryptStoredSmtpPassword } from './services/mailer.js';
 import { UserRepository } from '@testify/db';
 
@@ -262,4 +263,9 @@ if (process.env.NODE_ENV !== 'test') {
   setInterval(() => {
     runDueWebhookDeliveries(db).catch((err) => console.error('[webhooks] Delivery failed:', err));
   }, 15_000);
+
+  // Idempotency keys are kept 24 hours (services/idempotency.ts); expired ones are deleted hourly.
+  setInterval(() => {
+    purgeExpiredIdempotencyKeys(db).catch((err) => console.error('[idempotency] Purge failed:', err));
+  }, 3_600_000);
 }

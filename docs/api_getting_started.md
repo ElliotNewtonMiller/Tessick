@@ -119,6 +119,7 @@ curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20buil
 - **Verdicts:** `<failure>` and `<error>` are FAILED, `<skipped>` is SKIPPED, anything else PASSED. The test's `time` (seconds) becomes its duration; a time over about 24 days, usually milliseconds written as seconds, is left out. The failure's message and text become the error and stack trace in reports.
 - **Optional query parameters:** `environment` (e.g. `staging`); `ci_name`, `ci_run_id`, `ci_job_name`, `ci_url`, `commit_sha`, which link each result back to the build in reports; `close_run=true` to close the run afterwards.
 - **Size:** up to 20,000 tests and 50 MB per file.
+- **Retries:** add `-H "Idempotency-Key: $BUILD_ID-$ATTEMPT-report.xml"` and a retry after a timeout gets the first answer back (marked `Idempotent-Replayed: true`) instead of recording every result again. `curl --retry 3` resends the same header. Use a new key for each file and each re-run of the build: the same key with a different file is refused (`422 IDEMPOTENCY_KEY_REUSED`). Keys are kept 24 hours.
 
 **Matching tests to Testify cases.** Each test in the file is matched to a case of the project, in this order:
 1. A `testify_id` property on the test. In pytest: `record_property("testify_id", "SHOP-101")`.
@@ -178,8 +179,9 @@ Each example sends the report even when tests failed, prints the refused tests, 
       --arg ci_run_id "${{ github.run_id }}" --arg commit_sha "${{ github.sha }}" \
       --arg ci_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
       '$ARGS.named | to_entries | map("\(.key)=\(.value | @uri)") | join("&")')
-    STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$URL?$QUERY" \
-      -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' --data-binary @report.xml)
+    STATUS=$(curl -s --retry 3 -o response.json -w '%{http_code}' -X POST "$URL?$QUERY" \
+      -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' \
+      -H "Idempotency-Key: ${{ github.run_id }}-${{ github.run_attempt }}-report.xml" --data-binary @report.xml)
     jq -c '.summary // .' response.json
     jq -r '.results[]? | select(.status >= 400) | "\(.code): \(.test_name)"' response.json
     test "$STATUS" = 201 -o "$STATUS" = 207
@@ -338,6 +340,8 @@ The ones you're most likely to meet:
 | 403 `TOKEN_PROJECT_MISMATCH` | An id from another project | Use that project's token |
 | 403 `TOKEN_NOT_ALLOWED` | An admin route; tokens can't use them | Sign in as a user |
 | 422 `RUN_CLOSED`, `PLAN_LOCKED` | The run is closed, or the plan locked or archived | Reopen it, or use another run |
+| 422 `IDEMPOTENCY_KEY_REUSED` | This `Idempotency-Key` was already used for a different upload | Use a new key for each file and re-run |
+| 409 `IDEMPOTENCY_KEY_IN_USE` | The first upload with this key is still being handled | Retry after `Retry-After` seconds to get its answer |
 | 429 `RATE_LIMITED` | Too many requests | Wait the seconds in `Retry-After`, then retry |
 
 The full list is in [RFC 03 §4.2](rfc_03_api_and_xml_contracts.md). An unexpected `500` carries a `request_id`. Give it to whoever runs the server: the server's log line has the same id.

@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Findings 1, 2 and 4 are done (2026-10-23); the rest are to fix.
+**Status:** in progress. Findings 1 to 4 are done (2026-10-23); the rest are to fix.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -81,7 +81,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | :- | :--- | :--- | :--- |
 | 1 | Ordinary bad input crashed requests with a 500: a NUL character in text, text over a column's length, numbers past an `integer` column. One bad value failed a whole CI upload. | NULs are refused with 400, or removed in results, imports and MCP. Limits are checked up front, naming the field, with a safety net for the rest. | **Done** (changelog 2026-10-23) |
 | 2 | A token could hold `PROJECT_DELETE` and force-delete a whole project, irreversibly; `?force=true` is trivial for a script. | Tokens can never hold `PROJECT_DELETE` (`TOKEN_EXCLUDED_PERMISSIONS`). No trash. | **Done** (changelog 2026-10-23) |
-| 3 | Re-sending the same CI upload (a retry after a network error) records every result twice. | An optional `Idempotency-Key` header on the three result routes (one result, JSON batch, JUnit). Keys belong to the caller, the project and the route; only 2xx answers are kept, for 24 hours, in the database; the same key with a different body is `422`, and one still in progress is `409`. | To do |
+| 3 | Re-sending the same CI upload (a retry after a network error) records every result twice. | An optional `Idempotency-Key` header on the three result routes (one result, JSON batch, JUnit). Keys belong to the caller, the project and the route; only 2xx answers are kept, for 24 hours, in the database; the same key with a different body is `422`, and one still in progress is `409`. | **Done** (changelog 2026-10-23) |
 | 4 | Mistakes are silently ignored: an unknown field (`PATCH {"tittle": ...}` answers 200), a report filter under the wrong key (an unfiltered report). | Refuse unknown fields and filter keys with 400 naming them; MCP tool arguments too. | **Done** (changelog 2026-10-23) |
 | 5 | JSON bodies are capped at 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters; the 413 doesn't say the limit. | | To do |
 | 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | | To do |

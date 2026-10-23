@@ -235,6 +235,17 @@ One CI build is one run. Rather than looking the run up and creating it, CI name
 
 CI results never auto-close a run (runs executed in the web app do, RFC 01): a build may send several files, from parallel jobs or one per test class, or be re-run, and only the CI knows when it is done. `close_run=true` on any batch or JUnit upload closes the run after recording (needs `RUN_MANAGE`), and `run_status` says so. A locked or archived plan gets `422 PLAN_LOCKED` before any run is created, and a request with nothing to record (no results, or an unusable JUnit file) is refused without creating one.
 
+### 3.5 Retries (`Idempotency-Key`)
+
+A CI job that retries an upload after a timeout or a dropped connection would otherwise record every result twice. The result routes (`POST /runs/{runId}/results`, both `/results/batch` and both `/results/junit`) take an optional `Idempotency-Key` header, following the IETF httpapi draft (`services/idempotency.ts`):
+- **A key** is up to 255 printable ASCII characters, plain or quoted (`"abc"` and `abc` are the same key). It belongs to its caller (a user or an API token), the project and the route, so another caller's request is never answered from it. Authentication and permission checks run first.
+- **The first request** with a key holds it while it runs. A `2xx` answer is kept for 24 hours; any other answer frees the key, so a retry after fixing the problem runs.
+- **The same request again** (same route ids, query string and body) gets the kept answer, with the same status and body plus `Idempotent-Replayed: true`. Nothing is recorded again, and no webhook or audit row repeats.
+- **A different request with the key** is `422 IDEMPOTENCY_KEY_REUSED`. A script that reused one key for several files would otherwise lose their results. Use the build, its attempt and the file: `${{ github.run_id }}-${{ github.run_attempt }}-report.xml`.
+- **The same request while the first is still running** is `409 IDEMPOTENCY_KEY_IN_USE` with `Retry-After: 2`.
+- **A key held for over 10 minutes** means its request never finished (the server stopped); the next request with it runs. Its results may or may not have been saved.
+- **Without the header**, nothing changes: a repeat records again, as before. MCP's `record_result` doesn't take a key.
+
 ---
 
 ## 4. Errors
@@ -287,9 +298,9 @@ The codes a client is most likely to handle (the code is always in `code`; `deta
 | `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN`, `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE` |
 | `403` | `FORBIDDEN` (with `required_permission`), `TOKEN_PROJECT_MISMATCH`, `TOKEN_NOT_ALLOWED` (an API token on a route outside any project), `TOKEN_INTERFACE_NOT_ALLOWED` (an MCP-only token on the REST API, or a REST-only one on `/mcp`; with `token_interfaces`), `RESULT_OVERWRITE_NOT_PERMITTED`, `AUTO_CLOSE_NOT_YOURS`, `CAPABILITY_CEILING_EXCEEDED`, `PASSWORD_CHANGE_REQUIRED`, `CSRF_HEADER_MISSING`, `CURRENT_PASSWORD_INCORRECT`, and the Admin Panel guards `PERMISSION_CEILING`, `TARGET_OUTRANKS_ACTOR`, `ROLE_OUTRANKS_ACTOR` |
 | `404` | `NOT_FOUND`, and in reports `PROJECT_NOT_FOUND`, `PLAN_NOT_FOUND`, `RUN_NOT_FOUND`, `CASE_NOT_FOUND`, `REPORT_NOT_FOUND` |
-| `409` | "Still contains" on delete without `force`: `PROJECT_IN_USE`, `SUITE_IN_USE`, `CASE_IN_USE`, `PLAN_IN_USE`, `RUN_IN_USE`, `CUSTOM_FIELD_IN_USE`, `ROLE_IN_USE`, `CASE_HAS_RESULTS` (removing a case with results from a plan); also `LAST_ADMIN`, `LAST_RECIPIENT` (a report schedule's only recipient), `USER_EXISTS`, `ROLE_NAME_TAKEN`, `FIELD_NAME_TAKEN`, `WEBHOOK_LIMIT` (20 per project), a taken project prefix or run name |
+| `409` | "Still contains" on delete without `force`: `PROJECT_IN_USE`, `SUITE_IN_USE`, `CASE_IN_USE`, `PLAN_IN_USE`, `RUN_IN_USE`, `CUSTOM_FIELD_IN_USE`, `ROLE_IN_USE`, `CASE_HAS_RESULTS` (removing a case with results from a plan); also `LAST_ADMIN`, `LAST_RECIPIENT` (a report schedule's only recipient), `USER_EXISTS`, `ROLE_NAME_TAKEN`, `FIELD_NAME_TAKEN`, `WEBHOOK_LIMIT` (20 per project), `IDEMPOTENCY_KEY_IN_USE` (§3.5), a taken project prefix or run name |
 | `413` | `IMPORT_TOO_LARGE`, `PAYLOAD_TOO_LARGE` |
-| `422` | `RUN_CLOSED`, `PLAN_LOCKED`, `CASE_VERSION_LOCKED` (editing an approved version), `CASE_VERSION_NOT_APPROVED` (adding a draft to a plan), `CASE_REMOVED_FROM_PLAN`, `VERSION_NOT_DRAFT`, `VERSION_NOT_APPROVED`, `VERSION_NOT_DEPRECATED`, `VERSION_NOT_LATEST`, `REQUIRED_CUSTOM_FIELDS_MISSING`, `REQUIRED_FIELD_NEEDS_DEFAULT`, `WEBHOOK_DISABLED` (pinging or redelivering to a webhook that's turned off) |
+| `422` | `RUN_CLOSED`, `PLAN_LOCKED`, `CASE_VERSION_LOCKED` (editing an approved version), `CASE_VERSION_NOT_APPROVED` (adding a draft to a plan), `CASE_REMOVED_FROM_PLAN`, `VERSION_NOT_DRAFT`, `VERSION_NOT_APPROVED`, `VERSION_NOT_DEPRECATED`, `VERSION_NOT_LATEST`, `REQUIRED_CUSTOM_FIELDS_MISSING`, `REQUIRED_FIELD_NEEDS_DEFAULT`, `WEBHOOK_DISABLED` (pinging or redelivering to a webhook that's turned off), `IDEMPOTENCY_KEY_REUSED` (§3.5) |
 | `429` | `RATE_LIMITED`, `ACCOUNT_LOCKED`, `TOO_MANY_ATTEMPTS`, `IMPORT_BUSY` (with `Retry-After`) |
 | `500` | `INTERNAL_ERROR` (with `request_id`) |
 

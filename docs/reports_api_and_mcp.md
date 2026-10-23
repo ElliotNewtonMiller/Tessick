@@ -75,7 +75,7 @@ POST /api/v1/projects/:projectId/reports/:reportId[?format=json|markdown|csv]
 - `notes`
 - `environment_tags`
 
-Per submission, it also stores `environment` and `runner_info`: `{ name, run_id, job_name, commit_sha, url }` (`run_id` is your CI system's run id, not Testify's). The full request and response are in [RFC 03 §3](rfc_03_api_and_xml_contracts.md). The failure message and stack trace show up in run summaries and case history, and the commit shows up in run summaries.
+A retry with the same `Idempotency-Key` header gets the first answer back instead of recording again (RFC 03 §3.5). Per submission, it also stores `environment` and `runner_info`: `{ name, run_id, job_name, commit_sha, url }` (`run_id` is your CI system's run id, not Testify's). The full request and response are in [RFC 03 §3](rfc_03_api_and_xml_contracts.md). The failure message and stack trace show up in run summaries and case history, and the commit shows up in run summaries.
 
 ## MCP (for AI agents)
 

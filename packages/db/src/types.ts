@@ -333,6 +333,22 @@ export interface Database {
   sessions: SessionsTable;
   webhooks: WebhooksTable;
   webhook_deliveries: WebhookDeliveriesTable;
+  idempotency_keys: IdempotencyKeysTable;
+}
+
+/** A result request's Idempotency-Key and, once it succeeded, its answer (migration 015). */
+export interface IdempotencyKeysTable {
+  id: string;
+  caller: string;
+  project_id: string;
+  route: string;
+  idempotency_key: string;
+  fingerprint: string;
+  status: 'IN_PROGRESS' | 'COMPLETE';
+  response_status: number | null;
+  response_body: string | null;
+  created_at: string;
+  expires_at: string;
 }
 
 /** One row per sign-in (migration 003). The login token carries the id as `sid`. */

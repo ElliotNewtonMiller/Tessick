@@ -204,6 +204,7 @@ erDiagram
 | `system_settings` | `key`, `value` | SMTP settings (the password encrypted) and the public app address. |
 | `report_schedules` | `project_id`, `name`, `sections` (JSON), `recipients`, `frequency`, `weekday`, `time_of_day`, `timezone`, `only_when_new_run`, `enabled`, `next_run_at`, `last_*`, `created_by` | Scheduled report emails. |
 | `last_email` | `subject`, `recipients`, `html`, `text_body`, `status`, `error` | The most recent email only, for admins to review. |
+| `idempotency_keys` | `caller`, `project_id`, `route`, `idempotency_key` (unique together), `fingerprint`, `status`, `response_status`, `response_body`, `expires_at` | `Idempotency-Key`s of the result routes and, once a request succeeded, its answer, kept 24 hours (migration 015; RFC 03 §3.5). Deleted with their project. |
 
 `kysely_migration` and `kysely_migration_lock` record which migrations have run.
 
