@@ -71,6 +71,32 @@ Many tools read that format, so the one file gives:
 - **System-wide permissions can't be given to a token:** `USER_MANAGE`, `CUSTOM_FIELD_MANAGE`, `PROJECT_CREATE` and `API_TOKEN_MANAGE` (a token's own tokens would never work, since their issuer isn't a user), on top of `SYSTEM_ADMIN`. Asking for one is `400 CAPABILITY_NOT_GRANTABLE`, the API Tokens tab no longer offers them, and existing tokens lose them on their next use.
 - Admin automation, if wanted later, gets its own kind of credential.
 
+## API audit, 2026-10-23
+
+**Status:** in progress. Finding 1 is done (2026-10-23); the rest are to fix, roughly in this order.
+
+Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
+
+| # | Finding | Decision | Status |
+| :- | :--- | :--- | :--- |
+| 1 | Ordinary bad input crashed requests with a 500: a NUL character in text, text over a column's length, numbers past an `integer` column. One bad value failed a whole CI upload. | NULs are refused with 400, or removed in results, imports and MCP. Limits are checked up front, naming the field, with a safety net for the rest. | **Done** (changelog 2026-10-23) |
+| 2 | A token could hold `PROJECT_DELETE` and force-delete a whole project, irreversibly; `?force=true` is trivial for a script. | Tokens can never hold `PROJECT_DELETE` (like `TOKEN_EXCLUDED_PERMISSIONS`). No trash. | To do |
+| 3 | Re-sending the same CI upload (a retry after a network error) records every result twice. | An optional `Idempotency-Key` header on the three result routes (one result, JSON batch, JUnit). Keys belong to the caller, the project and the route; only 2xx answers are kept, for 24 hours, in the database; the same key with a different body is `422`, and one still in progress is `409`. | To do |
+| 4 | Mistakes are silently ignored: an unknown field (`PATCH {"tittle": ...}` answers 200), a report filter under the wrong key (an unfiltered report). | Refuse unknown fields and filter keys with 400 naming them. | To do |
+| 5 | JSON bodies are capped at 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters; the 413 doesn't say the limit. | | To do |
+| 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | | To do |
+| 7 | The single-result route needs `test_plan_case_id`; elsewhere a case id or readable id works. | | To do |
+| 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | | To do |
+| 9 | `executed_at` in the future (2099) is accepted, distorting "latest" and trends. | | To do |
+| 10 | Signed-in users have no request limit (only API tokens do). | | To do |
+| 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | | To do |
+| 12 | Missing HTTP basics: no `WWW-Authenticate` on 401, 404 instead of 405 for a wrong method, no expiry in the login answer. | | To do |
+| 13 | No `operationId` in the spec (poor names in Postman and client generators); 12 write routes don't document their 400. | | To do |
+| 14 | A project's `settings` is returned as a JSON string inside the JSON. | | To do |
+| 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | | To do |
+| 16 | A webhook to an address refused at delivery retries for 11 hours instead of failing at once. | | To do |
+| 17 | MCP tools take only internal project ids, not prefixes (`DEMO`); runs carry no result counts, so a dashboard needs a call per run. | | To do |
+
 ## Steps
 
 ### 1. Make the API consistent
@@ -282,3 +308,7 @@ Many tools read that format, so the one file gives:
 | 2026-10-14 | A Teams format: an Adaptive Card for Teams Workflows webhooks (Office 365 connectors are retired), with test content only in plain-text `TextRun`s. | |
 | 2026-10-15 | `defer_auto_close` on `POST /runs/{runId}/results`, and `POST /runs/{runId}/auto-close` to finish it: Fail/Block in the web app wait for their notes before the run auto-closes. | Decided with Elliot (over a grace exception for notes on a just-closed run, or recording Fail/Block only on submit): an auto-close that came first refused the notes. Finishing needs your own single result, so CI still never auto-closes. |
 | 2026-10-23 | API tokens choose where they work: the REST API and MCP (default), MCP only, or REST only (`interfaces`; `403 TOKEN_INTERFACE_NOT_ALLOWED`). An agent's token should be MCP only, since MCP's limits hold only on `/mcp`. Tokens describe themselves (`/auth/me`; `api_token` on `GET /projects` and MCP `list_projects`). | An agent whose MCP connection failed fell back to the REST API with the same token, stepping outside MCP's limits, and couldn't tell why it saw only one project. |
+| 2026-10-23 | NUL characters are refused with 400 naming the field, except on the result routes, imports and `/mcp`, which remove them. Limits (names 255, integers 2,147,483,647, suites 27 deep) are checked up front; a data exception the database still raises answers 400 and is logged. | Audit finding 1. Results and imports carry captured test output and other tools' files, where a stray NUL shouldn't cost the result. |
+| 2026-10-23 | API tokens can't hold `PROJECT_DELETE`; no trash for deleted projects. | Decided with Elliot (audit finding 2). |
+| 2026-10-23 | Unknown request fields and report filter keys are refused with 400. | Decided with Elliot (audit finding 4): nothing outside Testify uses the API yet, so this is the cheapest time. |
+| 2026-10-23 | Repeat uploads are caught with an optional `Idempotency-Key` header on the three result routes, kept 24 hours; no automatic de-duplication by content. | Decided with Elliot (audit finding 3). Content-based de-duplication would silently drop a genuine re-run whose report has no times. |

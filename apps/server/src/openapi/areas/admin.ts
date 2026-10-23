@@ -37,8 +37,8 @@ export const createUserSchema = {
     type: 'object',
     required: ['username', 'email', 'password'],
     properties: {
-      username: { type: 'string' },
-      email: { type: 'string' },
+      username: { type: 'string', maxLength: 100 },
+      email: { type: 'string', maxLength: 255 },
       password: { type: 'string' },
       global_role: { type: 'string', description: 'A role name from `GET /api/v1/admin/roles`; default Tester. "No Access" limits the user to their project roles.' },
       project_roles: projectRoles,
@@ -168,7 +168,7 @@ export const listRolesSchema = {
 };
 
 const roleFields = {
-  name: { type: 'string', description: 'Unique' },
+  name: { type: 'string', maxLength: 100, description: 'Unique' },
   description: { type: ['string', 'null'] },
   permission_keys: { type: 'array', items: { type: 'string' }, description: 'Keys from `GET /api/v1/admin/permissions`' },
 };
@@ -253,15 +253,15 @@ export const auditLogSchema = {
 // ---- Custom field definitions ----
 
 const definitionFields = {
-  name: { type: 'string', description: 'Unique per kind (case or suite fields)' },
-  field_label: { type: 'string', description: 'Shown in the app' },
+  name: { type: 'string', maxLength: 100, description: 'Unique per kind (case or suite fields)' },
+  field_label: { type: 'string', maxLength: 255, description: 'Shown in the app' },
   is_required: { type: 'boolean', description: 'A required field needs a usable default (CHECKBOX fields can\'t be required)' },
   default_value: { type: ['string', 'null'], description: 'As text; for MULTI_SELECT a JSON list such as ["a","b"]' },
-  validation_regex: { type: ['string', 'null'], description: 'TEXT only: values must match it (at most 500 characters; a check taking over 50 ms is refused)' },
+  validation_regex: { type: ['string', 'null'], description: 'TEXT only: values must match it (at most 255 characters; a check taking over 50 ms is refused)' },
   options: {
     type: 'array',
     description: 'SINGLE_SELECT and MULTI_SELECT: the allowed values. Removing one clears it from every case and suite.',
-    items: { type: 'object', required: ['option_label', 'option_value'], properties: { option_label: { type: 'string' }, option_value: { type: 'string' }, position: { type: 'integer' } } },
+    items: { type: 'object', required: ['option_label', 'option_value'], properties: { option_label: { type: 'string', maxLength: 255 }, option_value: { type: 'string', maxLength: 255 }, position: { type: 'integer' } } },
   },
 };
 

@@ -105,13 +105,13 @@ export async function registerJUnitResultRoutes(app: FastifyInstance, db: Kysely
       });
     }
 
-    junit.post('/api/v1/runs/:runId/results/junit', { schema: junitResultsSchema, preHandler: executeRun }, async (req, reply) => {
+    junit.post('/api/v1/runs/:runId/results/junit', { schema: junitResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
       const tests = readJUnit(req, reply);
       if (!tests) return reply;
       return record(req, reply, (req.params as { runId: string }).runId, tests, {});
     });
 
-    junit.post('/api/v1/plans/:planId/results/junit', { schema: planJunitResultsSchema, preHandler: executeRun }, async (req, reply) => {
+    junit.post('/api/v1/plans/:planId/results/junit', { schema: planJunitResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
       const tests = readJUnit(req, reply);
       if (!tests || !batchOptions(req, reply)) return reply;
       const run = await findOrCreateRun(db, req, reply, req.user!, (req.params as { planId: string }).planId, (req.query as JUnitQuery).run_name);

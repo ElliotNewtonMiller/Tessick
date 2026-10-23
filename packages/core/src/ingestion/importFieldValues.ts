@@ -1,4 +1,5 @@
-import type { ParsedSuite } from './types.js';
+import type { ParsedCase, ParsedSuite } from './types.js';
+import { MAX_DB_INTEGER, MAX_NAME_LENGTH, withoutNul } from '../limits/index.js';
 
 /** Splits one cell of a multi-select column ("UI, API, Slow") into its options -- trimmed,
  * empties dropped, duplicates removed, order kept. */
@@ -88,3 +89,38 @@ export function applyProjectCaseIds(suites: ParsedSuite[], prefix: string): void
     applyProjectCaseIds(suite.sub_suites || [], prefix);
   }
 }
+
+/** The longest case id the database holds (test_cases.external_id is varchar(100)). */
+export const MAX_CASE_ID_LENGTH = 100;
+
+/**
+ * The parsed tree as it can be stored: NUL characters removed from all its text (another tool's
+ * file may carry them, and PostgreSQL text can't), suite names and case titles cut to 255
+ * characters, a case id too long to keep dropped with a CASE_ID_TOO_LONG warning (the case then
+ * gets the next PREFIX-n), and a suite order that isn't a storable whole number set to 0. Any of
+ * these used to fail the whole import with a 500.
+ */
+export function storableSuites(suites: ParsedSuite[]): ParsedSuite[] {
+  return withoutNul(suites).map(storableSuite);
+}
+
+function storableSuite(suite: ParsedSuite): ParsedSuite {
+  return {
+    ...suite,
+    name: cut(suite.name),
+    node_order: Number.isInteger(suite.node_order) && Math.abs(suite.node_order) <= MAX_DB_INTEGER ? suite.node_order : 0,
+    sub_suites: (suite.sub_suites || []).map(storableSuite),
+    test_cases: (suite.test_cases || []).map(storableCase),
+  };
+}
+
+function storableCase(tc: ParsedCase): ParsedCase {
+  const idTooLong = (tc.external_id?.trim().length ?? 0) > MAX_CASE_ID_LENGTH;
+  return {
+    ...tc,
+    title: cut(tc.title),
+    ...(idTooLong ? { external_id: undefined, parser_warnings: [...(tc.parser_warnings || []), 'CASE_ID_TOO_LONG'] } : {}),
+  };
+}
+
+const cut = (text: string) => (typeof text === 'string' && text.length > MAX_NAME_LENGTH ? text.slice(0, MAX_NAME_LENGTH).trimEnd() : text);

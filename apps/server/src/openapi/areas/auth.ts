@@ -72,8 +72,8 @@ export const patchMeSchema = {
   body: {
     type: 'object',
     properties: {
-      username: { type: 'string' },
-      email: { type: 'string' },
+      username: { type: 'string', maxLength: 100 },
+      email: { type: 'string', maxLength: 255 },
       password: { type: 'string', description: 'The new password: 8-100 characters; under 16 characters it needs a digit, an uppercase letter and a symbol' },
       current_password: { type: 'string', description: 'Required with `password`' },
     },

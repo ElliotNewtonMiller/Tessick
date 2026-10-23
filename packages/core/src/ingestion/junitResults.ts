@@ -1,4 +1,5 @@
 import sax from 'sax';
+import { MAX_DB_INTEGER } from '../limits/index.js';
 
 /**
  * JUnit XML as test *results* (what CI uploads after a build), as opposed to JUnitXmlParser, which
@@ -18,7 +19,7 @@ export interface JUnitTestResult {
   /** <testcase name> */
   name: string;
   outcome: JUnitOutcome;
-  /** <testcase time> in milliseconds, or null when missing or not a number */
+  /** <testcase time> in milliseconds, or null when missing, not a number, or over about 24 days (e.g. a time in milliseconds rather than seconds) */
   duration_ms: number | null;
   /** The failure/error/skipped `message` attribute (or its text when there's no message) */
   message: string | null;
@@ -59,12 +60,13 @@ export function parseJUnitResults(xml: string): JUnitTestResult[] {
       sawSuite = true;
     } else if (tag === 'testcase') {
       const seconds = Number(attr('time'));
+      const ms = Math.round(seconds * 1000);
       current = {
         suite: suites[suites.length - 1] ?? '',
         classname: (attr('classname') ?? '').trim(),
         name: (attr('name') ?? '').trim(),
         outcome: 'PASSED',
-        duration_ms: attr('time') !== undefined && Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds * 1000) : null,
+        duration_ms: attr('time') !== undefined && Number.isFinite(seconds) && seconds >= 0 && ms <= MAX_DB_INTEGER ? ms : null,
         message: null,
         details: null,
         properties: {},

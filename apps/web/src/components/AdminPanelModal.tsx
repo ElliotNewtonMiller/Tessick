@@ -2907,7 +2907,7 @@ export function AdminPanelModal({
                         value={fieldValidationRegex}
                         onChange={(e) => setFieldValidationRegex(e.target.value)}
                         placeholder="e.g. ^[A-Z]+-\d+$"
-                        maxLength={500}
+                        maxLength={255}
                         style={{
                           width: "100%",
                           boxSizing: "border-box",

@@ -35,7 +35,7 @@ export function batchOptions(req: FastifyRequest, reply: FastifyReply): { allOrN
 export async function registerBatchExecutionRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
   const executeRun = requirePermission('EXECUTE_RUN', db, jwtSecret);
 
-  app.post('/api/v1/runs/:runId/results/batch', { schema: batchResultsSchema, preHandler: executeRun }, async (req, reply) => {
+  app.post('/api/v1/runs/:runId/results/batch', { schema: batchResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
     const { runId } = req.params as { runId: string };
     const options = batchOptions(req, reply);
     if (!options) return reply;
@@ -44,7 +44,7 @@ export async function registerBatchExecutionRoutes(app: FastifyInstance, db: Kys
     return reply.status(outcome.httpStatus).send(outcome.payload);
   });
 
-  app.post('/api/v1/plans/:planId/results/batch', { schema: planBatchResultsSchema, preHandler: executeRun }, async (req, reply) => {
+  app.post('/api/v1/plans/:planId/results/batch', { schema: planBatchResultsSchema, preHandler: executeRun, config: { stripNul: true } }, async (req, reply) => {
     const { planId } = req.params as { planId: string };
     const body = req.body as BatchResultsRequest | undefined;
     // A malformed request mustn't leave an empty run behind.

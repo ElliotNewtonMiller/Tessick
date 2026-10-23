@@ -5,6 +5,8 @@ import { CustomFieldRepository, TestCaseRepository, TestSuiteRepository } from '
 import {
   CUSTOM_FIELD_TYPES,
   CUSTOM_FIELD_ENTITY_TYPES,
+  MAX_DB_INTEGER,
+  MAX_NAME_LENGTH,
   resolveDefaultValue,
   type CustomFieldEntityType,
   type CustomFieldType,
@@ -17,6 +19,34 @@ import * as A from '../openapi/areas/admin.js';
 
 function isEntityType(value: unknown): value is CustomFieldEntityType {
   return typeof value === 'string' && (CUSTOM_FIELD_ENTITY_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * What a definition's text and positions must fit (name varchar(100); label, option label and
+ * value varchar(255); positions integer), as invalid_params. Too long used to fail with a 500.
+ */
+function definitionSizeProblems(body: { name?: unknown; field_label?: unknown; options?: unknown }): Array<{ name: string; reason: string }> {
+  const out: Array<{ name: string; reason: string }> = [];
+  const tooLong = (field: string, value: unknown, max: number) => {
+    if (typeof value === 'string' && value.length > max) out.push({ name: field, reason: `can be at most ${max} characters` });
+  };
+  tooLong('name', body.name, 100);
+  tooLong('field_label', body.field_label, MAX_NAME_LENGTH);
+  if (Array.isArray(body.options)) {
+    body.options.forEach((option: any, i: number) => {
+      tooLong(`options[${i}].option_label`, option?.option_label, MAX_NAME_LENGTH);
+      tooLong(`options[${i}].option_value`, option?.option_value, MAX_NAME_LENGTH);
+      const position = option?.position;
+      if (position !== undefined && position !== null && !(Number.isInteger(position) && position >= 0 && position <= MAX_DB_INTEGER)) {
+        out.push({ name: `options[${i}].position`, reason: 'must be a whole number, 0 or more' });
+      }
+    });
+  }
+  return out;
+}
+
+function sendSizeProblems(reply: FastifyReply, problems: Array<{ name: string; reason: string }>) {
+  return sendError(reply, 400, problems.map((p) => `${p.name} ${p.reason}`).join('; '), { invalid_params: problems });
 }
 
 /**
@@ -106,6 +136,8 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
       if (!(CUSTOM_FIELD_TYPES as readonly string[]).includes(field_type)) {
         return sendError(reply, 400, `field_type must be one of: ${CUSTOM_FIELD_TYPES.join(', ')}`);
       }
+      const sizeProblems = definitionSizeProblems({ name, field_label, options });
+      if (sizeProblems.length > 0) return sendSizeProblems(reply, sizeProblems);
       // Optional: the projects it applies to. Left out or empty: all projects.
       if (projectIdsRaw !== undefined && (!Array.isArray(projectIdsRaw) || projectIdsRaw.some((p: unknown) => typeof p !== 'string'))) {
         return sendError(reply, 400, 'project_ids must be a list of project ids', { invalid_params: [{ name: 'project_ids', reason: 'must be a list of project ids' }] });
@@ -182,6 +214,8 @@ export async function registerCustomFieldRoutes(app: FastifyInstance, db: Kysely
       const activeUser = request.user!;
       const { id } = request.params as { id: string };
       const { name, field_label, is_required, default_value, validation_regex, options } = (request.body as any) || {};
+      const sizeProblems = definitionSizeProblems({ name, field_label, options });
+      if (sizeProblems.length > 0) return sendSizeProblems(reply, sizeProblems);
 
       // Any scope: a project's own field (made by an import) is managed here too.
       const existing = await fieldRepo.getDefinitionAnyScope(id);

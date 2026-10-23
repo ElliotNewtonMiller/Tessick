@@ -12,7 +12,7 @@ describe('custom-field validation patterns', () => {
     expect(checkValidationPattern('^[A-Z]+-\\d+$')).toBeNull();
     expect(checkValidationPattern('(')).toMatch(/isn't a valid regular expression/);
     expect(checkValidationPattern('a'.repeat(MAX_VALIDATION_PATTERN_LENGTH))).toBeNull();
-    expect(checkValidationPattern('a'.repeat(MAX_VALIDATION_PATTERN_LENGTH + 1))).toMatch(/at most 500 characters/);
+    expect(checkValidationPattern('a'.repeat(MAX_VALIDATION_PATTERN_LENGTH + 1))).toMatch(/at most 255 characters/);
   });
 
   it('matches normally', () => {

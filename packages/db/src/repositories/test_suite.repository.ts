@@ -3,6 +3,18 @@ import { v7 as uuidv7 } from 'uuid';
 import type { Database, TestSuitesTable } from '../types.js';
 import type { TestCaseRepository } from './test_case.repository.js';
 
+/**
+ * test_suites.path is varchar(1000) and holds every ancestor's id ("/<id>" is 37 characters a
+ * level), so suites nest at most 27 deep. Deeper used to fail with a 500.
+ */
+export const MAX_SUITE_PATH_LENGTH = 1000;
+export const MAX_SUITE_DEPTH = 27;
+
+/** The error for a suite that would be nested too deep (a message for users). */
+export function suiteTooDeepError(): Error {
+  return new Error(`Suites can be nested at most ${MAX_SUITE_DEPTH} levels deep.`);
+}
+
 export type TestSuite = Selectable<TestSuitesTable>;
 export type NewTestSuite = Insertable<TestSuitesTable>;
 export type TestSuiteUpdate = Updateable<TestSuitesTable>;
@@ -70,6 +82,7 @@ export class TestSuiteRepository {
         throw new Error(`Parent test suite with ID '${input.parent_suite_id}' not found`);
       }
       path = TestSuiteRepository.calculatePath(parent.path, id);
+      if (path.length > MAX_SUITE_PATH_LENGTH) throw suiteTooDeepError();
     }
 
     const suite: NewTestSuite = {
@@ -201,6 +214,8 @@ export class TestSuiteRepository {
     const oldPath = suite.path;
     const newPath = TestSuiteRepository.calculatePath(newParentPath, suiteId);
     const descendants = await this.findDescendants(suiteId);
+    const deepest = Math.max(oldPath.length, ...descendants.map((d) => d.path.length));
+    if (newPath.length + deepest - oldPath.length > MAX_SUITE_PATH_LENGTH) throw suiteTooDeepError();
     const now = new Date().toISOString();
 
     await this.runInTransaction(async (trx) => {

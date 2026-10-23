@@ -1,4 +1,4 @@
-import { API_TOKEN_INTERFACES } from '@testify/core';
+import { API_TOKEN_INTERFACES, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@testify/core';
 import { authedErrors, wrapped, list, NO_CONTENT, FORCE_QUERY, idParams, handlerValidated, oneOf, VERDICTS, STEP_VERDICTS, RESULT_STATUSES, PLAN_STATUSES, RUN_STATUSES, pageQuery, NEXT_CURSOR } from '../schemas.js';
 
 /** Route schemas for routes/projects.ts, the run list in routes/exports.ts, routes/results.ts and routes/batchExecution.ts. */
@@ -31,7 +31,7 @@ export const listProjectsSchema = {
 };
 
 const projectFields = {
-  name: { type: 'string', description: 'Trimmed; must not be blank' },
+  name: { type: 'string', maxLength: MAX_NAME_LENGTH, description: 'Trimmed; must not be blank' },
   prefix: { type: 'string', description: 'A letter, then letters or digits, at most 10; stored in upper case. Locked once the project has cases.' },
   description: nullableText,
 };
@@ -69,7 +69,7 @@ export const deleteProjectSchema = {
 // ---- Plans ----
 
 const planFields = {
-  name: { type: 'string', description: 'Trimmed; must not be blank' },
+  name: { type: 'string', maxLength: MAX_NAME_LENGTH, description: 'Trimmed; must not be blank' },
   description: nullableText,
   status: oneOf(PLAN_STATUSES, 'Default ACTIVE.'),
 };
@@ -112,10 +112,10 @@ export const deletePlanSchema = {
 // ---- Runs ----
 
 const runFields = {
-  name: { type: 'string', description: 'Trimmed; must not be blank; unique within the plan' },
+  name: { type: 'string', maxLength: MAX_NAME_LENGTH, description: 'Trimmed; must not be blank; unique within the plan' },
   description: nullableText,
   status: oneOf(RUN_STATUSES, 'Default OPEN. A CLOSED run takes no results.'),
-  release_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' },
+  release_date: { type: ['string', 'null'], maxLength: 30, description: 'YYYY-MM-DD' },
 };
 
 export const listRunsSchema = {
@@ -184,7 +184,7 @@ export const recordResultSchema = {
           required: ['test_step_id', 'verdict'],
           properties: {
             test_step_id: { type: 'string' },
-            step_number: { type: 'integer', minimum: 1, description: "Optional; must match the step's number" },
+            step_number: { type: 'integer', minimum: 1, maximum: MAX_DB_INTEGER, description: "Optional; must match the step's number" },
             verdict: oneOf(STEP_VERDICTS),
             actual_result: { type: ['string', 'null'] },
           },
@@ -359,7 +359,7 @@ export const batchResultsSchema = {
             case_identifier: caseIdentifier,
             verdict: oneOf(VERDICTS),
             status: oneOf(RESULT_STATUSES, 'Default COMPLETED.'),
-            duration_ms: { type: 'integer', minimum: 0 },
+            duration_ms: { type: 'integer', minimum: 0, maximum: MAX_DB_INTEGER, description: 'At most about 24 days' },
             executed_at: { type: 'string', description: 'ISO 8601; default now' },
             notes: { type: 'string', maxLength: 20000 },
             failure_message: { type: 'string', maxLength: 2000, description: 'The short error, shown in reports' },
@@ -372,7 +372,7 @@ export const batchResultsSchema = {
                 required: ['verdict'],
                 properties: {
                   test_step_id: { type: 'string' },
-                  step_number: { type: 'integer', minimum: 1, description: 'Either this or `test_step_id`' },
+                  step_number: { type: 'integer', minimum: 1, maximum: MAX_DB_INTEGER, description: 'Either this or `test_step_id`' },
                   verdict: oneOf(STEP_VERDICTS),
                   actual_result: { type: 'string' },
                 },
@@ -444,7 +444,7 @@ const JUNIT_QUERY = {
 const JUNIT_DESCRIPTION =
   'The body is a JUnit XML report, as most test runners write it (pytest `--junitxml`, Maven Surefire, Gradle, Jest and Vitest junit reporters, go-junit-report, ...), sent as is: `curl --data-binary @report.xml`. Up to 20,000 tests and 50 MB. ' +
   'Each `<testcase>` is matched to a case of the project: by readable id (a `testify_id` property, or an id such as SHOP-101 in the test name), otherwise by suite and title, which is how a JUnit import of the same file names cases. ' +
-  'failure and error are FAILED, skipped is SKIPPED, everything else PASSED; `time` becomes the duration, the failure message and text the error and stack trace. ' +
+  'failure and error are FAILED, skipped is SKIPPED, everything else PASSED; `time` (seconds) becomes the duration, unless it is not a number, negative or over about 24 days (likely milliseconds), and then the result has none; the failure message and text become the error and stack trace. NUL characters in the file are removed. ' +
   'A matched case not yet in the plan is added if it is approved. Tests that match no case are listed as refused (`CASE_NOT_FOUND`, 207) and not recorded. Needs `EXECUTE_RUN`.';
 
 const junitBody = { type: 'string', description: 'The JUnit XML file' };

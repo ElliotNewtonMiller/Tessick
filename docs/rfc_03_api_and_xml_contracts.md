@@ -188,7 +188,7 @@ CI pipelines send many results at once: as JSON (up to 5,000 per request), or as
 ```
 
 - **`case_identifier`:** `external_id`, `by_uuid` (the case id), or `by_path_title`. A case that isn't in the plan yet is linked to it if it's APPROVED (or the project allows drafts); a case removed from the plan is refused.
-- **Each result:** `verdict` as in §2.2; optional `status`, `duration_ms`, `executed_at` (defaults to now), `notes`, `failure_message`, `stack_trace`, `environment_tags` (up to 50 text values), `step_results` (by `test_step_id` or `step_number`).
+- **Each result:** `verdict` as in §2.2; optional `status`, `duration_ms` (at most 2,147,483,647, about 24 days), `executed_at` (defaults to now), `notes`, `failure_message`, `stack_trace`, `environment_tags` (up to 50 text values), `step_results` (by `test_step_id` or `step_number`).
 - **`runner_info.run_id`** is the CI system's own run id, unrelated to Testify's `test_run_id`. Reports link back through `url`.
 
 Response:
@@ -224,7 +224,7 @@ Failure messages and stack traces are stored in the `test_results` row itself (`
 The body is a JUnit XML report as test runners write it, sent as is with any content type (`curl --data-binary @report.xml`): up to 20,000 tests and 50 MB. `routes/junitResults.ts` reads it (`parseJUnitResults` in `packages/core/src/ingestion/junitResults.ts`) and turns each `<testcase>` into a batch item, then records them as §3.1-3.2 do. The response is the batch response with each item's `test_name` (`classname.name`).
 
 - **Verdicts:** `<failure>` and `<error>` are FAILED (an error also gets a note saying so), `<skipped>` is SKIPPED with its message as the note, anything else PASSED. Only the first outcome element counts; Surefire's `flakyFailure`/`rerunFailure` are ignored, so a test that passed on a rerun is PASSED.
-- **Fields:** `time` (seconds) → `duration_ms`; a failure's `message` attribute (or the first line of its text) → `failure_message`; its text → `stack_trace`.
+- **Fields:** `time` (seconds) → `duration_ms`; a failure's `message` attribute (or the first line of its text) → `failure_message`; its text → `stack_trace`. A `time` that isn't a number, is negative, or is over about 24 days (2,147,483,647 ms, the column's limit; usually milliseconds written as seconds) leaves the result without a duration. NUL characters in the file are removed (§4.3).
 - **Matching a test to a case:** `external_id` from a `testify_id` property on the test, else a readable id in its name (`SHOP-101 …`, `[SHOP-101] …`); plus `by_path_title` with the suite a JUnit import would have created (the last part of `classname`, or the `<testsuite>` name) and the test's name as title. The batch tries the readable id first, then suite and title within the plan, then the project's cases (preferring the one in the named suite).
 - **Query parameters:** `environment`; `ci_name`, `ci_run_id`, `ci_job_name`, `ci_url`, `commit_sha` (stored as `runner_info`); `all_or_nothing`.
 - **Errors:** `400 INVALID_JUNIT` for an empty body, a file that isn't JUnit XML (no `<testsuite>`/`<testsuites>`), one without tests, or over 20,000 tests; `413` over 50 MB. Tests that match no case are refused per item (`CASE_NOT_FOUND`, 207).
@@ -293,6 +293,16 @@ The codes a client is most likely to handle (the code is always in `code`; `deta
 | `429` | `RATE_LIMITED`, `ACCOUNT_LOCKED`, `TOO_MANY_ATTEMPTS`, `IMPORT_BUSY` (with `Retry-After`) |
 | `500` | `INTERNAL_ERROR` (with `request_id`) |
 
+### 4.3 Values the Database Can't Store
+
+Checked before anything is saved, so they're a `400 INVALID_REQUEST` naming the field rather than a database error:
+- **NUL characters** (U+0000), which PostgreSQL text can't hold, in a path parameter, the query string or a JSON body: refused before the route runs (`storableInput.ts`). The result routes (`POST /runs/{runId}/results`, the JSON batches, the JUnit uploads), the import routes and `/mcp` remove them instead, since captured test output, other tools' files and what an agent read often carry one.
+- **Lengths:** names and titles (projects, suites, cases, plans, runs, tokens, webhooks, report schedules, field labels and options) at most 255 characters; custom field names, usernames and role names 100; emails 255; a run's `release_date` 30; validation patterns 255. They're in the spec as `maxLength`.
+- **Whole numbers:** durations, step numbers and positions at most 2,147,483,647 (the `integer` column). In a batch, an item over it is refused on its own (§3.1).
+- **Suites** nest at most 27 levels deep (the materialized path is `varchar(1000)`).
+
+Anything the database still refuses as data (too long, out of range, a bad character: SQLSTATE 22001, 22003, 22021, 22P02, 22007, 22008) answers `400 INVALID_REQUEST` with a plain message, and the server logs `unstorable_value` (without the value) so the missing check can be added.
+
 ---
 
 ## 5. Attachments, Logs & Retention
@@ -359,10 +369,10 @@ export interface IFileParser {
 
 | TestLink XML Element | Testify Field | Rules |
 | :--- | :--- | :--- |
-| `<testsuite name="...">` | Suite name | Nesting preserved. |
+| `<testsuite name="...">` | Suite name | Nesting preserved, at most 27 levels deep (deeper refuses the import). Over 255 characters is cut. |
 | `<details>` | Suite details | |
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
-| `<externalid>` | Case external id | TestLink exports the number alone (`331`); it becomes `<project prefix>-331`. Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). |
+| `<externalid>` | Case external id | TestLink exports the number alone (`331`); it becomes `<project prefix>-331`. Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). An id over 100 characters is dropped, with a `CASE_ID_TOO_LONG` warning. |
 | `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
 | `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
@@ -441,7 +451,7 @@ Both need `IMPORT_DATA` in the project. An API token may only import into its ow
 
 The dry run writes nothing and returns:
 - `dry_run_summary`: suites and cases detected, to create, to version up, to overwrite, skipped, unmapped fields, warnings;
-- `warnings`: e.g. `TITLE_TRUNCATED`, `EMPTY_STEPS` and parser warnings;
+- `warnings`: e.g. `TITLE_TRUNCATED`, `EMPTY_STEPS`, `CASE_ID_TOO_LONG` and parser warnings;
 - `unmapped_custom_fields`;
 - `hierarchy_preview`.
 

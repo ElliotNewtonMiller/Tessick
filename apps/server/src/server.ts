@@ -36,6 +36,7 @@ import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins,
 import { loggerOptions, registerRequestLogging, registerHttpsOnHttpHint, registerHealthRoute } from './observability.js';
 import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
+import { registerNulGuard, unstorableValueMessage } from './storableInput.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
 import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
@@ -68,6 +69,8 @@ export async function createServer(
   registerHttpsOnHttpHint(app);
   // Browser security headers (Content-Security-Policy, no framing, HSTS over HTTPS) on every reply.
   registerSecurityHeaders(app);
+  // NUL characters, which PostgreSQL text can't hold: refused, or removed from CI results and imports.
+  registerNulGuard(app);
   // Per-process rate limits for API tokens, exports and report emails (services/rateLimits.ts).
   app.decorate('rateLimits', createRateLimits());
   // Unexpected errors (database errors, bugs) are logged here and answered with a generic
@@ -83,6 +86,9 @@ export async function createServer(
         invalid_params: invalid,
       });
     }
+    // A value the database can't store (too long, out of range) that the route didn't check.
+    const unstorable = unstorableValueMessage(error, request);
+    if (unstorable) return sendError(reply, 400, unstorable, { code: 'INVALID_REQUEST' });
     const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
     if (status >= 400 && status < 500) {
       // Fastify's own codes (FST_...) are internal names; callers get the standard code for the status.

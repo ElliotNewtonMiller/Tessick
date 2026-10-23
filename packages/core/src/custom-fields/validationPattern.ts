@@ -15,7 +15,8 @@ import { Script, createContext } from 'node:vm';
  * Heuristic "is this regex safe?" checks were tried and left out: they both miss dangerous
  * patterns and reject useful safe ones, while the time limit always holds.
  */
-export const MAX_VALIDATION_PATTERN_LENGTH = 500;
+// The column is varchar(255); this said 500, so a pattern of 256-500 characters failed with a 500.
+export const MAX_VALIDATION_PATTERN_LENGTH = 255;
 export const VALIDATION_PATTERN_TIME_LIMIT_MS = 50;
 
 /** Why a pattern can't be saved, or null if it can. */

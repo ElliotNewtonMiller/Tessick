@@ -70,11 +70,15 @@ describe('Production: the server serves the built web app', () => {
     expect((await get('/api/v1/auth/me')).statusCode).toBe(401); // real routes are untouched
     expect((await app.inject({ method: 'POST', url: '/somewhere' })).statusCode).toBe(404);
 
-    for (const url of ['/../package.json', '/%2e%2e/%2e%2e/package.json', '/..%2f..%2fpackage.json', '/%00']) {
+    for (const url of ['/../package.json', '/%2e%2e/%2e%2e/package.json', '/..%2f..%2fpackage.json']) {
       const res = await get(url);
       expect(res.statusCode).toBe(404);
       expect(res.payload).not.toContain('"name"');
     }
+    // A NUL character is refused before anything is looked up (storableInput.ts).
+    const nul = await get('/%00');
+    expect(nul.statusCode).toBe(400);
+    expect(JSON.parse(nul.payload)).toMatchObject({ code: 'INVALID_REQUEST', invalid_params: [{ name: 'path' }] });
   });
 
   it('without a build, only the API is served', async () => {

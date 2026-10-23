@@ -233,4 +233,30 @@ describe('migrateToLatest', () => {
     const columns = (await db.introspection.getTables()).find((t) => t.name === 'api_tokens')!.columns.map((c) => c.name);
     expect(columns).not.toContain('interfaces');
   }, 30_000);
+
+  it('014 stores custom field numbers exactly (they were rounded to about 7 digits)', async () => {
+    const migrator = new Migrator({ db, provider: { getMigrations: async () => MIGRATIONS } });
+    expect((await migrator.migrateTo('013_api_token_interfaces')).error).toBeUndefined();
+    const now = new Date().toISOString();
+    await db.insertInto('projects').values({ id: 'p1', name: 'P', prefix: 'P', created_at: now, updated_at: now } as any).execute();
+    await db
+      .insertInto('custom_field_definitions' as any)
+      .values({ id: 'f1', entity_type: 'TestCase', name: 'ticket', field_label: 'Ticket', field_type: 'NUMBER', is_required: 0, created_at: now, updated_at: now })
+      .execute();
+    const value = (id: string, n: number) =>
+      ({ id, custom_field_definition_id: 'f1', entity_type: 'TestCase', entity_id: `case-${id}`, number_value: n, created_at: now, updated_at: now }) as any;
+    await db.insertInto('custom_field_values' as any).values(value('before', 123456789)).execute();
+    expect(await db.selectFrom('custom_field_values' as any).select('number_value').execute()).toEqual([{ number_value: 123456790 }]);
+
+    expect(await migrateToLatest(db)).toContain('014_custom_field_numbers_double');
+    await db.insertInto('custom_field_values' as any).values(value('after', 123456789.25)).execute();
+    await db.insertInto('custom_field_values' as any).values(value('huge', 1e300)).execute();
+    const rows = await db.selectFrom('custom_field_values' as any).select(['id', 'number_value']).orderBy('id').execute();
+    expect(rows).toEqual([
+      { id: 'after', number_value: 123456789.25 },
+      // The rounding it got as a real (123456792, which a real displays as 123456790) stays.
+      { id: 'before', number_value: 123456792 },
+      { id: 'huge', number_value: 1e300 },
+    ]);
+  }, 30_000);
 });

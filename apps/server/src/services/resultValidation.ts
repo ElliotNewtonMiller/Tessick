@@ -1,6 +1,7 @@
 import {
   EXECUTION_STATUSES,
   EXECUTION_VERDICTS,
+  MAX_DB_INTEGER,
   MAX_RESULT_NOTES_LENGTH,
   STEP_VERDICTS,
   isExecutionStatus,
@@ -27,6 +28,8 @@ export interface ManualResult {
 }
 
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
+// Step numbers and durations are integer columns; a larger number used to fail with a 500.
+const isStepNumber = (v: unknown) => Number.isInteger(v) && (v as number) > 0 && (v as number) <= MAX_DB_INTEGER;
 
 /**
  * Checks the shape of a POST /api/v1/runs/:runId/results body (the run comes from the address). Every problem is reported at once, by
@@ -69,7 +72,7 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
         if (!isNonEmptyString(s.test_step_id)) invalid.push({ name: `${at}.test_step_id`, reason: 'is required' });
         else if (seen.has(s.test_step_id)) invalid.push({ name: `${at}.test_step_id`, reason: 'appears more than once' });
         else seen.add(s.test_step_id);
-        if (s.step_number !== undefined && s.step_number !== null && !(Number.isInteger(s.step_number) && s.step_number > 0)) {
+        if (s.step_number !== undefined && s.step_number !== null && !isStepNumber(s.step_number)) {
           invalid.push({ name: `${at}.step_number`, reason: 'must be a positive whole number' });
         }
         if (!isStepVerdict(s.verdict)) {
@@ -161,8 +164,8 @@ export function validateBatchItem(raw: unknown, index: number): { item: BatchIte
   if (it.status !== undefined && it.status !== null && !isExecutionStatus(it.status)) {
     invalid.push({ name: `${at}.status`, reason: `must be one of ${EXECUTION_STATUSES.join(', ')}` });
   }
-  if (it.duration_ms !== undefined && it.duration_ms !== null && !(Number.isInteger(it.duration_ms) && it.duration_ms >= 0)) {
-    invalid.push({ name: `${at}.duration_ms`, reason: 'must be a whole number of milliseconds, 0 or more' });
+  if (it.duration_ms !== undefined && it.duration_ms !== null && !(Number.isInteger(it.duration_ms) && it.duration_ms >= 0 && it.duration_ms <= MAX_DB_INTEGER)) {
+    invalid.push({ name: `${at}.duration_ms`, reason: `must be a whole number of milliseconds, from 0 to ${MAX_DB_INTEGER} (about 24 days)` });
   }
   if (it.executed_at !== undefined && it.executed_at !== null) {
     if (typeof it.executed_at !== 'string' || Number.isNaN(Date.parse(it.executed_at))) {
@@ -202,7 +205,7 @@ export function validateBatchItem(raw: unknown, index: number): { item: BatchIte
         const hasStepId = isNonEmptyString(s.test_step_id);
         const hasNumber = s.step_number !== undefined && s.step_number !== null;
         if (!hasStepId && !hasNumber) invalid.push({ name: sat, reason: 'needs a test_step_id or step_number' });
-        if (hasNumber && !(Number.isInteger(s.step_number) && s.step_number > 0)) {
+        if (hasNumber && !isStepNumber(s.step_number)) {
           invalid.push({ name: `${sat}.step_number`, reason: 'must be a positive whole number' });
         }
         if (!isStepVerdict(s.verdict)) {

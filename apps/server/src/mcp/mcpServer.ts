@@ -308,7 +308,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
     return server;
   }
 
-  app.post('/mcp', { schema: mcpSchema }, async (request, reply) => {
+  app.post('/mcp', { schema: mcpSchema, config: { stripNul: true } }, async (request, reply) => {
     const user = await authenticateRequest(request, reply, db, jwtSecret);
     if (!user) return; // 401 already sent
 

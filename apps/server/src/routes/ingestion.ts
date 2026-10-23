@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Readable } from 'node:stream';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
-import { CustomFieldRepository, TestCaseRepository, type Database } from '@testify/db';
+import { CustomFieldRepository, TestCaseRepository, MAX_SUITE_PATH_LENGTH, suiteTooDeepError, type Database } from '@testify/db';
 import {
   SaxXmlParser,
   JsonSchemaParser,
@@ -15,6 +15,8 @@ import {
   splitMultiSelectValue,
   numberFromText,
   applyProjectCaseIds,
+  storableSuites,
+  withoutNul,
   MAX_DISTINCT_IMPORT_VALUES,
   type IFileParser,
   type ParsedSuite,
@@ -67,6 +69,7 @@ function sendImportTooLarge(reply: FastifyReply, err: any): boolean {
 const PARSER_WARNING_MESSAGES: Record<string, string> = {
   STEP_EXPECTED_MISALIGNED:
     'The Steps and Expected Result columns have a different number of lines for this case, so the expected results were all put on its last step. Check its steps after importing.',
+  CASE_ID_TOO_LONG: "This case's id in the file is over 100 characters, too long to keep; it gets the next id in the project instead.",
 };
 
 export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
@@ -156,11 +159,13 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
       selectedParser = new SaxXmlParser(); // Default
     }
 
-    return { fileBuffer, filename, selectedParser, configuration };
+    // A multipart upload's settings aren't checked by the NUL guard (storableInput.ts); mapped
+    // field names end up in the database, so clean them here too.
+    return { fileBuffer, filename: withoutNul(filename), selectedParser, configuration: withoutNul(configuration) };
   }
 
   // POST /api/v1/projects/:projectId/imports/dry-run
-  app.post('/api/v1/projects/:projectId/imports/dry-run', { schema: O.importDryRunSchema, bodyLimit: IMPORT_JSON_BODY_LIMIT_BYTES,
+  app.post('/api/v1/projects/:projectId/imports/dry-run', { schema: O.importDryRunSchema, bodyLimit: IMPORT_JSON_BODY_LIMIT_BYTES, config: { stripNul: true },
     onRequest: takeImportSlot,
     onResponse: releaseImportSlot,
     onRequestAbort: releaseImportSlot,
@@ -218,10 +223,12 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
 
       // Parse Stream
       const stream = Readable.from([fileBuffer]);
-      const parsedSuites: ParsedSuite[] = [];
+      const fileSuites: ParsedSuite[] = [];
       for await (const suite of selectedParser.parseStream(stream)) {
-        parsedSuites.push(suite);
+        fileSuites.push(suite);
       }
+      // Without NUL characters, with names cut to what the database holds (storableSuites).
+      const parsedSuites = storableSuites(fileSuites);
       // The file's case ids as this project's ids (TestLink's "331" -> "CON-331"), so they're
       // kept and duplicates are recognised.
       applyProjectCaseIds(parsedSuites, project.prefix);
@@ -394,7 +401,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
   });
 
   // POST /api/v1/projects/:projectId/imports/execute
-  app.post('/api/v1/projects/:projectId/imports/execute', { schema: O.importExecuteSchema, bodyLimit: IMPORT_JSON_BODY_LIMIT_BYTES,
+  app.post('/api/v1/projects/:projectId/imports/execute', { schema: O.importExecuteSchema, bodyLimit: IMPORT_JSON_BODY_LIMIT_BYTES, config: { stripNul: true },
     onRequest: takeImportSlot,
     onResponse: releaseImportSlot,
     onRequestAbort: releaseImportSlot,
@@ -435,10 +442,11 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
       // expected to have already resolved field_type from dry-run's detected_type before
       // sending this request).
       const stream = Readable.from([fileBuffer]);
-      const parsedSuites: ParsedSuite[] = [];
+      const fileSuites: ParsedSuite[] = [];
       for await (const suite of selectedParser.parseStream(stream)) {
-        parsedSuites.push(suite);
+        fileSuites.push(suite);
       }
+      const parsedSuites = storableSuites(fileSuites);
       applyProjectCaseIds(parsedSuites, project.prefix);
 
       const dupConfig = configuration.duplicate_resolution || { default_action: 'VERSION_UP' };
@@ -570,6 +578,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
           } else {
             suiteId = uuidv4();
             suitePath = parentPath ? `${parentPath}/${suiteId}` : `/${suiteId}`;
+            if (suitePath.length > MAX_SUITE_PATH_LENGTH) throw suiteTooDeepError();
             await trx
               .insertInto('test_suites')
               .values({

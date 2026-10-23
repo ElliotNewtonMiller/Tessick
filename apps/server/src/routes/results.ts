@@ -21,7 +21,7 @@ import { VERDICTS } from '../openapi/schemas.js';
  * (routes/batchExecution.ts).
  */
 export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
-  app.post('/api/v1/runs/:runId/results', { schema: recordResultSchema, preHandler: requirePermission('EXECUTE_RUN', db, jwtSecret) }, async (request, reply) => {
+  app.post('/api/v1/runs/:runId/results', { schema: recordResultSchema, preHandler: requirePermission('EXECUTE_RUN', db, jwtSecret), config: { stripNul: true } }, async (request, reply) => {
     const actorId = request.user!.id;
     const { runId } = request.params as { runId: string };
     // Verdict, status and step verdicts must be known values (they're stored as plain strings).

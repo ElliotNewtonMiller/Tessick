@@ -74,7 +74,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
-  src/{config,errors,audit,observability,securityHeaders,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
+  src/{config,errors,audit,observability,securityHeaders,storableInput,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
   scripts/build.mjs        esbuild bundle (workspace packages bundled, other dependencies external).
 apps/web/          React + Vite. src/App.tsx (~680 lines) calls the hooks, provides the context, lays out panes and modals, wires hotkeys.
   src/hooks/       One hook per feature: useSession, useScope (project/plan/run), useExecutionWorkspace, useSpecTree,
@@ -87,13 +87,15 @@ packages/core/     Domain logic with no database, each module unit-tested: inges
                    (report math, catalog, email rendering, schedules), rbac/ (permission registry, default roles),
                    custom-fields/ (validation, defaults, type inference, regex time limit), case-filter/, execution/
                    (verdict and status lists), security/ (JWT, password policy), webhooks/ (events, signing, Slack messages,
-                   blocked addresses).
+                   blocked addresses), limits/ (what the database can store: name and integer limits, NUL helpers).
 packages/db/       Kysely, Postgres-compatible SQL only. createDbClient(): no connection string = in-memory PGlite,
                    otherwise pg. migrations/ (tracked), repositories/, seeds/ (rbac registry, sample project, dev fixtures).
 docs/              changelog.md, api_roadmap.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).
 ```
 
 ## Domain rules
+
+**Suites** nest at most 27 levels deep: the materialized `path` is `varchar(1000)` (`MAX_SUITE_DEPTH` in `test_suite.repository.ts`).
 
 **Test case versions:**
 - Content (summary, preconditions, steps) is versioned; title, priority and execution type live on the case and stay editable.
@@ -200,7 +202,10 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - A new action only shows in the Admin Panel's Security Audit Log once it's added to `securityActions` in `routes/admin.ts`.
   - `writeAudit(db, request, {...})` and `changedFields` in `audit.ts` write one for the request's caller (used by plans and runs).
 - **Webhook events:** after a change commits, call the matching helper in `services/webhookEvents.ts` (`emitRunClosed`, `emitResultsRecorded`, ...); it queues deliveries for subscribed webhooks and never throws. A new event goes into `WEBHOOK_EVENTS` (`packages/core/src/webhooks/`), the Slack renderer there, and RFC 03 §7.3.
-- **Validate input up front** (`resultValidation.ts`, `stepValidation.ts`, `nameProblem` in `specEditing.ts`), so bad input gets a 400 naming each field instead of a database error.
+- **Validate input up front** (`resultValidation.ts`, `stepValidation.ts`, `nameProblem` in `specEditing.ts`), so bad input gets a 400 naming each field instead of a database error:
+  - **Limits** come from the columns: names 255 (`MAX_NAME_LENGTH`), integers 2,147,483,647 (`MAX_DB_INTEGER`; durations, positions, step numbers), in `packages/core/src/limits`. Put `maxLength`/`maximum` on enforced body schemas; handler-validated bodies check in the route.
+  - **NUL characters** are refused before any route runs (`registerNulGuard` in `storableInput.ts`). Routes whose input is other tools' output set `config: { stripNul: true }` to remove them instead: results, imports, `/mcp`. Imported files are cleaned after parsing (`storableSuites`).
+  - **Safety net:** a data exception the database still raises (too long, out of range) answers `400 INVALID_REQUEST` and logs `unstorable_value`. Seeing one means a check is missing.
 - **Transactions:** group a change into one transaction. Repositories that may run inside a caller's transaction use the `runInTransaction` pattern (if `db.isTransaction`, run directly; otherwise open one).
 - **Schema changes:** a new migration `packages/db/src/migrations/00N_<name>.ts` with `up` and `down`, registered in `MIGRATIONS`. Never edit a migration that has shipped; databases record which ones they ran. Ids are `varchar(36)` UUIDs, so never prefix them.
 - **Logging and limits:**

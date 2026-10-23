@@ -2880,3 +2880,76 @@ Tests:
   - the token list shows `interfaces`.
 - `observability.test.ts` +1: a real TLS handshake to a listening server logs the hint once for two attempts; a malformed plain request doesn't.
 - `migrations.test.ts` +1: 013 gives an existing token `BOTH`; rolling back removes the column.
+
+## API audit, part 1: values the database can't store answer 400, not 500 (2026-10-23)
+
+Elliot asked for a critical audit of the API (probed live on a throwaway build with the demo data). Its first finding: ordinary bad input crashed requests with a 500, and in CI uploads one bad value failed the whole upload. The server log showed three causes: a NUL character in text (PostgreSQL text can't hold one), text longer than its column, and numbers past an `integer` column. This pass fixes them. The other findings, and the decisions Elliot made on them (tokens can't hold `PROJECT_DELETE`, with no trash; unknown fields are refused; an optional `Idempotency-Key` on the three result routes, kept 24 hours), are listed in `api_roadmap.md` ("API audit, 2026-10-23"), to be fixed next.
+
+**NUL characters** (`apps/server/src/storableInput.ts`, `registerNulGuard`):
+- **Refused by default:** a `preValidation` hook checks every request's path parameters, query string and JSON body before the route runs. A NUL gets `400 INVALID_REQUEST` naming each field (`title`, `steps[1].action`, `q`, `caseId`; the web app's wildcard path is `path`). It used to be a 500 on nearly every write, on search, and even on sign-in (the username lookup).
+- **Removed instead** on routes marked `config: { stripNul: true }`: the result routes (one result, JSON batches, JUnit uploads), the import routes, and `/mcp`. There the text is captured test output, another tool's file or what an agent read; a stray NUL is common there and shouldn't cost the result.
+- **Imports:** multipart files aren't parsed when the hook runs, so the parsed tree is cleaned afterwards (`storableSuites`, below). The multipart settings field is cleaned too.
+- `withoutNul`, `nulFields` and `hasNul` live in core's new `limits` module. They also look inside a parsed query string, whose prototype isn't `Object`'s (found live: the first version missed `?external_id=SHOP%00-1`).
+
+**Lengths:**
+- **Enforced body schemas** now carry `maxLength`, so the limits are enforced and shown in `/docs`:
+  - project, plan and run names: 255;
+  - a run's `release_date`: 30;
+  - a user's `username`: 100, and `email`: 255 (`POST /admin/users`, `PATCH /auth/me`);
+  - role names: 100.
+- **Custom field definitions** (handler-validated) are checked by `definitionSizeProblems` in `routes/customFields.ts`, on create and update:
+  - `name`: 100; `field_label`, `option_label` and `option_value`: 255;
+  - option positions must be storable whole numbers.
+- **The validation-pattern limit** was 500 in `checkValidationPattern`, but the column is `varchar(255)`, so a 256-500 character pattern passed the check and then failed. It's now 255; the Admin Panel input says 255 too.
+- **Suites nest at most 27 levels deep** (`MAX_SUITE_DEPTH`). The materialized `path` is `varchar(1000)` at 37 characters a level. `TestSuiteRepository.create` and `move` refuse deeper with "Suites can be nested at most 27 levels deep." (400), and so does an import.
+- **A suite's `position`** must be a storable whole number (create and update). `1e12`, `1.5` and `"abc"` were 500s.
+
+**Numbers:**
+- **Batch item `duration_ms`** is at most 2,147,483,647 (about 24.8 days, the `integer` column; `MAX_DB_INTEGER`). Over that, the item is refused with its reason, and the rest of the batch is recorded. Step numbers have the same cap, in single results and batches.
+- **JUnit `time`** over that limit (usually milliseconds written as seconds, e.g. `time="3000000"`) now records the result with no duration, as a missing or unreadable time already did. It used to fail the whole upload.
+- **NUMBER custom fields:** migration `014_custom_field_numbers_double` widens `custom_field_values.number_value` from `real` to `double precision`.
+  - Found while fixing the crashes: `real` keeps about 7 significant digits (123456789 was stored as 123456792), and nothing past about 3.4e38 (a larger number was a 500).
+  - Values saved before keep the rounding they got.
+
+**Imports** (`storableSuites` in `packages/core/src/ingestion/importFieldValues.ts`, applied after parsing in the dry run and execute):
+- NULs are removed.
+- Suite names are cut to 255, as titles already were.
+- A case id over 100 characters (`external_id` is `varchar(100)`) is dropped with a new `CASE_ID_TOO_LONG` warning; the case gets the next PREFIX-n.
+- A suite order that isn't a storable whole number becomes 0.
+
+**Safety net:** the global error handler turns PostgreSQL's data exceptions into `400 INVALID_REQUEST` with a plain message ("A value in the request is too long to store.", and similar), instead of a 500. The codes are 22001 (too long), 22003 (out of range), 22021 (bad character), 22P02, 22007 and 22008 (`unstorableValueMessage`).
+- It logs a warning (`event: unstorable_value`, the SQLSTATE and the route, never the value), so the missing check can be added.
+- Known to reach it: an import that auto-creates a field from a column name over 100 characters.
+
+**Docs:**
+- CLAUDE.md/AGENTS.md: layout, the suite depth, the validation conventions.
+- RFC 01: suite depth; `number_value`.
+- RFC 03:
+  - §4: NULs and limits;
+  - JUnit `time`;
+  - the import table: suite names and `CASE_ID_TOO_LONG`.
+- `api_getting_started.md`: JUnit `time`.
+- `api_roadmap.md`: the audit's findings and decisions.
+
+Tests:
+- New `apps/server/tests/storable_input.test.ts` (9):
+  - NULs refused, naming the field: suite, plan and project fields, token name, field label, a nested step, search `q`, a query filter, a path id, sign-in;
+  - NULs removed from a JSON batch, a JUnit file (raw NUL in a name, a message and a failure's text) and an MCP `create_case`;
+  - 13 over-long names refused, naming the field, and the 300-character pattern;
+  - a batch with one over-long duration and one huge step number: 207, those items refused, the other recorded;
+  - suite positions;
+  - JUnit times `3000000` and `1e12` recorded without a duration;
+  - 27 levels of suites fine, a 28th and a move under the deepest refused;
+  - NUMBER values 123456789.25 and 1e39 stored exactly;
+  - an import with NULs, a 300-character suite name and a 150-character id;
+  - a 28-deep import refused;
+  - the safety net, through the import with a 120-character column name.
+- New `packages/core/tests/limits.test.ts` (6): `nulFields`/`withoutNul`, including a null-prototype query object; `storableSuites`; the JUnit duration cap at exactly `MAX_DB_INTEGER`.
+- `migrations.test.ts` +1: 014 stores 123456789.25 and 1e300 exactly; a value saved as `real` keeps its rounding.
+- `validationPattern.test.ts`: the limit is 255.
+- `production_build.test.ts`: `/%00` is now refused with 400 (naming `path`) before anything is looked up, instead of a 404. Nothing is served either way.
+
+**Verified live** on the dev server with the demo data:
+- **The audit's crashes:** all 17 requests that used to answer 500 were rerun. Each now answers 400 naming the field, or is recorded: the over-long batch duration is refused per item (207), the two JUnit times are recorded with no duration, and the JUnit name with a NUL is recorded.
+- **A multipart CSV import with raw NUL bytes** in a title and a step imported as "RawNul Case".
+- **The server log** has no errors and no `unstorable_value` warnings: every probe was caught by its specific check.

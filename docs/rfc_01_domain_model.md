@@ -165,7 +165,7 @@ erDiagram
 | Table | Key columns | Notes |
 | :--- | :--- | :--- |
 | `projects` | `name`, `prefix` (unique), `description`, `settings` (JSON text) | `settings.allow_draft_plan_linking`. The prefix is locked once the project has cases. |
-| `test_suites` | `project_id`, `parent_suite_id` (null = top level), `name`, `description`, `position`, `path` | `path` is a materialized path of ids, used to find subtrees. FKs are RESTRICT; deleting is done in order by the repository (§7.4). |
+| `test_suites` | `project_id`, `parent_suite_id` (null = top level), `name`, `description`, `position`, `path` | `path` is a materialized path of ids, used to find subtrees; it's `varchar(1000)`, so suites nest at most 27 levels deep (`MAX_SUITE_DEPTH`). FKs are RESTRICT; deleting is done in order by the repository (§7.4). |
 | `test_cases` | `project_id`, `test_suite_id`, `external_id`, `title`, `priority`, `execution_type` | `UNIQUE (project_id, external_id)`. External ids are `PREFIX-n`. Priority is `HIGH`/`MEDIUM`/`LOW` (new cases default to MEDIUM in the app); the column default is still `HIGH`. |
 | `test_case_versions` | `test_case_id`, `version_number`, `status`, `summary`, `preconditions`, `author_id`, `reviewer_id` | `UNIQUE (test_case_id, version_number)`. Status is `DRAFT`, `APPROVED` or `DEPRECATED`. Cascades from `test_cases`. |
 | `test_steps` | `test_case_version_id`, `step_number`, `action`, `expected_result`, `execution_type` | `UNIQUE (test_case_version_id, step_number)`. Cascades from versions. |
@@ -187,7 +187,7 @@ erDiagram
 | `custom_field_definitions` | `applies_to_all_projects` (1 = every project), `entity_type`, `name`, `field_label`, `field_type`, `is_required`, `default_value`, `validation_regex` | Entity types: `TestCase`, `TestSuite`. Field types: `TEXT`, `NUMBER`, `CHECKBOX`, `DATE`, `SINGLE_SELECT`, `MULTI_SELECT`. An all-projects field's name is unique among all-projects fields (a partial unique index); a field for chosen projects must not share a name with another such field in any of its projects (checked by the repository). |
 | `custom_field_projects` | `custom_field_definition_id`, `project_id` | The projects a field applies to when `applies_to_all_projects` is 0. Rows go with the field or the project (cascade). |
 | `custom_field_options` | `custom_field_definition_id`, `option_label`, `option_value`, `position` | For the select types. |
-| `custom_field_values` | `custom_field_definition_id`, `entity_type`, `entity_id`, `string_value`, `number_value`, `boolean_value`, `date_value`, `json_value` | One typed column per value; `json_value` holds MULTI_SELECT arrays. |
+| `custom_field_values` | `custom_field_definition_id`, `entity_type`, `entity_id`, `string_value`, `number_value`, `boolean_value`, `date_value`, `json_value` | One typed column per value; `json_value` holds MULTI_SELECT arrays. `number_value` is `double precision` (migration 014; it was `real`, about 7 significant digits). |
 
 #### Users, access and administration
 

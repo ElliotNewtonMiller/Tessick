@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
 import type { Database } from '@testify/db';
 import { TestSuiteRepository, TestCaseRepository, TestCaseVersionRepository, ProjectRepository, CustomFieldRepository, TestPlanRepository } from '@testify/db';
-import { findUnsatisfiedRequiredFields } from '@testify/core';
+import { findUnsatisfiedRequiredFields, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@testify/core';
 import { requirePermission } from '../middleware/auth.js';
 import { sendCaseVersionLockedError,
   sendSuiteInUseError,
@@ -79,6 +79,7 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
 
       const nameError = nameProblem(name, 'name');
       if (nameError) return sendError(reply, 400, nameError, { code: 'INVALID_NAME' });
+      if (position !== undefined && position !== null && !isPosition(position)) return sendPositionProblem(reply);
 
       if (parentSuiteId) {
         const parent = await suiteRepo.findById(parentSuiteId);
@@ -87,13 +88,20 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
         }
       }
 
-      const suite = await suiteRepo.create({
-        project_id: projectId,
-        parent_suite_id: parentSuiteId ?? null,
-        name: name.trim(),
-        description: description ?? null,
-        position,
-      });
+      let suite;
+      try {
+        suite = await suiteRepo.create({
+          project_id: projectId,
+          parent_suite_id: parentSuiteId ?? null,
+          name: name.trim(),
+          description: description ?? null,
+          position: position ?? undefined,
+        });
+      } catch (err: any) {
+        // Nested too deep (TestSuiteRepository).
+        if (!isPublicError(err)) throw err;
+        return sendError(reply, 400, err.message, { invalid_params: [{ name: 'parent_suite_id', reason: err.message }] });
+      }
 
       await insertAuditLog({
         origin: requestOrigin(request),
@@ -127,6 +135,7 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
         const nameError = nameProblem(name, 'name');
         if (nameError) return sendError(reply, 400, nameError, { code: 'INVALID_NAME' });
       }
+      if (position !== undefined && position !== null && !isPosition(position)) return sendPositionProblem(reply);
 
       if (parentSuiteId !== undefined && parentSuiteId !== existing.parent_suite_id) {
         if (parentSuiteId) {
@@ -813,8 +822,13 @@ function sendInvalidSteps(reply: FastifyReply, invalid: InvalidParam[], instance
   });
 }
 
-/** Suite names and case titles are stored as varchar(255). */
-const MAX_NAME_LENGTH = 255;
+/** A suite's position is an integer column; anything else used to fail with a 500. */
+const isPosition = (v: unknown) => Number.isInteger(v) && Math.abs(v as number) <= MAX_DB_INTEGER;
+
+function sendPositionProblem(reply: FastifyReply) {
+  const reason = 'must be a whole number';
+  return sendError(reply, 400, `position ${reason}`, { invalid_params: [{ name: 'position', reason }] });
+}
 
 /**
  * Why a suite name or case title can't be saved (blank, not text, or too long), or null. A

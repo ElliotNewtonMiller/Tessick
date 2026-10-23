@@ -116,7 +116,7 @@ curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20buil
 ```
 
 - **The run:** the plan's run named `run_name` is created the first time (the token needs `RUN_MANAGE` for that) and reused after, so a re-run job adds to the same run, and parallel jobs of one build can each send their own file. To send into a run you already have, use `POST /api/v1/runs/{runId}/results/junit` instead.
-- **Verdicts:** `<failure>` and `<error>` are FAILED, `<skipped>` is SKIPPED, anything else PASSED. The test's `time` becomes its duration, and the failure's message and text become the error and stack trace in reports.
+- **Verdicts:** `<failure>` and `<error>` are FAILED, `<skipped>` is SKIPPED, anything else PASSED. The test's `time` (seconds) becomes its duration; a time over about 24 days, usually milliseconds written as seconds, is left out. The failure's message and text become the error and stack trace in reports.
 - **Optional query parameters:** `environment` (e.g. `staging`); `ci_name`, `ci_run_id`, `ci_job_name`, `ci_url`, `commit_sha`, which link each result back to the build in reports; `close_run=true` to close the run afterwards.
 - **Size:** up to 20,000 tests and 50 MB per file.
 
