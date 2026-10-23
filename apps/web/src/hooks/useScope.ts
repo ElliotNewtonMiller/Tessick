@@ -5,6 +5,7 @@ import { authHeaders, jsonHeaders } from "../utils/session";
 
 import { errorMessage } from "../api/errors";
 import { api } from "../api/routes";
+import { fetchAllPages } from "../api/pages";
 export interface ScopeOptions {
   currentUser: UserProfile | null;
   showToast: (msg: string) => void;
@@ -544,11 +545,10 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
       return;
     }
     try {
-      const res = await fetch(api.planRuns(selectedPlanId), { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
+      // Every page: the list is paged, and a plan gains a run per CI build.
+      const runs = await fetchAllPages<any>((cursor) => api.planRuns(selectedPlanId, { limit: 500, cursor }), "runs", { headers: authHeaders() });
+      if (runs) {
         if (runsListRequestSeq.current !== seq) return; // a newer request already resolved
-        const runs = data.runs || [];
         // Same shape/behavior as refreshExecutionWorkspace's own runItems mapping -- an empty
         // runs array must still positively clear the list, not leave stale data showing.
         const runItems: EntityItem[] = runs.map((b: any) => ({

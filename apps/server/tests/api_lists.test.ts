@@ -135,6 +135,24 @@ describe('API lists: paging and filters', () => {
     expect(body(await call(admin, 'GET', '/api/v1/admin/audit-logs?cursor=x')).code).toBe('INVALID_CURSOR');
   });
 
+  it("pages through a plan's runs, newest first (one run per CI build adds up)", async () => {
+    for (const name of ['Build 1', 'Build 2', 'Build 3']) {
+      expect((await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name })).statusCode).toBe(201);
+    }
+    const url = `/api/v1/plans/${seed.planId}/runs`;
+    const all = body(await call(admin, 'GET', url));
+    expect(all.next_cursor).toBeNull();
+    const first = body(await call(admin, 'GET', `${url}?limit=2`));
+    expect(first.runs.map((r: any) => r.name)).toEqual(['Build 3', 'Build 2']);
+    expect(first.next_cursor).toEqual(expect.any(String));
+    const rest = body(await call(admin, 'GET', `${url}?limit=2&cursor=${first.next_cursor}`));
+    expect([...first.runs, ...rest.runs].map((r: any) => r.id)).toEqual(all.runs.map((r: any) => r.id));
+    expect(rest.runs.at(-1).id).toBe(seed.buildId); // the seed's run is the oldest
+    const bad = await call(admin, 'GET', `${url}?cursor=nonsense`);
+    expect([bad.statusCode, body(bad).code]).toEqual([400, 'INVALID_CURSOR']);
+    expect((await call(admin, 'GET', `${url}?limit=501`)).statusCode).toBe(400);
+  });
+
   it('the case history report refuses a cursor it never gave out', async () => {
     const res = await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/reports/case_history`, { test_case_id: 'SHOP-101', cursor: 'nonsense' });
     expect([res.statusCode, body(res).code]).toEqual([400, 'INVALID_CURSOR']);

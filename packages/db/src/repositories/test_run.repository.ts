@@ -1,6 +1,7 @@
 import type { Kysely, Selectable, Insertable, Updateable } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import type { Database, TestRunsTable } from '../types.js';
+import { decodeCursor, toPage, type Page } from '../paging.js';
 
 export type TestRun = Selectable<TestRunsTable>;
 export type NewTestRun = Insertable<TestRunsTable>;
@@ -54,6 +55,17 @@ export class TestRunRepository {
       .selectAll()
       .where('id', '=', id)
       .executeTakeFirst();
+  }
+
+  /** A plan's runs, newest first, a page at a time (keyset on created_at, id): one run per CI build adds up. */
+  async listPage(testPlanId: string, page: { limit: number; cursor?: string | null }): Promise<Page<TestRun>> {
+    let query = this.db.selectFrom('test_runs').selectAll().where('test_plan_id', '=', testPlanId);
+    const cursor = decodeCursor(page.cursor);
+    if (cursor) {
+      query = query.where((eb) => eb.or([eb('created_at', '<', cursor.ts), eb.and([eb('created_at', '=', cursor.ts), eb('id', '<', cursor.id)])]));
+    }
+    const rows = await query.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(page.limit + 1).execute();
+    return toPage(rows, page.limit, (r) => ({ ts: r.created_at, id: r.id }));
   }
 
   async findByTestPlan(testPlanId: string): Promise<TestRun[]> {

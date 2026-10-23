@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Findings 1 to 5, 7, 9, 11, 12, 14 and 16 are done (2026-10-23); the rest are to fix.
+**Status:** in progress. Findings 1 to 7, 9, 11, 12, 14 and 16 are done (2026-10-23); the rest are to fix.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -84,7 +84,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 3 | Re-sending the same CI upload (a retry after a network error) records every result twice. | An optional `Idempotency-Key` header on the three result routes (one result, JSON batch, JUnit). Keys belong to the caller, the project and the route; only 2xx answers are kept, for 24 hours, in the database; the same key with a different body is `422`, and one still in progress is `409`. | **Done** (changelog 2026-10-23) |
 | 4 | Mistakes are silently ignored: an unknown field (`PATCH {"tittle": ...}` answers 200), a report filter under the wrong key (an unfiltered report). | Refuse unknown fields and filter keys with 400 naming them; MCP tool arguments too. | **Done** (changelog 2026-10-23) |
 | 5 | JSON bodies are capped at 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters; the 413 doesn't say the limit. | JSON batches take 50 MB, like JUnit files; every 413 says the limit. | **Done** (changelog 2026-10-23) |
-| 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | | To do |
+| 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | A plan's runs are paged, newest first (the web app follows the pages). A plan's cases (the Execute queue), the spec tree and users stay whole: the queue and the tree show everything, and users stay few. | **Done** (changelog 2026-10-23) |
 | 7 | The single-result route needs `test_plan_case_id`; elsewhere a case id or readable id works. | It also takes `test_case_id`: the case's id or readable id. | **Done** (changelog 2026-10-23) |
 | 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | | To do |
 | 9 | `executed_at` in the future (2099) is accepted, distorting "latest" and trends. | More than 5 minutes ahead is refused, per item. | **Done** (changelog 2026-10-23) |

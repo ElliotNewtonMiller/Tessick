@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { authHeaders, jsonHeaders } from "../utils/session";
 import { api } from "../api/routes";
+import { fetchAllPages } from "../api/pages";
 import { errorMessage as apiErrorMessage } from "../api/errors";
 
 interface ProjectItem {
@@ -186,9 +187,8 @@ export function ExportModal({ isOpen, onClose, projects, defaultProjectId }: Exp
     if (!(isOpen && exportKind === "EXECUTION_RESULTS" && targetProjectId && selectedPlanId)) return;
     (async () => {
       try {
-        const res = await fetch(api.planRuns(selectedPlanId), { headers: authHeaders() });
-        const data = await res.json();
-        if (res.ok) setRuns(data.runs || []);
+        const runs = await fetchAllPages<any>((cursor) => api.planRuns(selectedPlanId, { limit: 500, cursor }), "runs", { headers: authHeaders() });
+        if (runs) setRuns(runs);
       } catch {
         setRuns([]);
       }

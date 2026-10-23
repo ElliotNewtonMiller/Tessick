@@ -118,12 +118,25 @@ const runFields = {
   release_date: { type: ['string', 'null'], maxLength: 30, description: 'YYYY-MM-DD' },
 };
 
+/** A plan's runs grow by one per CI build. */
+export const RUN_PAGE = { defaultLimit: 100, maxLimit: 500 };
+
 export const listRunsSchema = {
   tags: ['Runs and results'],
   summary: "List a plan's test runs",
-  description: 'Newest first. Needs `SPEC_VIEW` or `EXECUTE_RUN`.',
+  description:
+    'Newest first, a page at a time (`limit`, then `cursor` = the previous `next_cursor` until it is null). To find one build\'s run, the CI routes take `run_name`. Needs `SPEC_VIEW` or `EXECUTE_RUN`.',
   params: idParams('planId'),
-  response: { 200: list('runs', 'Run', 'The runs'), ...authedErrors(404) },
+  querystring: { type: 'object', properties: { ...pageQuery(RUN_PAGE.defaultLimit, RUN_PAGE.maxLimit) } },
+  response: {
+    200: {
+      description: 'The runs',
+      type: 'object',
+      required: ['runs', 'next_cursor'],
+      properties: { runs: { type: 'array', items: { $ref: 'Run#' } }, next_cursor: NEXT_CURSOR },
+    },
+    ...authedErrors(400, 404),
+  },
 };
 
 export const createRunSchema = {

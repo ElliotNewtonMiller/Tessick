@@ -32,7 +32,7 @@ export const api = {
   project: (projectId: string, forced?: boolean) => force(`${V1}/projects/${enc(projectId)}`, forced),
   projectPlans: (projectId: string) => `${V1}/projects/${enc(projectId)}/plans`,
   plan: (planId: string, forced?: boolean) => force(`${V1}/plans/${enc(planId)}`, forced),
-  planRuns: (planId: string) => `${V1}/plans/${enc(planId)}/runs`,
+  planRuns: (planId: string, params: { limit?: number; cursor?: string } = {}) => withQuery(`${V1}/plans/${enc(planId)}/runs`, params),
   run: (runId: string, forced?: boolean) => force(`${V1}/runs/${enc(runId)}`, forced),
   runResults: (runId: string) => `${V1}/runs/${enc(runId)}/results`,
   runAutoClose: (runId: string) => `${V1}/runs/${enc(runId)}/auto-close`,

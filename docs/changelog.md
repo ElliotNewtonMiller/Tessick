@@ -3196,3 +3196,25 @@ Tests:
 - a batch item dated 2099 refused with its reason (207).
 
 The refused-address case needs a public name that resolves to a local address, so the test covers it.
+
+## API audit, part 8: a plan's runs are paged (2026-10-23)
+
+The audit's sixth finding: lists that grow weren't all paged. The one that matters is `GET /plans/{planId}/runs`: CI creates a run per build, so a nightly plan gains about 365 a year, all sent in one answer.
+
+- **The runs list** is paged like the other growing lists: `limit` (default 100, at most 500) and `cursor` in, `next_cursor` out. Newest first, keyset on `created_at` and `id` (`TestRunRepository.listPage`). A cursor it didn't give out is `400 INVALID_CURSOR`.
+- **The web app** follows every page (`fetchAllPages` in `apps/web/src/api/pages.ts`, asking for 500 at a time), so the Run menu and the export dialog still list every run. `api.planRuns` takes `limit` and `cursor`.
+- **What stays whole, and why:**
+  - **A plan's cases (the Execute queue, `GET /plans/{planId}/cases`):** it's the plan's own chosen cases, the queue shows them all, and paging would only mean fetching every page. Its answer also carries the plan's runs; that's the one place they're still sent whole.
+  - **The spec tree:** the tree view needs every suite.
+  - **Users:** they stay few.
+- **Docs:**
+  - RFC 03 (§1.1 paging, the route map);
+  - CLAUDE.md/AGENTS.md (the list of paged lists);
+  - `api_roadmap.md` (finding 6 done).
+
+Tests:
+- `api_lists.test.ts` +1: three new runs; a page of 2, newest first, then the rest; together the same as the whole list; the seed's run last; `INVALID_CURSOR`; `limit=501` refused.
+
+**Verified live:**
+- the demo plan, given 600 extra runs, answered 100 with a `next_cursor`;
+- the web app at `127.0.0.1:3000` fetched two pages (`limit=500`, then the cursor), and its Run menu listed all 608, from "CI build 600" to "Run 1.0.1".

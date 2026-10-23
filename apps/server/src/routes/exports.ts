@@ -29,7 +29,8 @@ import { requirePermission, authenticateRequest, requireAnyPermission, EXECUTION
 import { requestOrigin } from '../audit.js';
 
 import { sendError } from '../errors.js';
-import { listRunsSchema } from '../openapi/areas/projects.js';
+import { listRunsSchema, RUN_PAGE } from '../openapi/areas/projects.js';
+import { readPage } from '../paging.js';
 import * as O from '../openapi/areas/other.js';
 type ExportFormat = 'NATIVE_JSON' | 'STANDARD_CSV';
 
@@ -83,8 +84,10 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
     if (!plan || plan.project_id !== projectId) {
       return sendError(reply, 404, 'Test plan not found in this project');
     }
-    const runs = await runRepo.findByTestPlan(planId);
-    return reply.status(200).send({ runs });
+    const page = readPage(request, reply, RUN_PAGE.defaultLimit);
+    if (!page) return reply;
+    const { rows, next_cursor } = await runRepo.listPage(planId, page);
+    return reply.status(200).send({ runs: rows, next_cursor });
   });
 
   app.post(
