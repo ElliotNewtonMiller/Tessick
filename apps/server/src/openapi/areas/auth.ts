@@ -36,6 +36,8 @@ export const loginSchema = {
       required: ['user'],
       properties: {
         token: { type: 'string', description: 'A JWT; left out with `session: "cookie"`' },
+        expires_at: { type: 'string', format: 'date-time', description: 'When this sign-in ends at the latest (7 days)' },
+        idle_timeout_seconds: { type: 'integer', description: 'It ends sooner if no request uses it for this long (8 hours); each request extends it' },
         user: { $ref: 'User#' },
       },
     },

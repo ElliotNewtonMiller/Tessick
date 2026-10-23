@@ -62,9 +62,11 @@ describe('API conventions: one error format', () => {
     expect(mixed.project_ids).toHaveLength(2);
   });
 
-  it('401 and 403: no sign-in, an ended sign-in, and a missing permission', async () => {
+  it('401 and 403: no sign-in, something that is not a token, and a missing permission', async () => {
     expectProblem(await call(null, 'GET', '/api/v1/projects'), 401);
-    expectProblem(await call('not-a-real-token', 'GET', '/api/v1/projects'), 401, 'SESSION_ENDED');
+    // Not "your sign-in has ended": it never was one (an ended sign-in is session_cookie.test.ts).
+    const notAToken = expectProblem(await call('not-a-real-token', 'GET', '/api/v1/projects'), 401, 'INVALID_TOKEN');
+    expect(notAToken.detail).toMatch(/isn't a Testify API token \(tf_ci_\.\.\.\) or sign-in token/);
     const b = expectProblem(await call(viewer, 'POST', '/api/v1/projects', { name: 'Nope', prefix: 'NOPE' }), 403);
     expect(b.required_permission).toBe('PROJECT_CREATE');
   });
@@ -72,6 +74,38 @@ describe('API conventions: one error format', () => {
   it('404: an unknown item and an unknown address', async () => {
     expectProblem(await call(admin, 'PATCH', '/api/v1/projects/00000000-0000-0000-0000-000000000000', { name: 'x' }), 404);
     expectProblem(await call(admin, 'GET', '/api/v1/no-such-route'), 404, 'NOT_FOUND');
+  });
+
+  it("a project's settings are an object, not JSON text inside the JSON", async () => {
+    const one = body(await call(admin, 'GET', `/api/v1/projects/${seed.projectId}`)).project;
+    expect(one.settings).toEqual({ allow_draft_plan_linking: false });
+    expect(body(await call(admin, 'GET', '/api/v1/projects')).projects[0].settings).toEqual(expect.any(Object));
+    expect(body(await call(admin, 'POST', '/api/v1/projects', { name: 'Settings', prefix: 'SETT' })).project.settings).toEqual({ allow_draft_plan_linking: false });
+  });
+
+  it('405: a real address with the wrong method says which methods it takes', async () => {
+    const wrong = await call(admin, 'POST', `/api/v1/cases/${seed.caseIds[0]}`);
+    const b = expectProblem(wrong, 405, 'METHOD_NOT_ALLOWED');
+    expect(wrong.headers.allow).toBe('GET, HEAD, PATCH, DELETE');
+    expect(b.detail).toBe(`POST isn't allowed on /api/v1/cases/${seed.caseIds[0]}; it takes GET, HEAD, PATCH, DELETE.`);
+    expect((await call(admin, 'GET', `/api/v1/runs/${seed.buildId}/results/batch`)).headers.allow).toBe('POST');
+    // Not an API address: still 404.
+    expect((await call(admin, 'DELETE', '/somewhere')).statusCode).toBe(404);
+  });
+
+  it('401 says how to authenticate (WWW-Authenticate), and a sign-in says when it ends', async () => {
+    expect((await call(null, 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify"');
+    expect((await call('not-a-real-token', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify", error="invalid_token"');
+    expect((await call('tf_ci_nope', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify", error="invalid_token"');
+    // Other statuses don't carry it.
+    expect((await call(admin, 'GET', '/api/v1/no-such-route')).headers['www-authenticate']).toBeUndefined();
+
+    const before = Date.now();
+    const login = body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: 'admin', password: 'password' } }));
+    expect(login.idle_timeout_seconds).toBe(8 * 3600);
+    const ends = Date.parse(login.expires_at) - before;
+    expect(ends).toBeGreaterThan(7 * 86_400_000 - 60_000);
+    expect(ends).toBeLessThan(7 * 86_400_000 + 60_000);
   });
 
   it('409: a duplicate prefix, and deleting content without force', async () => {
@@ -184,7 +218,8 @@ describe('API conventions: addresses, verbs and names', () => {
 
   it('partial updates are PATCH; the old PUT updates are gone', async () => {
     expect((await call('PATCH', `/api/v1/plans/${seed.planId}`, { name: 'Renamed' })).statusCode).toBe(200);
-    expect((await call('PUT', `/api/v1/plans/${seed.planId}`, { name: 'Renamed' })).statusCode).toBe(404);
+    // The old PUT is gone: the address takes other methods, so 405 (it was a 404 before 2026-10-23).
+    expect((await call('PUT', `/api/v1/plans/${seed.planId}`, { name: 'Renamed' })).statusCode).toBe(405);
     expect((await call('PATCH', `/api/v1/runs/${seed.buildId}`, { name: 'Run renamed' })).statusCode).toBe(200);
     expect((await call('PATCH', `/api/v1/cases/${seed.caseIds[0]}`, { priority: 'LOW' })).statusCode).toBe(200);
     expect((await call('PATCH', `/api/v1/suites/${seed.suiteId}`, { description: 'd' })).statusCode).toBe(200);

@@ -83,6 +83,9 @@ function requestPath(reply: FastifyReply): string | undefined {
  * Sends an error as problem details. `code` defaults from the status (e.g. 404 `NOT_FOUND`);
  * any other options become extension members of the body.
  */
+/** 401 codes meaning the credential sent doesn't work (RFC 6750's `invalid_token`), not that none was sent. */
+const INVALID_TOKEN_CODES = new Set(['INVALID_TOKEN', 'SESSION_ENDED', 'TOKEN_REVOKED', 'TOKEN_EXPIRED', 'TOKEN_ISSUER_INACTIVE']);
+
 export function sendError(
   reply: FastifyReply,
   status: number,
@@ -90,6 +93,10 @@ export function sendError(
   options: { code?: string; invalid_params?: ProblemDetailsOptions['invalid_params']; [extension: string]: unknown } = {}
 ) {
   reply.header('content-type', 'application/problem+json');
+  // A 401 says how to authenticate (RFC 9110 requires it): a bearer token.
+  if (status === 401) {
+    reply.header('WWW-Authenticate', `Bearer realm="Testify"${options.code && INVALID_TOKEN_CODES.has(options.code) ? ', error="invalid_token"' : ''}`);
+  }
   return reply.status(status).send(problemBody(status, detail, { ...options, instance: (options.instance as string | undefined) || requestPath(reply) }));
 }
 

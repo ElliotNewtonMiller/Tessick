@@ -111,6 +111,9 @@ export async function registerAuthRoutes(app: FastifyInstance, db: Kysely<Databa
     if (useCookie) setSessionCookie(request, reply, token, SESSION_MAX_SECONDS);
     return reply.status(200).send({
       ...(useCookie ? {} : { token }),
+      // When to sign in again: at the latest by expires_at, sooner if unused for the idle timeout.
+      expires_at: new Date(Date.now() + SESSION_MAX_SECONDS * 1000).toISOString(),
+      idle_timeout_seconds: SESSION_IDLE_SECONDS,
       user: {
         id: user.id,
         username: user.username,

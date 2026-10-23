@@ -14,6 +14,9 @@ import { isInternalRequest, internalVia } from '../internalRequests.js';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import { applyCaseRefs, resolveCaseRef } from '../caseRefs.js';
 
+/** verifyJwt's reasons for something that was never a Testify sign-in token. */
+const NOT_A_SIGN_IN_TOKEN = new Set(['Token missing', 'Malformed token', 'Invalid payload encoding', 'Missing subject claim']);
+
 export interface AuthenticatedUser {
   id: string;
   username: string;
@@ -405,9 +408,15 @@ export async function authenticateRequest(
 
   const result = verifyJwt(token, jwtSecret);
   if (!result.valid || !result.payload) {
-    // E.g. signed with another key (a server restart without JWT_SECRET) or expired. The
-    // message is shown to people, so it says what to do; `reason` keeps the detail.
-    sendError(reply, 401, 'Unauthorized: your sign-in has ended -- please sign in again', { code: 'SESSION_ENDED', reason: result.reason || 'invalid token' });
+    // Not a sign-in token at all (a typo, a token from another tool, a truncated paste): say so,
+    // rather than that a sign-in ended (API audit, 2026-10-23).
+    if (!result.reason || NOT_A_SIGN_IN_TOKEN.has(result.reason)) {
+      sendError(reply, 401, "Unauthorized: this isn't a Testify API token (tf_ci_...) or sign-in token. Send one as Authorization: Bearer <token>.", { code: 'INVALID_TOKEN', reason: result.reason || 'invalid token' });
+      return null;
+    }
+    // A real one that no longer works: signed with another key (a server restart without
+    // JWT_SECRET) or expired. The message is shown to people, so it says what to do.
+    sendError(reply, 401, 'Unauthorized: your sign-in has ended -- please sign in again', { code: 'SESSION_ENDED', reason: result.reason });
     return null;
   }
 

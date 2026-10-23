@@ -9,7 +9,7 @@ The full reference is on your server: **`/docs`** (for example `http://localhost
 - **The server's address:** below it's in `$TESTIFY`, e.g. `export TESTIFY=https://testify.example.com`.
 - **A credential:**
   - For scripts and CI, an **API token**, made in the next step.
-  - For a quick try, `POST /api/v1/auth/login` with `{"username": "...", "password": "..."}` returns a `token` you can use the same way. It ends after 8 hours without use.
+  - For a quick try, `POST /api/v1/auth/login` with `{"username": "...", "password": "..."}` returns a `token` you can use the same way. It ends after 8 hours without use, and after 7 days at most (`expires_at` in the answer).
 - **`curl` and `jq`** for the examples. Any HTTP client works.
 
 ## 2. Make an API token
@@ -334,7 +334,8 @@ The ones you're most likely to meet:
 
 | Status and code | Means | Do |
 | :--- | :--- | :--- |
-| 401 `INVALID_TOKEN`, `TOKEN_REVOKED`, `TOKEN_EXPIRED` | The token doesn't work any more | Make a new one |
+| 401 `INVALID_TOKEN`, `TOKEN_REVOKED`, `TOKEN_EXPIRED` | The token doesn't work any more, or what was sent isn't a token (a typo, a cut-off paste) | Check the `Authorization: Bearer` header; make a new token if it's revoked or expired |
+| 405 `METHOD_NOT_ALLOWED` | The address is right but the method isn't (e.g. `PUT` for `PATCH`) | Use one of the methods in `Allow` |
 | 401 `TOKEN_ISSUER_INACTIVE` | Whoever made the token was disabled or lost `API_TOKEN_MANAGE` | Ask someone who manages tokens for a new one |
 | 403 `FORBIDDEN` | The token lacks a capability; `required_permission` names it | Make a token with it |
 | 403 `TOKEN_PROJECT_MISMATCH` | An id from another project | Use that project's token |

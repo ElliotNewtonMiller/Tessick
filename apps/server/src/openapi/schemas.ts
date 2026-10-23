@@ -110,7 +110,7 @@ export const SHARED_SCHEMAS: Schema[] = [
       name: str(),
       prefix: str('Prefix of every case id in the project, e.g. SHOP for SHOP-101'),
       description: nullableStr(),
-      settings: str('JSON text, e.g. {"allow_draft_plan_linking":false}'),
+      settings: { type: 'object', additionalProperties: true, description: 'e.g. { "allow_draft_plan_linking": false }' },
       created_at: timestamp(),
       updated_at: timestamp(),
       permissions: { ...PERMISSIONS_LIST, description: 'In lists only: what the caller may do in this project (a project role can differ from the global one)' },

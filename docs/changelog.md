@@ -3112,3 +3112,45 @@ Tests:
 **Verified live** on the dev server with the demo data:
 - a 3.0 MB batch of 35 failures with 90,000-character stack traces was recorded (201);
 - a single result with 1.1 MB of notes got the new 413.
+
+## API audit, part 6: clearer errors and HTTP basics (2026-10-23)
+
+Findings 11, 12 and 14, all small. (Finding 11's filter and 413 parts came with parts 3 and 5.)
+
+**Something that isn't a token** (finding 11):
+- A random string, a typo or a cut-off paste in `Authorization: Bearer` used to get `401 SESSION_ENDED`, "your sign-in has ended", for something that never was one.
+- Now `verifyJwt`'s reasons "Token missing", "Malformed token", "Invalid payload encoding" and "Missing subject claim" get `401 INVALID_TOKEN`: "this isn't a Testify API token (tf_ci_...) or sign-in token. Send one as Authorization: Bearer <token>." (`middleware/auth.ts`).
+- A real sign-in token that stopped working (signed with another key, or expired) still says the sign-in ended. The web app signs out on any 401 either way.
+
+**HTTP basics** (finding 12):
+- **`WWW-Authenticate`:** every 401 carries `WWW-Authenticate: Bearer realm="Testify"`, which HTTP requires and clients use to know what to send (`sendError`). When a credential was sent and doesn't work, it adds `error="invalid_token"` (RFC 6750). Bearer never makes a browser show a password prompt.
+- **405:**
+  - An API address that exists, under the wrong method (`POST` on a case, `PUT` where it's `PATCH`), gets `405 METHOD_NOT_ALLOWED` with `Allow` listing the methods it takes: "POST isn't allowed on /api/v1/cases/...; it takes GET, HEAD, PATCH, DELETE." It used to be a 404, which said the address was wrong.
+  - `unknownAddress.ts` matches the path against the registered routes. It serves both not-found handlers (with and without the web build). Only `/api` and `/mcp` addresses; anything else is still a 404.
+- **The login answer** gives `expires_at` (7 days at most) and `idle_timeout_seconds` (8 hours unused), so a script knows when to sign in again.
+
+**Project settings** (finding 14):
+- `settings` is now an object in every project answer: the project list, one project, create and change. It was JSON text inside the JSON there (`"{\"allow_draft_plan_linking\":false}"`), and an object only in the spec tree.
+- `projectOut` in `routes/projects.ts` parses it, and the spec's `Project` schema says it's an object. The web app read it only from the spec tree; its smoke test's fake API now sends an object too.
+
+**Docs:**
+- RFC 03 (§4.2: `INVALID_TOKEN`, `WWW-Authenticate`, 405; §7.1: the login answer).
+- `api_getting_started.md` (the error table; sign-in expiry).
+- CLAUDE.md/AGENTS.md (errors; layout).
+- `api_roadmap.md` (11, 12 and 14 done).
+
+Tests (`api_conventions.test.ts`):
+- not a token: `INVALID_TOKEN` and its message;
+- 405 on a case address, with `Allow: GET, HEAD, PATCH, DELETE` and the detail; `Allow: POST` on the batch route; a non-API address still 404;
+- `WWW-Authenticate` with and without `error="invalid_token"`, and none on a 404;
+- the login's `expires_at` about 7 days ahead and `idle_timeout_seconds` 28800;
+- `settings` an object in one project, the list and a created project;
+- the old `PUT /plans/{id}` is now 405 rather than 404.
+
+**Verified live** on the dev server with `curl`:
+- `Bearer garbage` got 401 `INVALID_TOKEN` with `www-authenticate: Bearer realm="Testify", error="invalid_token"`;
+- `POST /api/v1/health` got 405 with `allow: GET, HEAD`;
+- the login answer had `expires_at` a week ahead and `idle_timeout_seconds: 28800`;
+- `settings` came back an object.
+
+The web app at `127.0.0.1:3000` signed in and loaded the demo project.

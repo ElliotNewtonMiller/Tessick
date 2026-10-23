@@ -75,7 +75,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
-  src/{config,errors,audit,observability,securityHeaders,storableInput,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
+  src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
   scripts/build.mjs        esbuild bundle (workspace packages bundled, other dependencies external).
 apps/web/          React + Vite. src/App.tsx (~680 lines) calls the hooks, provides the context, lays out panes and modals, wires hotkeys.
   src/hooks/       One hook per feature: useSession, useScope (project/plan/run), useExecutionWorkspace, useSpecTree,
@@ -197,7 +197,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Every error is problem details (`application/problem+json`): `type`, `title`, `status`, `code`, `detail` (the message people see), the request path as `instance`, `timestamp`, optional `invalid_params: [{ name, reason }]`, and extension fields in snake_case (e.g. `required_permission`, `project_ids`).
   - Send errors with `sendError(reply, status, detail, { code?, invalid_params?, ...extensions })` from `errors.ts`, or one of its specific `send*Error` helpers. `code` defaults from the status (404 → `NOT_FOUND`).
   - Throw a plain `Error` only when its message is meant for users (`isPublicError`).
-  - Anything else becomes a generic 500 with a `request_id`, and the details go only to the log. Unknown addresses get a 404 in the same format.
+  - Anything else becomes a generic 500 with a `request_id`, and the details go only to the log. Unknown addresses get a 404 in the same format, and an API address under the wrong method a 405 with `Allow` (`unknownAddress.ts`). A 401 carries `WWW-Authenticate: Bearer` (`sendError`).
   - Exceptions: the MCP endpoint answers in JSON-RPC (the protocol requires it), and a batch request's per-item results carry their own `detail`/`code` inside a normal response.
   - In the web app, read error messages with `errorMessage(body)` from `apps/web/src/api/errors.ts`.
 - **Audit rows:**

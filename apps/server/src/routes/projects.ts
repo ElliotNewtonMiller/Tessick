@@ -27,6 +27,21 @@ const PROJECT_PREFIX_RE = /^[A-Z][A-Z0-9]{0,9}$/;
  * registry description ("Create test plans and manage which test cases are in one") already
  * named this exact capability -- matches testPlanCases.ts's existing case-inclusion gate.
  */
+/**
+ * A project as the API sends it: `settings` as an object. It's stored as JSON text, and was sent
+ * that way too, a string inside the JSON (API audit, 2026-10-23).
+ */
+function projectOut<T extends { settings: string | null }>(project: T): Omit<T, 'settings'> & { settings: Record<string, unknown> } {
+  let settings: Record<string, unknown> = {};
+  try {
+    const parsed = project.settings ? JSON.parse(project.settings) : {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) settings = parsed;
+  } catch {
+    // Unreadable settings read as none.
+  }
+  return { ...project, settings };
+}
+
 export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
   const projectRepo = new ProjectRepository(db);
   const planRepo = new TestPlanRepository(db);
@@ -44,7 +59,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
       if (user.api_token && user.api_token.project_id !== project.id) continue;
       const permissions = await permissionsInProject(user, project.id, db);
       const canSee = permissions.includes('SYSTEM_ADMIN') || EXECUTION_READ_PERMISSIONS.some((k) => permissions.includes(k));
-      if (canSee) projects.push({ ...project, permissions });
+      if (canSee) projects.push({ ...projectOut(project), permissions });
     }
     return { projects, ...apiTokenScope(user) };
   });
@@ -73,7 +88,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         settings: { allow_draft_plan_linking: false },
       });
       await writeProjectAudit(request, 'PROJECT_CREATED', project.id, { name: project.name, prefix: project.prefix });
-      return reply.status(201).send({ project });
+      return reply.status(201).send({ project: projectOut(project) });
     }
   );
 
@@ -122,7 +137,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(nextPrefix !== undefined ? { prefix: nextPrefix } : {}),
       });
-      return reply.status(200).send({ project });
+      return reply.status(200).send({ project: projectOut(project!) });
     }
   );
 
@@ -186,7 +201,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
     const { projectId } = request.params as { projectId: string };
     const project = await projectRepo.findById(projectId);
     if (!project) return sendError(reply, 404, 'Project not found');
-    return { project: { ...project, permissions: await permissionsInProject(request.user!, projectId, db) } };
+    return { project: { ...projectOut(project), permissions: await permissionsInProject(request.user!, projectId, db) } };
   });
 
   app.get('/api/v1/plans/:planId', { schema: S.getPlanSchema, preHandler: requireAnyPermission(EXECUTION_READ_PERMISSIONS, db, jwtSecret) }, async (request, reply) => {

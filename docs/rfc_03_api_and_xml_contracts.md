@@ -295,7 +295,8 @@ The codes a client is most likely to handle (the code is always in `code`; `deta
 | Status | Codes |
 | :--- | :--- |
 | `400` | `INVALID_REQUEST` (default), `INVALID_PARAMS` (reports, schedules), `INVALID_RESULT`, `INVALID_STEPS`, `INVALID_NAME`, `INVALID_FILTER`, `INVALID_FIELD_VALUE`, `INVALID_VALIDATION_PATTERN`, `PROJECTS_DIFFER`, `AMBIGUOUS_CASE_ID`, `INVALID_CURSOR`, `INVALID_JUNIT`, `INVALID_WEBHOOK_URL`, `SECRETS_KEY_REQUIRED`, `UNKNOWN_FIELD` (a bulk change naming a custom field that doesn't exist), `CAPABILITY_NOT_GRANTABLE`, `PASSWORD_POLICY_VIOLATION`, `CURRENT_PASSWORD_REQUIRED`, `PASSWORD_UNCHANGED` |
-| `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN`, `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE` |
+| `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN` (not a Testify token at all, or an API token that doesn't exist), `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE`. Every 401 carries `WWW-Authenticate: Bearer realm="Testify"`, with `error="invalid_token"` when a credential was sent and doesn't work. |
+| `405` | `METHOD_NOT_ALLOWED`: an API address that exists, under another method; `Allow` lists the methods it takes |
 | `403` | `FORBIDDEN` (with `required_permission`), `TOKEN_PROJECT_MISMATCH`, `TOKEN_NOT_ALLOWED` (an API token on a route outside any project), `TOKEN_INTERFACE_NOT_ALLOWED` (an MCP-only token on the REST API, or a REST-only one on `/mcp`; with `token_interfaces`), `RESULT_OVERWRITE_NOT_PERMITTED`, `AUTO_CLOSE_NOT_YOURS`, `CAPABILITY_CEILING_EXCEEDED`, `PASSWORD_CHANGE_REQUIRED`, `CSRF_HEADER_MISSING`, `CURRENT_PASSWORD_INCORRECT`, and the Admin Panel guards `PERMISSION_CEILING`, `TARGET_OUTRANKS_ACTOR`, `ROLE_OUTRANKS_ACTOR` |
 | `404` | `NOT_FOUND`, and in reports `PROJECT_NOT_FOUND`, `PLAN_NOT_FOUND`, `RUN_NOT_FOUND`, `CASE_NOT_FOUND`, `REPORT_NOT_FOUND` |
 | `409` | "Still contains" on delete without `force`: `PROJECT_IN_USE`, `SUITE_IN_USE`, `CASE_IN_USE`, `PLAN_IN_USE`, `RUN_IN_USE`, `CUSTOM_FIELD_IN_USE`, `ROLE_IN_USE`, `CASE_HAS_RESULTS` (removing a case with results from a plan); also `LAST_ADMIN`, `LAST_RECIPIENT` (a report schedule's only recipient), `USER_EXISTS`, `ROLE_NAME_TAKEN`, `FIELD_NAME_TAKEN`, `WEBHOOK_LIMIT` (20 per project), `IDEMPOTENCY_KEY_IN_USE` (§3.5), a taken project prefix or run name |
@@ -475,7 +476,7 @@ Execute runs the whole import in one transaction, writes an `IMPORT_EXECUTED` au
 ### 7.1 Authentication
 Every API request needs a credential (RFC 04 §4 has the details):
 - **Machine API tokens** (`Authorization: Bearer tf_ci_...`), for CI and agents. Each is created per project in Admin Panel → API Tokens, with chosen capabilities, and is bound to that project and capped by its issuer's current permissions. Tokens can't use the admin routes or hold system-wide permissions (RFC 04 §4.2).
-- **Sign-in tokens:** `POST /api/v1/auth/login` returns a JWT for scripts. The web app uses an HttpOnly session cookie instead, plus a `X-Testify-Client: web` header on changes.
+- **Sign-in tokens:** `POST /api/v1/auth/login` returns a JWT for scripts, with `expires_at` (7 days at most) and `idle_timeout_seconds` (it ends sooner after 8 hours unused). The web app uses an HttpOnly session cookie instead, plus a `X-Testify-Client: web` header on changes.
 
 There are no personal access tokens or separate runner-token types; a token's capabilities decide what it can do. The built-in Automation Service role's set (`SPEC_VIEW`, `RUN_MANAGE`, `EXECUTE_RUN`) suits CI.
 

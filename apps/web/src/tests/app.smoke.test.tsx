@@ -22,7 +22,7 @@ const ADMIN = user('admin', 'Admin', ALL_PERMISSIONS);
 const VIEWER = user('viewer', 'Viewer', ['SPEC_VIEW', 'EXPORT_DATA']);
 
 const T = '2026-10-01T00:00:00.000Z';
-const project = { id: 'prj-1', name: 'Smoke Project', prefix: 'SMK', description: null, settings: '{}', created_at: T, updated_at: T };
+const project = { id: 'prj-1', name: 'Smoke Project', prefix: 'SMK', description: null, settings: {}, created_at: T, updated_at: T };
 const plan = { id: 'pln-1', project_id: 'prj-1', name: 'Regression', description: null, status: 'ACTIVE', created_at: T, updated_at: T };
 const run = { id: 'bld-1', test_plan_id: 'pln-1', name: 'Run 1', description: null, status: 'OPEN', release_date: T, created_at: T, updated_at: T };
 const suite = (id: string, name: string, cases: number) => ({

@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Findings 1 to 5 are done (2026-10-23); the rest are to fix.
+**Status:** in progress. Findings 1 to 5, 11, 12 and 14 are done (2026-10-23); the rest are to fix.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -89,10 +89,10 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | | To do |
 | 9 | `executed_at` in the future (2099) is accepted, distorting "latest" and trends. | | To do |
 | 10 | Signed-in users have no request limit (only API tokens do). | | To do |
-| 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | | Filter errors done with 4, the 413's limit with 5; the token message to do |
-| 12 | Missing HTTP basics: no `WWW-Authenticate` on 401, 404 instead of 405 for a wrong method, no expiry in the login answer. | | To do |
+| 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | Filter errors (with 4) and the 413 (with 5); something that isn't a token is `INVALID_TOKEN`, not "your sign-in has ended". | **Done** (changelog 2026-10-23) |
+| 12 | Missing HTTP basics: no `WWW-Authenticate` on 401, 404 instead of 405 for a wrong method, no expiry in the login answer. | `WWW-Authenticate: Bearer` on every 401; 405 with `Allow`; the login answer gives `expires_at` and `idle_timeout_seconds`. | **Done** (changelog 2026-10-23) |
 | 13 | No `operationId` in the spec (poor names in Postman and client generators); 12 write routes don't document their 400. | | To do |
-| 14 | A project's `settings` is returned as a JSON string inside the JSON. | | To do |
+| 14 | A project's `settings` is returned as a JSON string inside the JSON. | `settings` is an object in every project answer. | **Done** (changelog 2026-10-23) |
 | 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | | To do |
 | 16 | A webhook to an address refused at delivery retries for 11 hours instead of failing at once. | | To do |
 | 17 | MCP tools take only internal project ids, not prefixes (`DEMO`); runs carry no result counts, so a dashboard needs a call per run. | | To do |

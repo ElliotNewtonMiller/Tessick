@@ -37,6 +37,7 @@ import { loggerOptions, registerRequestLogging, registerHttpsOnHttpHint, registe
 import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
 import { registerNulGuard, unstorableValueMessage } from './storableInput.js';
+import { sendUnknownAddress } from './unknownAddress.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
 import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
@@ -213,7 +214,7 @@ export async function createServer(
   if (options.webDistDir) registerWebApp(app, options.webDistDir);
   // Without a web build, any unknown address gets a problem-details 404 too (registerWebApp
   // answers unknown /api and /mcp addresses the same way).
-  else app.setNotFoundHandler((request, reply) => sendError(reply, 404, `Route ${request.method}:${request.url} not found`));
+  else app.setNotFoundHandler(sendUnknownAddress);
 
   return { app, db, seed };
 }
