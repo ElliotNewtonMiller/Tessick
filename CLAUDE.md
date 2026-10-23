@@ -215,7 +215,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Logs are JSON lines to stdout (`observability.ts`). Never log headers or bodies.
   - `GET /api/v1/health` is the health check.
   - Rate limits live in `services/rateLimits.ts`, per process: 120 exports per hour and 60 report emails per hour per caller.
-  - Imports: at most 50 MB per file, 2 at a time.
+  - Request bodies: 1 MB by default; CI uploads (JSON batches and JUnit files) 50 MB; imports 50 MB per file, 2 at a time. A 413 says the route's limit (`limit_bytes`).
   - CSV exports neutralize spreadsheet formulas.
 - **Browser security headers** (`securityHeaders.ts`) go on every reply: a Content-Security-Policy (the web app's page: its own scripts and API plus Google Fonts; everything else: nothing; a reply that sets its own, like `/docs`, keeps it), no framing, `nosniff`, `no-referrer`, and HSTS over HTTPS. Anything new the web app loads from elsewhere (a CDN, an image host) must be added to its policy there, or browsers block it.
 - **Sending responses:** only set `Content-Type: application/json` when there's a body. Fastify answers 400 to an empty JSON body.

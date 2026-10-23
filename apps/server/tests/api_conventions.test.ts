@@ -101,6 +101,9 @@ describe('API conventions: one error format', () => {
       await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/imports/dry-run`, { file_content: 'x'.repeat(6 * 1024 * 1024) }),
       413
     );
+    // The answer says the route's limit (it said only "Request body is too large").
+    const tooBig = expectProblem(await call(admin, 'POST', `/api/v1/runs/${seed.buildId}/results`, { test_plan_case_id: 'x', verdict: 'PASSED', notes: 'x'.repeat(1100 * 1024) }), 413, 'PAYLOAD_TOO_LARGE');
+    expect(tooBig).toMatchObject({ limit_bytes: 1024 * 1024, detail: expect.stringContaining('(1 MB)') });
     app.rateLimits.exports = new RateLimiter(1, 60 * 60_000);
     const exportBody = { format: 'JSON', scope: { type: 'PROJECT' } };
     await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/exports/definitions`, exportBody);

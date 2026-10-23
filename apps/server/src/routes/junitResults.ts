@@ -69,7 +69,8 @@ export async function registerJUnitResultRoutes(app: FastifyInstance, db: Kysely
     const executeRun = requirePermission('EXECUTE_RUN', db, jwtSecret);
     // An optional Idempotency-Key makes a retried upload answer as the first did (services/idempotency.ts).
     const idempotency = idempotencyHooks(db);
-    const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true } };
+    // The route's limit is the parser's too, so a 413 can say it.
+    const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true }, bodyLimit: JUNIT_BODY_LIMIT_BYTES };
 
     /** The parsed file, or null after answering 400. */
     function readJUnit(req: FastifyRequest, reply: FastifyReply): JUnitTestResult[] | null {

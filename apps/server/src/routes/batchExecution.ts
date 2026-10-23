@@ -6,7 +6,7 @@ import { requirePermission } from '../middleware/auth.js';
 import { sendError } from '../errors.js';
 import { BatchRecorded, recordResultsBatch } from '../services/batchResults.js';
 import { findOrCreateRun } from '../services/runByName.js';
-import { batchResultsSchema, planBatchResultsSchema } from '../openapi/areas/projects.js';
+import { batchResultsSchema, planBatchResultsSchema, BATCH_BODY_LIMIT_BYTES } from '../openapi/areas/projects.js';
 import { idempotencyHooks } from '../services/idempotency.js';
 
 const flag = (query: unknown, name: string) => {
@@ -37,7 +37,7 @@ export async function registerBatchExecutionRoutes(app: FastifyInstance, db: Kys
   const executeRun = requirePermission('EXECUTE_RUN', db, jwtSecret);
   // An optional Idempotency-Key makes a retried upload answer as the first did (services/idempotency.ts).
   const idempotency = idempotencyHooks(db);
-  const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true } };
+  const hooks = { preHandler: [executeRun, idempotency.preHandler], onSend: idempotency.onSend, config: { stripNul: true }, bodyLimit: BATCH_BODY_LIMIT_BYTES };
 
   app.post('/api/v1/runs/:runId/results/batch', { schema: batchResultsSchema, ...hooks }, async (req, reply) => {
     const { runId } = req.params as { runId: string };

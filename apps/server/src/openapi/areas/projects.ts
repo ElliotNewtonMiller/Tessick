@@ -337,7 +337,7 @@ export const batchResultsSchema = {
   tags: ['Runs and results'],
   summary: 'Record results from CI (batch)',
   description:
-    'Up to 5,000 results in one request, saved in one transaction (RFC 03 §3). Needs `EXECUTE_RUN` (and `EXECUTE_OVERWRITE` to change an existing result). ' +
+    'Up to 5,000 results and 50 MB in one request, saved in one transaction (RFC 03 §3). Needs `EXECUTE_RUN` (and `EXECUTE_OVERWRITE` to change an existing result). ' +
     'A case not yet in the plan is added if it is approved. By default valid results are saved and refused ones reported per item (207 when any were refused); ' +
     'with `all_or_nothing=true` one refusal saves nothing and fails the request. The run stays open (CI results don\'t auto-close it) unless `close_run=true`.',
   params: idParams('runId'),
@@ -407,6 +407,7 @@ export const batchResultsSchema = {
       [400, '`INVALID_RESULT` (all-or-nothing, or a malformed request)'],
       404,
       IDEMPOTENCY_409,
+      [413, 'Over 50 MB (`limit_bytes`)'],
       [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also an item\'s refusal']
     ),
   },
@@ -443,6 +444,7 @@ export const planBatchResultsSchema = {
       [403, 'Missing `EXECUTE_RUN`, or `RUN_MANAGE` to create the run'],
       404,
       IDEMPOTENCY_409,
+      [413, 'Over 50 MB (`limit_bytes`)'],
       [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also an item\'s refusal']
     ),
   },
@@ -450,6 +452,8 @@ export const planBatchResultsSchema = {
 
 export const JUNIT_MAX_TESTS = 20_000;
 export const JUNIT_BODY_LIMIT_BYTES = 50 * 1024 * 1024;
+/** A JSON batch may be as large as a JUnit file: 5,000 results with stack traces need far more than the default 1 MB. */
+export const BATCH_BODY_LIMIT_BYTES = 50 * 1024 * 1024;
 
 const JUNIT_QUERY = {
   environment: { type: 'string', description: 'e.g. staging; stored with every result' },
@@ -475,7 +479,7 @@ const junitErrors = (more: Array<number | [number, string]>) =>
     ...more,
     404,
     IDEMPOTENCY_409,
-    [413, 'Over 50 MB'],
+    [413, 'Over 50 MB (`limit_bytes`)'],
     [422, '`RUN_CLOSED`, `PLAN_LOCKED` or `IDEMPOTENCY_KEY_REUSED`; with all-or-nothing, also a test\'s refusal']
   );
 

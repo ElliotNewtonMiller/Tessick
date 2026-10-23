@@ -349,7 +349,7 @@ The full list is in [RFC 03 §4.2](rfc_03_api_and_xml_contracts.md). An unexpect
 ## 8. Limits
 
 - 1,200 requests a minute per token (MCP calls included); the allowance refills evenly.
-- 5,000 results per JSON batch; 20,000 tests and 50 MB per JUnit file.
+- 5,000 results and 50 MB per JSON batch; 20,000 tests and 50 MB per JUnit file. Other requests: 1 MB. A `413` says the limit (`limit_bytes`).
 - 120 exports and 60 report emails an hour.
 - Imports: 50 MB per file, two at a time.
 

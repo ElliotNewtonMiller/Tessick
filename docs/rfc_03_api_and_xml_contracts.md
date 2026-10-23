@@ -485,7 +485,7 @@ There are no personal access tokens or separate runner-token types; a token's ca
 Limits are generous on purpose -- CI runners, scripts and MCP agents make many more calls than people -- and exist to stop runaway loops and abuse. Each is a **token bucket** per caller: the whole allowance can be used at once, and it refills evenly over the window. The counts are kept in memory per server process (`apps/server/src/services/rateLimits.ts`).
 
 - **Rate Limits:**
-  - Every request made with a machine API token (REST, `/runs/{id}/results/batch`, `/mcp`): **1,200 requests per minute per token**. A batch request can carry up to 5,000 results, and a JUnit file up to 20,000 tests.
+  - Every request made with a machine API token (REST, `/runs/{id}/results/batch`, `/mcp`): **1,200 requests per minute per token**. A batch request can carry up to 5,000 results and a JUnit file up to 20,000 tests, each up to 50 MB (other requests 1 MB; a `413 PAYLOAD_TOO_LARGE` gives `limit_bytes`).
   - Exports (`.../exports/definitions`, `.../exports/results`): **120 per hour per user or token**.
   - Sending report emails (`.../report-emails` without `preview`, `/report-schedules/{id}/send-now`, `/admin/email-settings/test`): **60 per hour per user or token**.
 - **HTTP 429 Too Many Requests Payload:**
@@ -608,7 +608,7 @@ sequenceDiagram
 | Area | Design | Status |
 | :--- | :--- | :--- |
 | **REST conventions** | Resource naming, verbs, status codes, one id name each (§1-2) | Built (2026-10-12). OpenAPI spec at `/docs/json` for every route; no paging yet ([api_roadmap.md](api_roadmap.md) steps 3-4). |
-| **CI results** | Batch endpoint with all-or-nothing mode (§3) | Built: up to 5,000 results per request, one transaction. |
+| **CI results** | Batch endpoint with all-or-nothing mode (§3) | Built: up to 5,000 results and 50 MB per request, one transaction. |
 | **Errors** | Problem details for every error, with a code registry (§4) | Built. |
 | **Closed runs, locked plans** | Writes rejected with HTTP 422 `RUN_CLOSED` / `PLAN_LOCKED` (§4.1) | Built. |
 | **Attachments and retention** | `IStorageProvider`, pre-signed uploads, 365-day purge (§5) | Not built. Audit logs append-only forever: built. |

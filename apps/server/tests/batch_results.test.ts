@@ -154,4 +154,12 @@ describe('Batch results: validation, steps and transactions', () => {
     expect(await count('test_step_results')).toBe(2000);
     expect(Date.now() - started).toBeLessThan(15_000);
   });
+
+  it('takes batches past 1 MB, as stack traces make them (up to 50 MB)', async () => {
+    // 40 failures with 60,000-character stack traces: about 2.4 MB, refused (413) before.
+    const traces = Array.from({ length: 40 }, (_, i) => item('FAILED', { failure_message: 'boom', stack_trace: `at frame ${i}\n`.padEnd(60_000, 'x') }, `SHOP-${101 + (i % 9)}`));
+    const res = await batch(traces);
+    expect(res.statusCode, res.payload.slice(0, 300)).toBe(201);
+    expect(body(res).summary).toMatchObject({ successful: 40 });
+  });
 });

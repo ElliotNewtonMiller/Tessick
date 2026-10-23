@@ -3090,3 +3090,25 @@ Tests:
 - the retry with the same key answered 201 with `idempotent-replayed: true` and the same summary;
 - the same key with a changed file answered `422 IDEMPOTENCY_KEY_REUSED`;
 - the run has 2 results, not 4.
+
+## API audit, part 5: CI batches up to 50 MB, and a 413 that says the limit (2026-10-23)
+
+The audit's fifth finding: JSON bodies were capped at Fastify's default 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters each. A batch of a few dozen failures with real stack traces was refused. The 413 said only "Request body is too large".
+
+- **JSON batches** (`POST /runs/{runId}/results/batch` and `/plans/{planId}/results/batch`) take up to 50 MB (`BATCH_BODY_LIMIT_BYTES`), the same as a JUnit file. CI has one number to remember. JUnit routes now set the same `bodyLimit` on the route as on their parser, so a 413 can read it.
+- **Other requests** keep 1 MB.
+- **Every 413** from the global error handler now says the route's limit, with the same code: "The request body is larger than this address accepts (1 MB). Send less at once, e.g. split the results into several requests.", with `limit_bytes`. Imports keep their own `IMPORT_TOO_LARGE`. This is the 413 part of finding 11.
+- **Docs:**
+  - `api_getting_started.md` (limits);
+  - RFC 03 (§7.2 and the build table);
+  - CLAUDE.md/AGENTS.md (limits);
+  - `api_roadmap.md` (finding 5 done; 11 now only the token message);
+  - the spec: the batch routes' 413 and description.
+
+Tests:
+- `batch_results.test.ts` +1: 40 failures with 60,000-character stack traces (about 2.4 MB) are recorded.
+- `api_conventions.test.ts`: a single result over 1 MB gets 413 with `limit_bytes: 1048576` and "(1 MB)" in the detail.
+
+**Verified live** on the dev server with the demo data:
+- a 3.0 MB batch of 35 failures with 90,000-character stack traces was recorded (201);
+- a single result with 1.1 MB of notes got the new 413.

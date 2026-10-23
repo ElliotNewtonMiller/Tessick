@@ -91,6 +91,14 @@ export async function createServer(
     const unstorable = unstorableValueMessage(error, request);
     if (unstorable) return sendError(reply, 400, unstorable, { code: 'INVALID_REQUEST' });
     const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+    // A body over the route's limit: say what the limit is (it said only "Request body is too large").
+    if (status === 413) {
+      const limit = request.routeOptions.bodyLimit ?? app.initialConfig.bodyLimit ?? 1024 * 1024;
+      return sendError(reply, 413, `The request body is larger than this address accepts (${Math.round(limit / (1024 * 1024))} MB). Send less at once, e.g. split the results into several requests.`, {
+        code: 'PAYLOAD_TOO_LARGE',
+        limit_bytes: limit,
+      });
+    }
     if (status >= 400 && status < 500) {
       // Fastify's own codes (FST_...) are internal names; callers get the standard code for the status.
       const code = typeof error.code === 'string' && !error.code.startsWith('FST_') ? error.code : undefined;
