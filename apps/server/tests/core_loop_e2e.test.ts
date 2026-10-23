@@ -74,7 +74,6 @@ describe('Core Operational Loop E2E Integration Test', () => {
         verdict: 'PASSED',
         status: 'COMPLETED',
         notes: 'Rapid single-key hotkey [p] pass submission',
-        execution_duration_ms: 320,
         step_results: [
           { test_step_id: case1.steps[0].id, step_number: 1, verdict: 'PASSED' },
           { test_step_id: case1.steps[1].id, step_number: 2, verdict: 'PASSED' },
@@ -97,7 +96,6 @@ describe('Core Operational Loop E2E Integration Test', () => {
         verdict: 'FAILED',
         status: 'COMPLETED',
         notes: 'Regressed token secret assertion - step 2 failed',
-        execution_duration_ms: 1100,
         step_results: [
           { test_step_id: case2.steps[0].id, step_number: 1, verdict: 'PASSED' },
           { test_step_id: case2.steps[1].id, step_number: 2, verdict: 'FAILED', actual_result: 'HTTP 500 Internal Error' },

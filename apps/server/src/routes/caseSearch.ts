@@ -49,7 +49,7 @@ export async function registerCaseSearchRoutes(app: FastifyInstance, db: Kysely<
         // Validation failures carry a code (INVALID_FILTER) and a list of problems; lookups a message.
         const isCode = /^[A-Z_]+$/.test(outcome.error);
         const params = reportErrorParams(outcome.details);
-        const detail = isCode ? params.invalid_params?.map((p) => p.reason).join('; ') || outcome.error : outcome.error;
+        const detail = isCode ? params.invalid_params?.map((p) => `${p.name} ${p.reason}`).join('; ') || outcome.error : outcome.error;
         return sendError(reply, outcome.status, detail, { ...(isCode ? { code: outcome.error } : {}), ...params });
       }
       return { case_ids: outcome.case_ids, suite_ids: outcome.suite_ids, total_cases: outcome.total_cases };

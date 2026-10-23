@@ -53,6 +53,13 @@ function toJsonSchema(report: ReportDefinition): JsonSchema {
  * Connect from Claude Code:
  *   claude mcp add --transport http testify http://localhost:3001/mcp --header "Authorization: Bearer tf_ci_..."
  */
+/** The arguments a tool's schema doesn't list, when it lists them all (additionalProperties: false). */
+function unknownArguments(schema: Record<string, unknown>, args: Record<string, unknown>): string[] {
+  if (schema.additionalProperties !== false) return [];
+  const known = new Set(Object.keys((schema.properties ?? {}) as object));
+  return Object.keys(args).filter((k) => !known.has(k));
+}
+
 export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
   const reports = new ReportService(db);
   const caseFilter = new CaseFilterService(db);
@@ -178,7 +185,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
       run: async (args, user) => {
         const projectId = await requireProject(user, args.project_id);
         const outcome = await caseFilter.evaluate(projectId, { q: args.q, filters: args.filters, test_plan_id: args.test_plan_id, test_run_id: args.test_run_id });
-        if (!outcome.ok) throw new ToolError(`${outcome.error}${outcome.details ? `: ${JSON.stringify(outcome.details)}` : ''}`);
+        if (!outcome.ok) throw new ToolError(`${outcome.error}${outcome.details ? `: ${outcome.details.map((d) => `${d.name} ${d.reason}`).join('; ')}` : ''}`);
         const limit = Math.min(Math.max(Number(args.limit) || MCP_DEFAULT_LIMIT, 1), 500);
         return json({
           total_matches: outcome.case_ids.length,
@@ -293,6 +300,16 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
         return { isError: true, content: [{ type: 'text', text: `Unknown tool '${req.params.name}'${why}` }] };
       }
       const args = (req.params.arguments ?? {}) as Record<string, any>;
+      // An argument the tool doesn't take is refused, not ignored: an agent that wrote
+      // `filter` for `filters` used to get unfiltered results and no hint why.
+      const unknown = unknownArguments(tool.inputSchema, args);
+      if (unknown.length > 0) {
+        const takes = Object.keys((tool.inputSchema.properties ?? {}) as object);
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `${tool.name} doesn't take ${unknown.map((k) => `'${k}'`).join(', ')}. Its arguments: ${takes.join(', ') || 'none'}.` }],
+        };
+      }
       try {
         const text = await tool.run(args, user, request);
         if (tool.write) await auditWrite(request, user, tool, args, { ok: true });

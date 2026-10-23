@@ -2972,3 +2972,68 @@ Tests:
   - the excluded list now includes `PROJECT_DELETE` (so minting one is refused and it's not offered);
   - a token holding it from before can't force-delete its project (403), and the project is still there.
 - `api_tokens.test.ts`: the "can't give a token more than you hold" test used `PROJECT_DELETE` as the permission a Test Lead lacks. Test Lead now holds every permission a token can have, so the test uses a custom role (API_TOKEN_MANAGE, SPEC_VIEW, EXECUTE_RUN) asking for `PLAN_MANAGE`.
+
+## API audit, part 3: unknown fields are refused, not ignored (2026-10-23)
+
+The audit's fourth finding: mistakes were silently ignored.
+- `PATCH /cases/{id}` with `{"tittle": "..."}` answered 200 and changed nothing.
+- A report `filter` written `{"filter": [...]}` (for `"filters"`) gave an unfiltered report, with only `filter_applied: false` to show for it.
+
+Decided with Elliot: refuse them, with 400 naming the field. Nothing outside Testify uses the API yet, so this is the cheapest time.
+
+**Request bodies** (`openapi/index.ts`):
+- **Every enforced body schema** is closed before it's compiled (`closeObjects`, the same function the test-time response check uses). An object rejects fields it doesn't list, at any depth, shared `$ref` schemas included.
+- **Handler-validated bodies** (the routes that check bodies themselves) now get a structure-only check: `fieldsOnly` keeps only `properties`, `items`, `additionalProperties` and `$ref`, closed. They used to get no check at all. The route's own checks still give their specific errors.
+- **The error:** `400 INVALID_REQUEST` with `invalid_params: [{ "name": "steps[0].expectd", "reason": "isn't a known field" }]`.
+- **Objects meant to hold any keys stay open**, by `additionalProperties`: custom field values in bulk changes, a result's `environment_tags`, report parameters (checked against the catalog, which already refused unknown names), MCP's `params`, and report-email section parameters.
+- **A CI batch with a misspelt field is refused whole**, not per item: every item comes from the same script.
+
+**Filters** (`packages/core/src/case-filter/validate.ts`, `reportService.ts`):
+- **Unknown keys are refused:**
+  - a filter with a key other than `field`, `op` and `value`: `filters[0].values isn't a known field (a filter has field, op and value)`;
+  - a report's `filter` with a key other than `q` and `filters`: `filter.filter`.
+- **Errors are structured** as `{ name, reason }` (they were strings):
+  - search names the field (`filters[1].op`), and reports name it as the parameter (`filter.filters[1].op`);
+  - `in_plan` and `verdict` name `test_plan_id` and `test_run_id`.
+- **Part of finding 11:** `INVALID_FILTER` from a report used to have the detail "INVALID_FILTER" and blank field names. Its detail now says what's wrong.
+- **MCP's `search_cases`** words them the same way (it printed the raw JSON).
+
+**MCP** (`mcpServer.ts`):
+- **Unknown arguments:** a tool argument the tool's `inputSchema` doesn't list is refused, with the ones it takes: "search_cases doesn't take 'filter'. Its arguments: project_id, q, filters, ...". The schemas already said `additionalProperties: false`, but nothing checked them when a tool was called.
+- **The `/mcp` description** in the spec still said "Every tool is read-only"; it now lists the write tools.
+
+**Changes this forced:**
+- **The Admin Panel's custom-field editor** sent a select field's options back as the server lists them, with `id` and `position`, so saving an edited select field would have been refused. It now sends only `option_label` and `option_value`, in order.
+- **`position` is gone from the option schema.** The server never read it; the list's order sets the positions.
+- **Tests that relied on ignored fields**, now changed:
+  - the reports suite sent `runner_info.bogus`, to show it was dropped;
+  - the end-to-end loop sent the old `execution_duration_ms` on a manual result;
+  - a reports test sent `duration_ms` on a manual result to show it was ignored, and now expects the 400.
+- **Not changed:**
+  - query strings: an unknown query parameter is still ignored, since browsers and tools add their own (cache-busters).
+
+**Checking the web app:**
+- **Every request body it sends** (48 `JSON.stringify` calls) was compared with its route's fields in the spec. The only mismatch was the custom field options above.
+- **Live, at `127.0.0.1:3000`** against the dev server with the demo data, signed in as the dev admin:
+  - created a select field and edited it, label and options;
+  - turned a case into a draft and changed its priority, summary, steps and a custom field value;
+  - failed a case in Execute mode with a note;
+  - searched.
+- **The server log** showed no 400 in the session (only the expected 401s before sign-in).
+- **Probed live:** `PATCH {"tittle"}`, a report `filter` under `"filter"`, and MCP `search_cases` with `filter`. All three were refused, naming the field.
+
+**Docs:**
+- CLAUDE.md/AGENTS.md: the route-schema convention.
+- RFC 03 §1: validation.
+- `api_getting_started.md`: unknown fields in CI uploads.
+- `reports_api_and_mcp.md`: filter keys; MCP arguments.
+- `api_roadmap.md`: finding 4 done, 11 in part.
+
+Tests:
+- New `apps/server/tests/unknown_fields.test.ts` (4):
+  - handler-validated and enforced bodies, nested fields, two at once, a shared `$ref` (permission overrides), a select field's options with `id`/`position`, and a CI batch;
+  - what stays open (environment tags, bulk custom fields, where the route reports `UNKNOWN_FIELD` itself);
+  - report filters: `filter.filter`, `filter.filters[0].values`, the readable detail, an op error named `filter.filters[0].op`, and a correct filter applied;
+  - MCP: an unknown argument refused naming the ones it takes, and an unknown key inside a filter named.
+- `caseFilter.test.ts`: errors are checked by name, and a filter with `values` is refused.
+- `case_search.test.ts`: the error names `filters[0].value`, and the detail starts with it.

@@ -11,6 +11,7 @@ import {
 import {
   matchesCase,
   validateCaseFilterRequest,
+  type CaseFilterProblem,
   type CaseFilterFieldDescriptor,
   type CaseFilterRecord,
 } from '@testify/core';
@@ -34,7 +35,7 @@ function mergeValues(known: string[], present: Iterable<string>) {
 
 export type CaseFilterOutcome =
   | { ok: true; case_ids: string[]; suite_ids: string[]; total_cases: number }
-  | { ok: false; status: 400 | 404; error: string; details?: unknown };
+  | { ok: false; status: 400 | 404; error: string; details?: CaseFilterProblem[] };
 
 /**
  * Case search & filter -- the single place a search/filter is ever evaluated. Used by the
@@ -165,10 +166,10 @@ export class CaseFilterService {
       planId = planId ?? run.test_plan_id;
     }
     if (usedFields.has('in_plan') && !planId) {
-      return { ok: false, status: 400, error: 'INVALID_FILTER', details: ["'in_plan' requires test_plan_id"] };
+      return { ok: false, status: 400, error: 'INVALID_FILTER', details: [{ name: 'test_plan_id', reason: "is needed by the 'in_plan' filter" }] };
     }
     if (usedFields.has('verdict') && !runId) {
-      return { ok: false, status: 400, error: 'INVALID_FILTER', details: ["'verdict' requires test_run_id"] };
+      return { ok: false, status: 400, error: 'INVALID_FILTER', details: [{ name: 'test_run_id', reason: "is needed by the 'verdict' filter" }] };
     }
 
     // Suite parent map (for suite_cf: inheritance and suite_ids ancestry).

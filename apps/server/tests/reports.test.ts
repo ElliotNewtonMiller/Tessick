@@ -49,7 +49,7 @@ describe('Reports: catalog-driven report API', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: { results: executions, ...extra },
     });
-    expect([201, 207]).toContain(res.statusCode);
+    expect([201, 207], res.payload).toContain(res.statusCode);
   }
 
   /**
@@ -104,7 +104,7 @@ describe('Reports: catalog-driven report API', () => {
         item('SHOP-105', 'FAILED', 101),
         item('SHOP-105', 'PASSED', 100),
       ],
-      { environment: 'staging', runner_info: { name: 'GitHub Actions', run_id: '42', commit_sha: 'abc123def456789', bogus: 'dropped' } }
+      { environment: 'staging', runner_info: { name: 'GitHub Actions', run_id: '42', commit_sha: 'abc123def456789' } }
     );
     return { app, db, seed, token, r1, r2, r3 };
   }
@@ -441,7 +441,7 @@ describe('Reports: catalog-driven report API', () => {
       expect(row.duration_ms).not.toBe(450);
     });
 
-    it('POST /api/v1/runs/:runId/results (manual) ignores a supplied duration -- manual execution is never timed', async () => {
+    it('POST /api/v1/runs/:runId/results (manual) refuses a duration -- manual execution is never timed', async () => {
       const { app, db, seed } = serverInstance;
       const { token } = await loginAsAdmin(app);
       const planCaseRow = await db
@@ -456,9 +456,9 @@ describe('Reports: catalog-driven report API', () => {
         headers: { authorization: `Bearer ${token}` },
         payload: { test_plan_case_id: planCaseRow.id, verdict: 'PASSED', duration_ms: 777 },
       });
-      expect(res.statusCode).toBe(201);
-      const row = await db.selectFrom('test_results').selectAll().where('id', '=', JSON.parse(res.payload).result.id).executeTakeFirstOrThrow();
-      expect(row.duration_ms).toBeNull();
+      // It used to be ignored; unknown fields are refused now (API audit, 2026-10-23).
+      expect([res.statusCode, JSON.parse(res.payload).invalid_params]).toEqual([400, [{ name: 'duration_ms', reason: "isn't a known field" }]]);
+      expect(await db.selectFrom('test_results').selectAll().where('test_plan_case_id', '=', planCaseRow.id).execute()).toEqual([]);
     });
 
     it('batchExecution.ts stores null, not a fabricated 0, when duration_ms is omitted', async () => {

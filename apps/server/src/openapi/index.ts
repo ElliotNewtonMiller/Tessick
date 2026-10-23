@@ -13,8 +13,12 @@ import { SHARED_SCHEMAS } from './schemas.js';
  *   under "Authorize".
  * - Request schemas are enforced: bodies exactly as sent (no type coercion), query strings
  *   and path parameters with coercion (they're always text). Failures become
- *   `400 INVALID_REQUEST` problem details naming each field (`validationProblem`). A body
- *   schema marked with `handlerValidated()` is documentation only: the route checks it itself.
+ *   `400 INVALID_REQUEST` problem details naming each field (`validationProblem`).
+ * - A body field the schema doesn't list is refused ("isn't a known field"), at any depth: a
+ *   typo like `tittle` used to be ignored, answering 200 with nothing changed. An object stays
+ *   open only where its schema says `additionalProperties` (custom field values, report
+ *   parameters). A body schema marked with `handlerValidated()` is checked only for that: the
+ *   route checks everything else itself, with its own specific errors.
  * - Response schemas only document: responses are serialized with plain JSON.stringify,
  *   so a schema can never drop or change a field. With `checkResponses` (on in tests),
  *   every JSON response is checked against its schema, undocumented fields included, and a
@@ -58,7 +62,7 @@ const SPEC_DESCRIPTION = `The Testify REST API. Everything the web app does goes
 
 **Conventions** (RFC 03 §1): lists and creation sit under the parent, each item has its own address; \`PATCH\` changes only the fields sent; creating answers 201 with the item wrapped in its name, deleting answers 204; \`?force=true\` deletes something that still contains things. Ids are named after their database columns (\`test_plan_id\`, \`test_run_id\`, …). Every error is problem details (\`application/problem+json\`) with a \`code\` and a \`detail\`.`;
 
-function ajvFor(coerce: boolean) {
+function ajvFor(coerce: boolean, shared: (schema: object) => unknown = (schema) => schema) {
   const ajv = new Ajv({
     allErrors: true,
     coerceTypes: coerce,
@@ -67,8 +71,30 @@ function ajvFor(coerce: boolean) {
     // Spec-only keywords (description, example, x-...) are allowed.
     strict: false,
   });
-  for (const s of SHARED_SCHEMAS) ajv.addSchema(s);
+  for (const s of SHARED_SCHEMAS) ajv.addSchema(shared(s) as object);
   return ajv;
+}
+
+/**
+ * Only a schema's fields -- `properties`, `items`, `additionalProperties`, shared `$ref`s -- and
+ * none of its rules (types, required, lengths, enums). Closed (closeObjects), it refuses unknown
+ * fields and nothing else: what a handler-validated body is checked for.
+ */
+function fieldsOnly(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(fieldsOnly);
+  if (!schema || typeof schema !== 'object') return schema;
+  const s = schema as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (s.$id !== undefined) out.$id = s.$id;
+  if (s.$ref !== undefined) out.$ref = s.$ref;
+  if (s.properties && typeof s.properties === 'object') {
+    out.properties = Object.fromEntries(Object.entries(s.properties).map(([k, v]) => [k, fieldsOnly(v)]));
+  }
+  if (s.items !== undefined) out.items = fieldsOnly(s.items);
+  if (s.additionalProperties !== undefined) {
+    out.additionalProperties = typeof s.additionalProperties === 'object' ? fieldsOnly(s.additionalProperties) : s.additionalProperties;
+  }
+  return out;
 }
 
 /** `/steps/0/action` → `steps[0].action`. */
@@ -241,12 +267,15 @@ export async function registerOpenApi(app: FastifyInstance, options: OpenApiOpti
     } as any,
   });
 
-  // Validation (see the comment at the top).
-  const strictAjv = ajvFor(false);
+  // Validation (see the comment at the top). Bodies are closed to unknown fields, shared
+  // schemas they refer to included.
+  const strictAjv = ajvFor(false, closeObjects);
+  const fieldsAjv = ajvFor(false, (s) => closeObjects(fieldsOnly(s)));
   const coercingAjv = ajvFor(true);
   app.setValidatorCompiler(({ schema, httpPart }) => {
-    if ((schema as any)['x-validated-by-handler']) return () => true;
-    return (httpPart === 'body' ? strictAjv : coercingAjv).compile(schema as object);
+    if (httpPart !== 'body') return coercingAjv.compile(schema as object);
+    if ((schema as any)['x-validated-by-handler']) return fieldsAjv.compile(closeObjects(fieldsOnly(schema)) as object);
+    return strictAjv.compile(closeObjects(schema) as object);
   });
   // Responses are never reshaped by their schemas.
   app.setSerializerCompiler(() => (data: unknown) => JSON.stringify(data));

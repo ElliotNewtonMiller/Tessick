@@ -52,7 +52,7 @@ POST /api/v1/projects/:projectId/reports/:reportId[?format=json|markdown|csv]
 | `test_health` | `test_plan_id`, `runs`, `stale_days`, `filter?`, `limit?` | Five lists: flaky, slowest, getting slower, always failing, and stale cases. |
 | `breakdown` | `test_plan_id`, `test_run_id?`, `group_by`, `filter?` | Compares groups of cases. Group by `suite`, `priority`, `execution_type`, `version_status`, `tester` or a custom field (`cf:<id>` / `suite_cf:<id>`). Without `test_run_id` it shows plan coverage; with it, verdicts per group. |
 
-**`filter`** has the same shape as the case-search API (`q` matches a case's external id, title, or the name of any suite it's in): `{ "q": "login", "filters": [{ "field": "priority", "op": "any_of", "value": ["HIGH"] }] }`. Field keys and operators come from `GET /api/v1/projects/:projectId/case-search/fields`.
+**`filter`** has the same shape as the case-search API (`q` matches a case's external id, title, or the name of any suite it's in): `{ "q": "login", "filters": [{ "field": "priority", "op": "any_of", "value": ["HIGH"] }] }`. Field keys and operators come from `GET /api/v1/projects/:projectId/case-search/fields`. A key it doesn't have (`"filter"` for `"filters"`, `"values"` for `"value"`) is `400 INVALID_FILTER` naming it, e.g. `filter.filters[0].values`, rather than an unfiltered report.
 
 ## Definitions (short version — the catalog has the full text)
 
@@ -95,7 +95,7 @@ claude mcp add --transport http testify http://localhost:3001/mcp --header "Auth
 - **403 `TOKEN_INTERFACE_NOT_ALLOWED`:** a REST-only token.
 - **403 `TOKEN_PROJECT_MISMATCH`:** a project other than the token's.
 
-Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project.
+Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project. An argument a tool doesn't take is refused, with the list of the ones it does.
 
 **Reading** (`readOnlyHint: true`):
 

@@ -952,7 +952,9 @@ export function AdminPanelModal({
       is_required: fieldIsRequired,
       default_value: fieldDefaultValue || null,
       validation_regex: fieldType === "TEXT" ? fieldValidationRegex || null : null,
-      options: isOptionType ? fieldOptions : undefined,
+      // Only what the API takes: options loaded from the server also carry their id and position,
+      // and unknown fields are refused. The list's order is the options' order.
+      options: isOptionType ? fieldOptions.map(({ option_label, option_value }) => ({ option_label, option_value })) : undefined,
     };
 
     try {

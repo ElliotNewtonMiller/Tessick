@@ -260,8 +260,8 @@ const definitionFields = {
   validation_regex: { type: ['string', 'null'], description: 'TEXT only: values must match it (at most 255 characters; a check taking over 50 ms is refused)' },
   options: {
     type: 'array',
-    description: 'SINGLE_SELECT and MULTI_SELECT: the allowed values. Removing one clears it from every case and suite.',
-    items: { type: 'object', required: ['option_label', 'option_value'], properties: { option_label: { type: 'string', maxLength: 255 }, option_value: { type: 'string', maxLength: 255 }, position: { type: 'integer' } } },
+    description: 'SINGLE_SELECT and MULTI_SELECT: the allowed values, in the order they are shown. Removing one clears it from every case and suite.',
+    items: { type: 'object', required: ['option_label', 'option_value'], properties: { option_label: { type: 'string', maxLength: 255 }, option_value: { type: 'string', maxLength: 255 } } },
   },
 };
 

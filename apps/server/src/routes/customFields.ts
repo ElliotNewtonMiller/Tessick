@@ -5,7 +5,6 @@ import { CustomFieldRepository, TestCaseRepository, TestSuiteRepository } from '
 import {
   CUSTOM_FIELD_TYPES,
   CUSTOM_FIELD_ENTITY_TYPES,
-  MAX_DB_INTEGER,
   MAX_NAME_LENGTH,
   resolveDefaultValue,
   type CustomFieldEntityType,
@@ -22,8 +21,8 @@ function isEntityType(value: unknown): value is CustomFieldEntityType {
 }
 
 /**
- * What a definition's text and positions must fit (name varchar(100); label, option label and
- * value varchar(255); positions integer), as invalid_params. Too long used to fail with a 500.
+ * What a definition's text must fit (name varchar(100); label, option label and value
+ * varchar(255)), as invalid_params. Too long used to fail with a 500.
  */
 function definitionSizeProblems(body: { name?: unknown; field_label?: unknown; options?: unknown }): Array<{ name: string; reason: string }> {
   const out: Array<{ name: string; reason: string }> = [];
@@ -36,10 +35,6 @@ function definitionSizeProblems(body: { name?: unknown; field_label?: unknown; o
     body.options.forEach((option: any, i: number) => {
       tooLong(`options[${i}].option_label`, option?.option_label, MAX_NAME_LENGTH);
       tooLong(`options[${i}].option_value`, option?.option_value, MAX_NAME_LENGTH);
-      const position = option?.position;
-      if (position !== undefined && position !== null && !(Number.isInteger(position) && position >= 0 && position <= MAX_DB_INTEGER)) {
-        out.push({ name: `options[${i}].position`, reason: 'must be a whole number, 0 or more' });
-      }
     });
   }
   return out;

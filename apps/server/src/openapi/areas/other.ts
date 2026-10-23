@@ -524,7 +524,7 @@ export const mcpSchema = {
   tags: OPS,
   summary: 'MCP endpoint for AI agents',
   description:
-    'The Model Context Protocol (Streamable HTTP, stateless, JSON responses) for agents such as Claude: list projects and runs, search and read cases, and run every report. Every tool is read-only. ' +
+    'The Model Context Protocol (Streamable HTTP, stateless, JSON responses) for agents such as Claude: list projects and runs, search and read cases, and run every report; with the permissions for it, also create and edit cases (always as drafts), create runs, record results and change which cases are in a plan. A tool argument it doesn\'t take is refused. ' +
     'Authenticate like the REST API (an API token with `SPEC_VIEW` is best). Requests are JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`); send `Accept: application/json, text/event-stream`. See docs/reports_api_and_mcp.md.',
   body: handlerValidated({
     type: 'object',

@@ -38,7 +38,7 @@ describe('validateCaseFilterRequest', () => {
     expect(v).toEqual({ ok: true, request: { q: '', filters: [] } });
   });
 
-  it('reports unknown fields, invalid ops, bad values and unconfigured options with the filter index', () => {
+  it('reports unknown fields, invalid ops, bad values and unconfigured options, naming the field', () => {
     const v = validateCaseFilterRequest(
       {
         filters: [
@@ -54,13 +54,15 @@ describe('validateCaseFilterRequest', () => {
     );
     expect(v.ok).toBe(false);
     if (v.ok) return;
-    expect(v.errors).toHaveLength(6);
-    expect(v.errors[0]).toMatch(/^filters\[0\]: unknown field/);
-    expect(v.errors[1]).toMatch(/^filters\[1\]: op 'contains' is not valid/);
-    expect(v.errors[2]).toMatch(/^filters\[2\]/);
-    expect(v.errors[3]).toMatch(/'z' not an option/);
-    expect(v.errors[4]).toMatch(/^filters\[4\]/);
-    expect(v.errors[5]).toMatch(/^filters\[5\]/);
+    expect(v.errors.map((e) => e.name)).toEqual(['filters[0].field', 'filters[1].op', 'filters[2].value', 'filters[3].value', 'filters[4].value', 'filters[5].value']);
+    expect(v.errors[0].reason).toMatch(/'nope' isn't a field you can filter on/);
+    expect(v.errors[1].reason).toMatch(/'contains' isn't valid for 'cf:num'/);
+    expect(v.errors[3].reason).toMatch(/'z' isn't an option/);
+  });
+
+  it('refuses a key a filter does not have, instead of ignoring it', () => {
+    const v = validateCaseFilterRequest({ filters: [{ field: 'priority', op: 'any_of', values: ['P1'] }] }, fields);
+    expect(v).toEqual({ ok: false, errors: [{ name: 'filters[0].values', reason: "isn't a known field (a filter has field, op and value)" }] });
   });
 
   it('does not enforce options on a non-strict enum (imported priorities)', () => {

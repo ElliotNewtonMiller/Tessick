@@ -239,11 +239,22 @@ export class ReportService {
   private async applyFilter(projectId: string, filter: unknown, planId: string | null, runId: string | null): Promise<Set<string> | null> {
     if (filter === undefined || filter === null) return null;
     const f = filter as { q?: unknown; filters?: unknown };
+    // A misspelt key ({ "filter": [...] } instead of "filters") used to give an unfiltered report.
+    const unknownKeys = Object.keys(f).filter((k) => k !== 'q' && k !== 'filters');
+    if (unknownKeys.length > 0) {
+      const details = unknownKeys.map((k) => ({ name: `filter.${k}`, reason: "isn't a known field (a filter has q and filters)" }));
+      throw new ReportError(400, 'INVALID_FILTER', details.map((d) => `${d.name} ${d.reason}`).join('; '), details);
+    }
     const hasQ = typeof f.q === 'string' && f.q.trim() !== '';
     const hasFilters = Array.isArray(f.filters) && f.filters.length > 0;
     if (!hasQ && !hasFilters) return null;
     const outcome = await this.caseFilter.evaluate(projectId, { q: f.q, filters: f.filters, test_plan_id: planId ?? undefined, test_run_id: runId ?? undefined });
-    if (!outcome.ok) throw new ReportError(outcome.status === 404 ? 404 : 400, 'INVALID_FILTER', outcome.error, outcome.details);
+    if (!outcome.ok) {
+      if (outcome.status === 404 || !outcome.details) throw new ReportError(outcome.status === 404 ? 404 : 400, 'INVALID_FILTER', outcome.error, outcome.details);
+      // Named as the report's parameter: filter.filters[0].op. The detail says what's wrong (it said only "INVALID_FILTER").
+      const details = outcome.details.map((d) => ({ name: d.name.startsWith('test_') ? d.name : `filter.${d.name}`, reason: d.reason }));
+      throw new ReportError(400, 'INVALID_FILTER', details.map((d) => `${d.name} ${d.reason}`).join('; '), details);
+    }
     return new Set(outcome.case_ids);
   }
 

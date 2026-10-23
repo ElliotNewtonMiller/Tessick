@@ -150,6 +150,8 @@ The reasons a test (or a JSON result) can be refused:
 - `CASE_REMOVED_FROM_PLAN`: the case was taken out of the plan.
 - `RESULT_OVERWRITE_NOT_PERMITTED`: changing an earlier result in this run needs `EXECUTE_OVERWRITE`.
 - `INVALID_RESULT`: a field is wrong; `invalid_params` names it.
+
+A field the API doesn't take (a typo like `duraton_ms`) refuses the whole request with `400 INVALID_REQUEST` naming it, rather than being ignored.
 - `UNKNOWN_STEP` (JSON only): a step result names a step the case doesn't have.
 
 Add `all_or_nothing=true` to record nothing at all when any test is refused.

@@ -154,7 +154,8 @@ describe('Case search & filter: POST /api/v1/projects/:projectId/case-search', (
     const bad = await search(app, token, seed.projectId, { filters: [{ field: `cf:${def.id}`, op: 'any_of', value: ['nope'] }] });
     expect(bad.status).toBe(400);
     expect(bad.body.code).toBe('INVALID_FILTER');
-    expect(bad.body.invalid_params[0].reason).toMatch(/filters\[0\]/);
+    expect(bad.body.invalid_params[0]).toMatchObject({ name: 'filters[0].value', reason: expect.stringMatching(/'nope' isn't an option/) });
+    expect(bad.body.detail).toMatch(/^filters\[0\]\.value 'nope' isn't an option/);
   });
 
   it('a suite custom field set on a parent suite applies to cases in child suites; suite_ids include ancestors', async () => {
