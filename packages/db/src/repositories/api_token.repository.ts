@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import type { Kysely, Selectable, Insertable } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import type { Database, ApiTokensTable } from '../types.js';
+import type { ApiTokenInterface } from '@testify/core';
 
 export type ApiTokenRow = Selectable<ApiTokensTable>;
 type NewApiTokenRow = Insertable<ApiTokensTable>;
@@ -14,6 +15,8 @@ export interface ApiToken {
   name: string;
   token_prefix: string;
   capabilities: string[];
+  /** Where it works: the REST API and MCP, or only one of them. */
+  interfaces: ApiTokenInterface;
   created_by: string;
   expires_at: string | null;
   is_revoked: boolean;
@@ -25,6 +28,8 @@ export interface CreateApiTokenInput {
   project_id: string;
   name: string;
   capabilities: string[];
+  /** Default BOTH. */
+  interfaces?: ApiTokenInterface;
   created_by: string;
   expires_at?: string | null;
 }
@@ -54,6 +59,7 @@ function toApiToken(row: ApiTokenRow): ApiToken {
     name: row.name,
     token_prefix: row.token_prefix,
     capabilities: JSON.parse(row.capabilities),
+    interfaces: row.interfaces as ApiTokenInterface,
     created_by: row.created_by,
     expires_at: row.expires_at,
     is_revoked: row.is_revoked === 1,
@@ -88,6 +94,7 @@ export class ApiTokenRepository {
       token_prefix: tokenPrefix,
       token_hash: tokenHash,
       capabilities: JSON.stringify(input.capabilities),
+      interfaces: input.interfaces ?? 'BOTH',
       created_by: input.created_by,
       expires_at: input.expires_at ?? null,
       is_revoked: 0,

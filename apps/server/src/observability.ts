@@ -76,3 +76,26 @@ export function registerHealthRoute(app: FastifyInstance, db: Kysely<Database>):
     return { status: 'ok', database, uptime_seconds };
   });
 }
+
+/** How often, at most, the HTTPS-on-the-HTTP-port hint is logged (a client retrying would repeat it). */
+const HTTPS_HINT_INTERVAL_MS = 60_000;
+
+/**
+ * Testify serves plain HTTP (HTTPS is a reverse proxy's job, docs/deployment.md). A client sent to
+ * `https://` on its port starts a TLS handshake, which fails on the client's side with an unhelpful
+ * "TLS handshake failed" / EPROTO, and on Testify's side as a request it can't parse. Recognise that
+ * (a TLS handshake record starts with byte 0x16) and say plainly in the log what to change.
+ */
+export function registerHttpsOnHttpHint(app: FastifyInstance): void {
+  let lastLoggedAt = 0;
+  app.server.on('clientError', (err: Error & { rawPacket?: Buffer }) => {
+    if (err.rawPacket?.[0] !== 0x16) return;
+    const now = Date.now();
+    if (now - lastLoggedAt < HTTPS_HINT_INTERVAL_MS) return;
+    lastLoggedAt = now;
+    app.log.warn(
+      { event: 'https_on_http_port' },
+      'A client spoke HTTPS (TLS) to this plain-HTTP port. Testify serves HTTP: use an http:// address (e.g. http://localhost:3001/mcp), or put an HTTPS reverse proxy in front (docs/deployment.md).'
+    );
+  });
+}

@@ -125,3 +125,12 @@ export const NO_ACCESS_ROLE = 'No Access';
 export const DEFAULT_ROLE_DESCRIPTIONS: Record<string, string> = {
   [NO_ACCESS_ROLE]: 'Sees no projects. As a global role, the user only has access to projects where they have a project role.',
 };
+
+/**
+ * Where an API token works: `BOTH` the REST API and MCP (the default), `MCP` only, or `REST` only.
+ * An AI agent's token should be `MCP`: MCP adds limits of its own (cases an agent creates are
+ * drafts; there are no tools to approve, deprecate or delete; changes are marked "via Testify
+ * MCP"), and a token that also works on the REST API lets an agent step around them.
+ */
+export const API_TOKEN_INTERFACES = ['BOTH', 'MCP', 'REST'] as const;
+export type ApiTokenInterface = (typeof API_TOKEN_INTERFACES)[number];

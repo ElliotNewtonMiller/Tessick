@@ -1,3 +1,4 @@
+import { API_TOKEN_INTERFACES } from '@testify/core';
 /**
  * Shared JSON schemas for the OpenAPI spec (`/docs/json`). Each one is registered with
  * `app.addSchema` and becomes `#/components/schemas/<$id>` in the spec; route schemas refer
@@ -87,9 +88,16 @@ export const SHARED_SCHEMAS: Schema[] = [
       session_id: str('The sign-in this request belongs to; absent for API tokens'),
       api_token: {
         type: 'object',
-        description: 'Present only for an API token',
-        required: ['id', 'project_id'],
-        properties: { id: str(), project_id: str('The one project the token works in') },
+        description: 'Present only for an API token: the token in use',
+        required: ['id', 'project_id', 'name', 'capabilities', 'interfaces', 'expires_at'],
+        properties: {
+          id: str(),
+          project_id: str('The one project the token works in'),
+          name: str(),
+          capabilities: { ...PERMISSIONS_LIST, description: 'What it was given (`permissions` is what it can do now, capped by its issuer)' },
+          interfaces: oneOf(API_TOKEN_INTERFACES, 'Where it works: BOTH the REST API and MCP, MCP only (an AI agent\'s token), or REST only.'),
+          expires_at: nullableStr(),
+        },
       },
     },
   },
@@ -344,13 +352,14 @@ export const SHARED_SCHEMAS: Schema[] = [
     $id: 'ApiToken',
     type: 'object',
     description: 'An API token, without its secret (shown only once, when created).',
-    required: ['id', 'project_id', 'name', 'token_prefix', 'capabilities', 'created_by', 'expires_at', 'is_revoked', 'last_used_at', 'created_at'],
+    required: ['id', 'project_id', 'name', 'token_prefix', 'capabilities', 'interfaces', 'created_by', 'expires_at', 'is_revoked', 'last_used_at', 'created_at'],
     properties: {
       id: str(),
       project_id: str('The one project it works in'),
       name: str(),
       token_prefix: str('The first characters after tf_ci_, to recognise it'),
       capabilities: { ...PERMISSIONS_LIST, description: 'What it was given' },
+      interfaces: oneOf(API_TOKEN_INTERFACES, 'Where it works: BOTH the REST API and MCP, MCP only (an AI agent\'s token: MCP\'s limits then can\'t be stepped around), or REST only.'),
       created_by: str('The user who issued it'),
       expires_at: nullableStr(),
       is_revoked: { type: 'boolean' },

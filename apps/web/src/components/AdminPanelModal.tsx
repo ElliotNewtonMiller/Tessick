@@ -99,12 +99,25 @@ interface CustomFieldDefinition {
   options: CustomFieldOption[];
 }
 
+type TokenInterfaces = "BOTH" | "MCP" | "REST";
+const TOKEN_INTERFACE_CHOICES: Array<{ value: TokenInterfaces; label: string; hint: string }> = [
+  { value: "BOTH", label: "REST API and MCP", hint: "Scripts and AI agents alike." },
+  {
+    value: "MCP",
+    label: "MCP only",
+    hint: "For an AI agent: refused on the REST API, so it can't step around MCP's limits (drafts only, no approving or deleting).",
+  },
+  { value: "REST", label: "REST API only", hint: "For CI and scripts: refused by MCP." },
+];
+
 interface ApiTokenItem {
   id: string;
   project_id: string;
   name: string;
   token_prefix: string;
   capabilities: string[];
+  /** Where it works: the REST API and MCP, MCP only (an AI agent's token) or the REST API only. */
+  interfaces?: TokenInterfaces;
   created_by: string;
   expires_at: string | null;
   is_revoked: boolean;
@@ -248,6 +261,7 @@ export function AdminPanelModal({
   const [issuerCapabilityCeiling, setIssuerCapabilityCeiling] = useState<string[]>([]);
   const [newTokenName, setNewTokenName] = useState<string>("");
   const [newTokenExpiresAt, setNewTokenExpiresAt] = useState<string>("");
+  const [newTokenInterfaces, setNewTokenInterfaces] = useState<TokenInterfaces>("BOTH");
   const [newTokenCapabilities, setNewTokenCapabilities] = useState<Set<string>>(new Set());
   const [isCreatingToken, setIsCreatingToken] = useState<boolean>(false);
   // Deliberately separate from `apiTokens` (which only ever holds prefix/metadata after
@@ -428,6 +442,7 @@ export function AdminPanelModal({
           name: newTokenName,
           capabilities: Array.from(newTokenCapabilities),
           expires_at: newTokenExpiresAt ? new Date(newTokenExpiresAt).toISOString() : null,
+          interfaces: newTokenInterfaces,
         }),
       });
       const data = await res.json();
@@ -438,6 +453,7 @@ export function AdminPanelModal({
       setCopyButtonLabel("Copy");
       setNewTokenName("");
       setNewTokenExpiresAt("");
+      setNewTokenInterfaces("BOTH");
       setNewTokenCapabilities(new Set());
       fetchApiTokens(tokenProjectScope);
       fetchAuditLogs();
@@ -3113,6 +3129,14 @@ export function AdminPanelModal({
                         <div>
                           <div style={{ fontSize: "13px", fontWeight: 700, color: "#e2e8f0" }}>
                             {t.name}
+                            {t.interfaces && t.interfaces !== "BOTH" && (
+                              <span
+                                title={TOKEN_INTERFACE_CHOICES.find((c) => c.value === t.interfaces)?.hint}
+                                style={{ marginLeft: "8px", fontSize: "10px", color: "#7dd3fc", fontWeight: 700 }}
+                              >
+                                {t.interfaces === "MCP" ? "MCP ONLY" : "REST ONLY"}
+                              </span>
+                            )}
                             {t.is_revoked && (
                               <span style={{ marginLeft: "8px", fontSize: "10px", color: "#f87171", fontWeight: 700 }}>
                                 REVOKED
@@ -3246,6 +3270,33 @@ export function AdminPanelModal({
                   Leave empty to keep it working for as long as you can manage API tokens on this project.
                   It stops if your account is disabled or loses that permission, and can only do what you
                   still can.
+                </div>
+                <label style={{ fontSize: "10px", color: "#64748b", display: "block", marginBottom: "4px" }}>Works with</label>
+                <div role="radiogroup" aria-label="Works with" style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "4px" }}>
+                  {TOKEN_INTERFACE_CHOICES.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={newTokenInterfaces === c.value}
+                      onClick={() => setNewTokenInterfaces(c.value)}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: "999px",
+                        border: `1px solid ${newTokenInterfaces === c.value ? "#0ea5e9" : "#334155"}`,
+                        backgroundColor: newTokenInterfaces === c.value ? "#0c4a6e" : "transparent",
+                        color: newTokenInterfaces === c.value ? "#e0f2fe" : "#94a3b8",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "12px", lineHeight: 1.4 }}>
+                  {TOKEN_INTERFACE_CHOICES.find((c) => c.value === newTokenInterfaces)?.hint}
                 </div>
 
                 <div style={{ fontSize: "11px", fontWeight: 700, color: "#e2e8f0", marginBottom: "6px" }}>

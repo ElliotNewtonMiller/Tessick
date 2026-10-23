@@ -3,14 +3,14 @@ import { passesCsrfCheck, requestCredential } from '../sessionCookie.js';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
 import { UserRepository, RoleRepository, ApiTokenRepository, SessionRepository, API_TOKEN_PREFIX, hashToken } from '@testify/db';
-import { verifyJwt, isTokenGrantable } from '@testify/core';
-import { sendTokenNotAllowedError, sendInvalidTokenError,
+import { verifyJwt, isTokenGrantable, type ApiTokenInterface } from '@testify/core';
+import { sendTokenNotAllowedError, sendTokenInterfaceNotAllowedError, sendInvalidTokenError,
   sendTokenRevokedError,
   sendTokenExpiredError,
   sendTokenProjectMismatchError,
   sendTokenIssuerInactiveError, sendError } from '../errors.js';
 import { sendRateLimitedError } from '../services/rateLimits.js';
-import { isInternalRequest } from '../internalRequests.js';
+import { isInternalRequest, internalVia } from '../internalRequests.js';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import { applyCaseRefs, resolveCaseRef } from '../caseRefs.js';
 
@@ -28,8 +28,16 @@ export interface AuthenticatedUser {
   /** Present only when authenticated via a machine API token (see authenticateApiToken
    * below). Lets project-binding-sensitive routes (ingestion.ts, batchExecution.ts)
    * enforce "this token may only touch its own project." Absent for JWT-authenticated
-   * human users. */
-  api_token?: { id: string; project_id: string };
+   * human users. The rest describes the token to its user (GET /auth/me). */
+  api_token?: {
+    id: string;
+    project_id: string;
+    name: string;
+    /** What the token was given; `permissions` above is what it has now (capped by its issuer). */
+    capabilities: string[];
+    interfaces: ApiTokenInterface;
+    expires_at: string | null;
+  };
 }
 
 declare module 'fastify' {
@@ -179,6 +187,29 @@ export async function apiTokenIssuerAccess(
 /** A route address names a project item when it has one of these parameters. */
 const PROJECT_ROUTE_PARAM = /:(projectId|planId|runId|resultId|caseId|suiteId|versionId|scheduleId|tokenId|webhookId|deliveryId)\b/;
 /** The routes outside any project that a token may still use: each stays within the token's project. */
+/**
+ * For a caller using an API token: which token it is, and that it sees only its own project. Added
+ * to project lists (GET /projects, MCP list_projects) so a client (or an AI agent) doesn't have to
+ * guess why it sees one project.
+ */
+export function apiTokenScope(user: AuthenticatedUser) {
+  const t = user.api_token;
+  return t
+    ? {
+        api_token: {
+          id: t.id,
+          name: t.name,
+          project_id: t.project_id,
+          interfaces: t.interfaces,
+          note: 'This API token is bound to one project, so only that project is listed.',
+        },
+      }
+    : {};
+}
+
+/** The MCP endpoint (mcp/mcpServer.ts). */
+const MCP_ROUTE = '/mcp';
+
 const TOKEN_PROJECTLESS_ROUTES = new Set([
   'GET /api/v1/auth/me', // who am I
   'GET /api/v1/projects', // lists only the token's own project
@@ -265,6 +296,16 @@ async function authenticateApiToken(
     return null;
   }
 
+  // ...and only through the interfaces it's made for. An MCP-only token (an AI agent's) works on
+  // /mcp and on the requests MCP's write tools make on its behalf (internalRequests.ts), never on
+  // the rest of the REST API, where MCP's own limits (drafts only, no approve or delete tools)
+  // don't apply. A REST-only token can't be used for MCP.
+  const onMcp = routeUrl === MCP_ROUTE || internalVia(request) === 'mcp';
+  if ((token.interfaces === 'MCP' && !onMcp) || (token.interfaces === 'REST' && routeUrl === MCP_ROUTE)) {
+    sendTokenInterfaceNotAllowedError(reply, token.interfaces, request.url);
+    return null;
+  }
+
   const issuerAccess = await apiTokenIssuerAccess(token, db);
   if (!issuerAccess.active) {
     sendTokenIssuerInactiveError(reply, issuerAccess.reason, request.url);
@@ -288,7 +329,14 @@ async function authenticateApiToken(
     email: '',
     global_role: 'ServiceAccount',
     permissions: issuerAccess.capabilities,
-    api_token: { id: token.id, project_id: token.project_id },
+    api_token: {
+      id: token.id,
+      project_id: token.project_id,
+      name: token.name,
+      capabilities: token.capabilities,
+      interfaces: token.interfaces,
+      expires_at: token.expires_at,
+    },
   };
 
   request.user = authUser;

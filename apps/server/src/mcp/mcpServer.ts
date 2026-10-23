@@ -7,7 +7,7 @@ import { REPORT_CATALOG, REPORT_DEFINITIONS, renderRunSummaryMarkdown, validateR
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { authenticateRequest, canViewProject, type AuthenticatedUser } from '../middleware/auth.js';
+import { authenticateRequest, canViewProject, apiTokenScope, type AuthenticatedUser } from '../middleware/auth.js';
 import { ReportError, ReportService } from '../services/reportService.js';
 import { CaseFilterService } from '../services/caseFilterService.js';
 import { mcpSchema } from '../openapi/areas/other.js';
@@ -84,7 +84,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
         const all = await projectRepo.findAll();
         const visible = [];
         for (const p of all) if (await canView(user, p.id)) visible.push({ id: p.id, name: p.name, prefix: p.prefix, description: p.description });
-        return json({ projects: visible });
+        return json({ projects: visible, ...apiTokenScope(user) });
       },
     },
     {

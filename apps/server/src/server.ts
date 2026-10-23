@@ -33,7 +33,7 @@ import { registerEmailAdminRoutes } from './routes/emailAdmin.js';
 import { createRateLimits } from './services/rateLimits.js';
 import { runDueSchedules } from './services/reportEmailService.js';
 import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, ConfigError } from './config.js';
-import { loggerOptions, registerRequestLogging, registerHealthRoute } from './observability.js';
+import { loggerOptions, registerRequestLogging, registerHttpsOnHttpHint, registerHealthRoute } from './observability.js';
 import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
@@ -64,6 +64,8 @@ export async function createServer(
   // `logStream` to read the log.
   const app = Fastify({ ...loggerOptions(resolveLogLevel(), options.logStream), trustProxy: process.env.TRUST_PROXY === 'true' });
   registerRequestLogging(app);
+  // A client sent to https:// on this plain-HTTP port gets a clear hint in the log.
+  registerHttpsOnHttpHint(app);
   // Browser security headers (Content-Security-Policy, no framing, HSTS over HTTPS) on every reply.
   registerSecurityHeaders(app);
   // Per-process rate limits for API tokens, exports and report emails (services/rateLimits.ts).

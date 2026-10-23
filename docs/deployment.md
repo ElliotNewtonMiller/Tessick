@@ -62,6 +62,7 @@ All configuration comes from environment variables; nothing reads a `.env` file 
 Put Testify behind a reverse proxy (nginx, Caddy, Traefik, a cloud load balancer) that handles HTTPS. Then:
 
 - **Set `TRUST_PROXY=true`.** Sign-in limits then see real client addresses, the audit log records them, the session cookie is marked `Secure`, and replies over HTTPS carry `Strict-Transport-Security` (browsers then refuse plain HTTP to Testify for a year, so serve it over HTTPS only from then on).
+- **Testify itself speaks only HTTP.** A client sent to `https://` on Testify's own port (no proxy in between) fails with "TLS handshake failed". Testify then logs a warning, at most once a minute: "A client spoke HTTPS (TLS) to this plain-HTTP port". Without a proxy, as on a laptop, use `http://`.
 - **Security headers are Testify's own.** Every reply already has a Content-Security-Policy, no-framing, `nosniff` and referrer headers, so the proxy needn't add them. If it does, keep them no looser.
 - **Allow large uploads.** Imports can be up to 50 MB; with nginx, set `client_max_body_size 60m;`.
 - **Set the address used in emails.** In Admin Panel → Email, set "Testify address for links in emails" to the public address, e.g. `https://testify.example.com`.

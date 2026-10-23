@@ -250,6 +250,8 @@ export interface ApiTokensTable {
   token_prefix: string;
   token_hash: string;
   capabilities: Generated<string>;
+  /** 'BOTH' | 'MCP' | 'REST': where the token works (API_TOKEN_INTERFACES). */
+  interfaces: Generated<string>;
   created_by: string;
   expires_at: string | null;
   is_revoked: Generated<number>;

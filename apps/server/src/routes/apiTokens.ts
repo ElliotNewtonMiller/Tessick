@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
 import type { Database } from '@testify/db';
 import { ApiTokenRepository, UserRepository } from '@testify/db';
-import { PERMISSION_KEYS, TOKEN_EXCLUDED_PERMISSIONS, isTokenGrantable } from '@testify/core';
+import { PERMISSION_KEYS, TOKEN_EXCLUDED_PERMISSIONS, API_TOKEN_INTERFACES, isTokenGrantable } from '@testify/core';
 import { requirePermission, apiTokenIssuerAccess } from '../middleware/auth.js';
 import { sendCapabilityCeilingExceededError, sendError } from '../errors.js';
 import { requestOrigin } from '../audit.js';
@@ -26,13 +26,22 @@ export async function registerApiTokenRoutes(app: FastifyInstance, db: Kysely<Da
     async (request, reply) => {
       const actor = request.user!;
       const { projectId } = request.params as { projectId: string };
-      const { name, capabilities, expires_at: expiresAt } = (request.body as any) || {};
+      const { name, capabilities, expires_at: expiresAt, interfaces: interfacesRaw } = (request.body as any) || {};
 
       if (!name || typeof name !== 'string' || name.length < 1 || name.length > 255) {
         return sendError(reply, 400, 'name (1-255 chars) is required');
       }
       if (!Array.isArray(capabilities) || capabilities.length === 0) {
         return sendError(reply, 400, 'capabilities (non-empty array) is required');
+      }
+      // Where it works: both the REST API and MCP (default), or only one. An AI agent's token
+      // should be MCP only (API_TOKEN_INTERFACES).
+      const interfaces = interfacesRaw ?? 'BOTH';
+      if (!(API_TOKEN_INTERFACES as readonly string[]).includes(interfaces)) {
+        return sendError(reply, 400, `interfaces must be one of ${API_TOKEN_INTERFACES.join(', ')}`, {
+          code: 'INVALID_REQUEST',
+          invalid_params: [{ name: 'interfaces', reason: `must be one of ${API_TOKEN_INTERFACES.join(', ')}` }],
+        });
       }
       if (expiresAt !== undefined && expiresAt !== null) {
         const parsed = new Date(expiresAt).getTime();
@@ -74,6 +83,7 @@ export async function registerApiTokenRoutes(app: FastifyInstance, db: Kysely<Da
         project_id: projectId,
         name,
         capabilities,
+        interfaces,
         created_by: actor.id,
         expires_at: expiresAt ?? null,
       });
@@ -89,7 +99,7 @@ export async function registerApiTokenRoutes(app: FastifyInstance, db: Kysely<Da
           resource_type: 'api_token',
           resource_id: token.id,
           project_id: projectId,
-          diff: JSON.stringify({ name, capabilities, expires_at: token.expires_at, token_prefix: token.token_prefix }),
+          diff: JSON.stringify({ name, capabilities, interfaces, expires_at: token.expires_at, token_prefix: token.token_prefix }),
           ...requestOrigin(request),
           created_at: now,
         })

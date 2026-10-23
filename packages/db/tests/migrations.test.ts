@@ -216,4 +216,21 @@ describe('migrateToLatest', () => {
       { id: 'imported', project_id: 'p1' },
     ]);
   }, 30_000);
+
+  it('013 gives every existing token both interfaces; rolling back removes the column', async () => {
+    const migrator = new Migrator({ db, provider: { getMigrations: async () => MIGRATIONS } });
+    expect((await migrator.migrateTo('012_custom_field_projects')).error).toBeUndefined();
+    const now = new Date().toISOString();
+    await db.insertInto('projects').values({ id: 'p1', name: 'P', prefix: 'P', created_at: now, updated_at: now } as any).execute();
+    await db.insertInto('users').values({ id: 'u1', username: 'u', email: 'u@x', password_hash: 'x', status: 'ACTIVE', created_at: now, updated_at: now } as any).execute();
+    await db
+      .insertInto('api_tokens' as any)
+      .values({ id: 't1', project_id: 'p1', name: 'CI', token_prefix: 'tf_ci_x', token_hash: 'h', capabilities: '[]', created_by: 'u1', created_at: now })
+      .execute();
+    expect(await migrateToLatest(db)).toContain('013_api_token_interfaces');
+    expect(await db.selectFrom('api_tokens' as any).select('interfaces').execute()).toEqual([{ interfaces: 'BOTH' }]);
+    expect((await migrator.migrateTo('012_custom_field_projects')).error).toBeUndefined();
+    const columns = (await db.introspection.getTables()).find((t) => t.name === 'api_tokens')!.columns.map((c) => c.name);
+    expect(columns).not.toContain('interfaces');
+  }, 30_000);
 });

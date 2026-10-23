@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
 import { ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
-import { authenticateRequest, requirePermission, permissionsInProject, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
+import { authenticateRequest, requirePermission, permissionsInProject, requireAnyPermission, EXECUTION_READ_PERMISSIONS, apiTokenScope } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sendPlanInUseError, sendRunInUseError, sendProjectInUseError, sendError } from '../errors.js';
 import { changedFields, requestOrigin, writeAudit } from '../audit.js';
@@ -46,7 +46,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
       const canSee = permissions.includes('SYSTEM_ADMIN') || EXECUTION_READ_PERMISSIONS.some((k) => permissions.includes(k));
       if (canSee) projects.push({ ...project, permissions });
     }
-    return { projects };
+    return { projects, ...apiTokenScope(user) };
   });
 
   // ---- Projects: create/edit/delete ----

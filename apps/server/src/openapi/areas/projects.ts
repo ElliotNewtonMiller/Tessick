@@ -1,3 +1,4 @@
+import { API_TOKEN_INTERFACES } from '@testify/core';
 import { authedErrors, wrapped, list, NO_CONTENT, FORCE_QUERY, idParams, handlerValidated, oneOf, VERDICTS, STEP_VERDICTS, RESULT_STATUSES, PLAN_STATUSES, RUN_STATUSES, pageQuery, NEXT_CURSOR } from '../schemas.js';
 
 /** Route schemas for routes/projects.ts, the run list in routes/exports.ts, routes/results.ts and routes/batchExecution.ts. */
@@ -9,8 +10,24 @@ const nullableText = { type: ['string', 'null'] };
 export const listProjectsSchema = {
   tags: ['Projects'],
   summary: 'List projects',
-  description: 'Projects the caller can view or run tests in, each with `permissions`: what the caller may do there. An API token sees only its own project.',
-  response: { 200: list('projects', 'Project', 'The projects'), ...authedErrors() },
+  description: 'Projects the caller can view or run tests in, each with `permissions`: what the caller may do there. An API token sees only its own project, and the answer then says so in `api_token`.',
+  response: {
+    200: {
+      description: 'The projects',
+      type: 'object',
+      required: ['projects'],
+      properties: {
+        projects: { type: 'array', items: { $ref: 'Project#' } },
+        api_token: {
+          type: 'object',
+          description: 'Present when called with an API token: the token in use, which sees only its own project',
+          required: ['id', 'name', 'project_id', 'interfaces', 'note'],
+          properties: { id: { type: 'string' }, name: { type: 'string' }, project_id: { type: 'string' }, interfaces: oneOf(API_TOKEN_INTERFACES), note: { type: 'string' } },
+        },
+      },
+    },
+    ...authedErrors(),
+  },
 };
 
 const projectFields = {

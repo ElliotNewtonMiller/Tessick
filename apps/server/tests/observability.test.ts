@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { Writable } from 'node:stream';
+import net from 'node:net';
+import tls from 'node:tls';
 import { createDbClient } from '@testify/db';
 import { createServer } from '../src/server.js';
 import { ConfigError, resolveJwtSecret, resolveLogLevel } from '../src/config.js';
@@ -85,6 +87,43 @@ describe('Health check and request logging', () => {
     expect(down.statusCode).toBe(503);
     expect(JSON.parse(down.payload)).toMatchObject({ status: 'unavailable', database: 'unreachable' });
     await second.close();
+  });
+
+  it('logs a plain hint when a client speaks HTTPS to the HTTP port (once a minute at most)', async () => {
+    const log = captureLog();
+    ({ app } = await withEnv({ LOG_LEVEL: 'info' }, () => createServer(undefined, { logStream: log.stream })));
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const port = (app.server.address() as net.AddressInfo).port;
+    // What a client does with https://127.0.0.1:<port>: a TLS handshake, which fails.
+    const handshake = () =>
+      new Promise<void>((resolve) => {
+        const socket = tls.connect({ host: '127.0.0.1', port, rejectUnauthorized: false });
+        const done = () => {
+          socket.destroy();
+          resolve();
+        };
+        socket.on('error', done);
+        socket.on('close', done);
+        setTimeout(done, 1000);
+      });
+    await handshake();
+    await handshake();
+    await new Promise((r) => setTimeout(r, 50));
+    const hints = log.lines.filter((l) => l.event === 'https_on_http_port');
+    expect(hints).toHaveLength(1);
+    expect(hints[0].msg).toContain('http://');
+    // An ordinary malformed request isn't mistaken for HTTPS.
+    await new Promise<void>((resolve) => {
+      const socket = net.connect(port, '127.0.0.1', () => socket.write('NOT HTTP AT ALL\r\n\r\n'));
+      const done = () => {
+        socket.destroy();
+        resolve();
+      };
+      socket.on('data', done);
+      socket.on('error', done);
+      setTimeout(done, 1000);
+    });
+    expect(log.lines.filter((l) => l.event === 'https_on_http_port')).toHaveLength(1);
   });
 
   it('logs one line per request with who made it, never headers or bodies; replies carry the request id', async () => {

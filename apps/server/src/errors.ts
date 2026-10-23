@@ -411,6 +411,18 @@ export function sendTokenNotAllowedError(reply: FastifyReply, instance?: string)
   });
 }
 
+/** An API token used through an interface it isn't for (a token's `interfaces`). */
+export function sendTokenInterfaceNotAllowedError(reply: FastifyReply, interfaces: 'BOTH' | 'MCP' | 'REST', instance?: string) {
+  return sendError(
+    reply,
+    403,
+    interfaces === 'MCP'
+      ? 'This API token is for MCP only (an AI agent\'s token): it works at /mcp and nowhere else in the API.'
+      : 'This API token is for the REST API only; it can\'t be used for MCP.',
+    { code: 'TOKEN_INTERFACE_NOT_ALLOWED', instance, token_interfaces: interfaces }
+  );
+}
+
 export function sendCapabilityCeilingExceededError(
   reply: FastifyReply,
   requestedKeys: string[],

@@ -1,4 +1,4 @@
-import { REPORT_CATALOG } from '@testify/core';
+import { REPORT_CATALOG, API_TOKEN_INTERFACES } from '@testify/core';
 import { authedErrors, wrapped, list, NO_CONTENT, idParams, oneOf, handlerValidated, PERMISSIONS_LIST, errors } from '../schemas.js';
 
 /**
@@ -51,6 +51,7 @@ export const createTokenSchema = {
       name: { type: 'string', description: '1-255 characters' },
       capabilities: { type: 'array', minItems: 1, items: { type: 'string' }, description: 'Permission keys, e.g. ["SPEC_VIEW", "EXECUTE_RUN"]' },
       expires_at: { type: ['string', 'null'], description: 'Optional ISO date in the future; none by default' },
+      interfaces: oneOf(API_TOKEN_INTERFACES, 'Where it works. Default BOTH. Give an AI agent an MCP-only token: it is then refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), where MCP\'s limits don\'t apply.'),
     },
   }),
   response: {

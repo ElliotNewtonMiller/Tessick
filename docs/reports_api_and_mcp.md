@@ -79,11 +79,21 @@ Per submission, it also stores `environment` and `runner_info`: `{ name, run_id,
 
 ## MCP (for AI agents)
 
-The API server also serves the reports, and tools to change test cases, plans and results, as an MCP server, built in at `POST /mcp`. It uses the Streamable HTTP transport, stateless, with JSON responses. It authenticates exactly like the REST API, so the best credential is an API token made for the agent, with just the capabilities it should have: `SPEC_VIEW` alone for an agent that only reads.
+The API server also serves the reports, and tools to change test cases, plans and results, as an MCP server, built in at `POST /mcp`. It uses the Streamable HTTP transport, stateless, with JSON responses. It authenticates exactly like the REST API, so the best credential is an API token made for the agent:
+- **With just the capabilities it should have:** `SPEC_VIEW` alone for an agent that only reads.
+- **Works with: MCP only** (`"interfaces": "MCP"`). Such a token is refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), so an agent can't step around MCP's limits (drafts only, no approve or delete tools, changes marked "via Testify MCP") by calling REST routes with the same token. A token for both is the default.
+
+The address is Testify's own plus `/mcp`. Testify serves plain HTTP; HTTPS comes from a reverse proxy in front (`docs/deployment.md`). So a local or Docker instance is `http://`, and a hosted one is usually `https://`:
 
 ```bash
 claude mcp add --transport http testify http://localhost:3001/mcp --header "Authorization: Bearer tf_ci_..."
 ```
+
+**If it doesn't connect:**
+- **"TLS handshake failed" / `EPROTO`:** the address says `https://`, but nothing in front of Testify speaks HTTPS there. Use `http://`, or put a proxy in front. Testify's log says so too ("A client spoke HTTPS (TLS) to this plain-HTTP port").
+- **401:** the token is wrong, revoked or expired.
+- **403 `TOKEN_INTERFACE_NOT_ALLOWED`:** a REST-only token.
+- **403 `TOKEN_PROJECT_MISMATCH`:** a project other than the token's.
 
 Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project.
 

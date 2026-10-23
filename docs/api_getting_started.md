@@ -27,7 +27,8 @@ The full reference is on your server: **`/docs`** (for example `http://localhost
    | Import test cases | `SPEC_VIEW`, `IMPORT_DATA` |
    | Export | `SPEC_VIEW`, `EXPORT_DATA` |
 
-4. **Copy the token** (`tf_ci_…`). It's shown once. Store it as a secret in your CI system.
+4. **Choose where it works:** the REST API and MCP (the default), the REST API only, or MCP only. For an AI agent, choose **MCP only**: the token is then refused on the REST API, where MCP's limits on agents don't apply. A token used where it doesn't work gets `403 TOKEN_INTERFACE_NOT_ALLOWED`.
+5. **Copy the token** (`tf_ci_…`). It's shown once. Store it as a secret in your CI system.
 
 A token can never do more than you can: its capabilities are capped by your own permissions in the project. It stops working if your account is disabled or loses `API_TOKEN_MANAGE` there. You can revoke it at once from the same tab. Tokens can't use the admin routes (users, roles, custom field definitions, email settings).
 
@@ -40,19 +41,24 @@ export TESTIFY_TOKEN=tf_ci_...
 Every request sends the token as `Authorization: Bearer <token>`.
 
 ```bash
-curl -s "$TESTIFY/api/v1/auth/me" -H "Authorization: Bearer $TESTIFY_TOKEN" \
-  | jq '{username: .user.username, project: .user.api_token.project_id, permissions: .user.permissions}'
+curl -s "$TESTIFY/api/v1/auth/me" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '{token: .user.api_token, permissions: .user.permissions}'
 ```
 
 ```json
 {
-  "username": "CI",
-  "project": "01a131ac-1fce-71d8-9647-5cd7980f1e30",
+  "token": {
+    "id": "01a131ad-…",
+    "project_id": "01a131ac-1fce-71d8-9647-5cd7980f1e30",
+    "name": "CI",
+    "capabilities": ["SPEC_VIEW", "RUN_MANAGE", "EXECUTE_RUN"],
+    "interfaces": "BOTH",
+    "expires_at": null
+  },
   "permissions": ["SPEC_VIEW", "RUN_MANAGE", "EXECUTE_RUN"]
 }
 ```
 
-`permissions` is what the token can do *right now*. That's its capabilities, minus any its issuer no longer has.
+`capabilities` is what the token was given; `permissions` is what it can do *right now*: its capabilities, minus any its issuer no longer has. `GET /api/v1/projects` lists only the token's project, and says so in its `api_token` field.
 
 ## 4. Find the ids you need
 

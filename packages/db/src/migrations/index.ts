@@ -12,6 +12,7 @@ import * as m009 from './009_index_case_external_id.js';
 import * as m010 from './010_webhooks.js';
 import * as m011 from './011_webhook_pausing.js';
 import * as m012 from './012_custom_field_projects.js';
+import * as m013 from './013_api_token_interfaces.js';
 
 /**
  * Every schema migration, in the order they run. The keys are permanent names, recorded in
@@ -34,6 +35,7 @@ export const MIGRATIONS: Record<string, Migration> = {
   '010_webhooks': m010,
   '011_webhook_pausing': m011,
   '012_custom_field_projects': m012,
+  '013_api_token_interfaces': m013,
 };
 
 const MIGRATION_TABLE = 'kysely_migration';

@@ -2846,3 +2846,37 @@ Merged `claude/laughing-khorana-2caa66` (the 2026-10-15 entry above, written in 
 - **Escapes:** the 2026-10-21 entry and one test comment had a real em dash where the text `—` was meant (decoded when they were written); restored.
 
 711 tests pass; typecheck clean.
+
+## Agent tokens: MCP only; tokens describe themselves; an HTTPS hint (2026-10-23)
+
+Elliot connected Claude Code to his Docker Testify over MCP with an API token. The MCP config said `https://localhost:3001/mcp`, so the connection failed. The assistant then took the token from its config file and used the REST API instead, and it hedged that the project list "may not be complete". That exposed three issues, all fixed; Elliot chose **both** as the default for new tokens.
+
+**1. An agent's token worked on the whole REST API, stepping around MCP's limits.**
+- **The gap:** MCP's protections for agents hold only on `/mcp`: cases an agent creates are DRAFT (`specEditing.ts` checks `internalVia(request) !== 'mcp'`), there are no approve, deprecate, restore or delete tools, and changes are marked "via Testify MCP". The same token used on REST routes had none of them.
+- **The fix:** a token now has `interfaces`: `BOTH` (the default, and what existing tokens keep), `MCP` or `REST`.
+  - Migration `013_api_token_interfaces`; `API_TOKEN_INTERFACES` in `packages/core/src/rbac/registry.ts`.
+  - Checked in `authenticateApiToken` (`middleware/auth.ts`), after the project and route checks. An MCP-only token passes on `/mcp` and on the requests MCP's write tools make for it (`internalVia(request) === 'mcp'`); anything else gets `403 TOKEN_INTERFACE_NOT_ALLOWED` (with `token_interfaces`). A REST-only token is refused on `/mcp`.
+  - `POST .../api-tokens` takes `interfaces` (400 for an unknown value); token answers and the audit row include it.
+- **Admin Panel → API Tokens:** a "Works with" choice in the New Token form ("REST API and MCP" / "MCP only" / "REST API only", each with a one-line hint; MCP only says it's for an AI agent). The list marks MCP ONLY or REST ONLY tokens.
+
+**2. A token's scope was a guess over REST.**
+- `GET /auth/me` with a token returns `api_token` with `name`, `capabilities` (what it was given; `permissions` stays what it can do now), `interfaces` and `expires_at`. It used to give only id and project.
+- `GET /projects` with a token, and MCP's `list_projects`, add `api_token: { id, name, project_id, interfaces, note }`: "This API token is bound to one project, so only that project is listed." (`apiTokenScope` in `middleware/auth.ts`). A signed-in user's list is unchanged.
+
+**3. http vs https wasn't explained for local use.**
+- **Docs:** the MCP guide (`reports_api_and_mcp.md`) explains that Testify serves plain HTTP behind an HTTPS proxy, so a local or Docker instance is `http://localhost:3001/mcp`. It has troubleshooting for "TLS handshake failed / EPROTO", 401, and the two 403s. `deployment.md` says the same.
+- **The log:** `registerHttpsOnHttpHint` (`observability.ts`) recognises a TLS handshake (first byte 0x16) arriving at the HTTP port, through the server's `clientError`, and logs a warning (`event: https_on_http_port`) at most once a minute: use `http://`, or put an HTTPS proxy in front.
+- Testify still doesn't serve HTTPS itself. HTTPS remains the proxy's job, as designed.
+
+**Docs:** RFC 04 (token rules 7 and 8; threat model #7), RFC 03 (error codes), `api_getting_started.md` (choosing where a token works; `/auth/me`), `reports_api_and_mcp.md`, `deployment.md`, `api_roadmap.md` (decision), CLAUDE.md/AGENTS.md.
+
+Tests:
+- New `apps/server/tests/api_token_interfaces.test.ts` (6):
+  - a token works on both by default;
+  - an MCP-only token lists its project through MCP (with `api_token`), creates a DRAFT through MCP's `create_case`, and gets 403 `TOKEN_INTERFACE_NOT_ALLOWED` on `GET /projects`, `/auth/me`, a project's cases and `POST .../cases`;
+  - a REST-only token is refused by MCP;
+  - an unknown value is a 400;
+  - `/auth/me` describes the token exactly, `GET /projects` carries `api_token` for a token and not for a user;
+  - the token list shows `interfaces`.
+- `observability.test.ts` +1: a real TLS handshake to a listening server logs the hint once for two attempts; a malformed plain request doesn't.
+- `migrations.test.ts` +1: 013 gives an existing token `BOTH`; rolling back removes the column.
