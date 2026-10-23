@@ -60,12 +60,14 @@ export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Data
 
     // The case must be in this run's plan -- and not removed from it (a removed case keeps the
     // results it already has, read-only).
-    const planCase = await db
+    // Named by its link to the plan, or by the case (then: its link in this run's plan).
+    const planCaseQuery = db
       .selectFrom('test_plan_cases as tpc')
       .innerJoin('test_cases as tc', 'tc.id', 'tpc.test_case_id')
-      .select(['tpc.test_plan_id', 'tpc.removed_at', 'tpc.test_case_version_id', 'tpc.test_case_id', 'tc.external_id'])
-      .where('tpc.id', '=', body.test_plan_case_id)
-      .executeTakeFirst();
+      .select(['tpc.id', 'tpc.test_plan_id', 'tpc.removed_at', 'tpc.test_case_version_id', 'tpc.test_case_id', 'tc.external_id']);
+    const planCase = body.test_plan_case_id
+      ? await planCaseQuery.where('tpc.id', '=', body.test_plan_case_id).executeTakeFirst()
+      : await planCaseQuery.where('tpc.test_plan_id', '=', run.test_plan_id).where('tpc.test_case_id', '=', body.test_case_id!).executeTakeFirst();
     if (!planCase || planCase.test_plan_id !== run.test_plan_id) {
       return sendError(reply, 404, 'Test case not found in this run\'s plan');
     }
@@ -136,7 +138,7 @@ export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Data
         .values({
           id: execId,
           test_run_id: runId,
-          test_plan_case_id: body.test_plan_case_id,
+          test_plan_case_id: planCase.id,
           tester_id: actorId,
           status: body.status,
           verdict: body.verdict,
@@ -181,7 +183,7 @@ export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Data
           resource_id: execId,
           // The run's real project (this used to be hardwired to the sample project's id).
           project_id: run.project_id,
-          diff: JSON.stringify({ verdict: body.verdict, test_plan_case_id: body.test_plan_case_id }),
+          diff: JSON.stringify({ verdict: body.verdict, test_plan_case_id: planCase.id }),
           ...requestOrigin(request),
           created_at: now,
         })
@@ -197,7 +199,7 @@ export async function registerResultRoutes(app: FastifyInstance, db: Kysely<Data
     }, requestOrigin(request), { defer: body.defer_auto_close });
 
     return reply.status(201).send({
-      result: { id: execId, test_run_id: runId, test_plan_case_id: body.test_plan_case_id, verdict: body.verdict, status: body.status, created_at: now },
+      result: { id: execId, test_run_id: runId, test_plan_case_id: planCase.id, verdict: body.verdict, status: body.status, created_at: now },
       run_status: autoClose.status,
       auto_close_deferred: autoClose.deferred,
     });

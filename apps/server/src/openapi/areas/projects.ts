@@ -181,9 +181,10 @@ export const recordResultSchema = {
   headers: IDEMPOTENCY_HEADERS,
   body: handlerValidated({
     type: 'object',
-    required: ['test_plan_case_id', 'verdict'],
+    required: ['verdict'],
     properties: {
-      test_plan_case_id: { type: 'string', description: "The case's link to the run's plan (`test_plan_case_id` from `GET /api/v1/plans/{planId}/cases`)" },
+      test_case_id: { type: 'string', description: 'The case: its id or readable id (`SHOP-12`). It must be in the run\'s plan. Send this or `test_plan_case_id`.' },
+      test_plan_case_id: { type: 'string', description: "Or the case's link to the run's plan (`test_plan_case_id` from `GET /api/v1/plans/{planId}/cases`), which the web app sends" },
       verdict: oneOf(VERDICTS),
       status: oneOf(RESULT_STATUSES, 'Default COMPLETED.'),
       notes: { type: ['string', 'null'], maxLength: 20000 },
@@ -377,7 +378,7 @@ export const batchResultsSchema = {
             verdict: oneOf(VERDICTS),
             status: oneOf(RESULT_STATUSES, 'Default COMPLETED.'),
             duration_ms: { type: 'integer', minimum: 0, maximum: MAX_DB_INTEGER, description: 'At most about 24 days' },
-            executed_at: { type: 'string', description: 'ISO 8601; default now' },
+            executed_at: { type: 'string', description: 'ISO 8601; default now. Not more than 5 minutes ahead of the server' },
             notes: { type: 'string', maxLength: 20000 },
             failure_message: { type: 'string', maxLength: 2000, description: 'The short error, shown in reports' },
             stack_trace: { type: 'string', maxLength: 100000 },

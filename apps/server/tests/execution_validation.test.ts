@@ -41,7 +41,7 @@ describe('Recording a single result: validation', () => {
 
     const missing = await record({ verdict: 'PASSED' });
     expect(missing.statusCode).toBe(400);
-    expect(body(missing).invalid_params.map((p: any) => p.name).sort()).toEqual(['test_plan_case_id']);
+    expect(body(missing).invalid_params.map((p: any) => p.name).sort()).toEqual(['test_case_id']);
 
     const lowercase = await record({ test_plan_case_id: c.test_plan_case_id, verdict: 'passed' });
     expect(lowercase.statusCode).toBe(400);

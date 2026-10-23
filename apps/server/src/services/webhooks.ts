@@ -6,7 +6,7 @@ import { renderSlackMessage, renderTeamsMessage, signWebhook, type WebhookEnvelo
 import { getSecretBox } from './secrets.js';
 import { loadEmailSettings } from './mailer.js';
 import { actorNames } from './actorNames.js';
-import { postWebhook } from './webhookTargets.js';
+import { postWebhook, WebhookTargetError } from './webhookTargets.js';
 import { NO_ORIGIN } from '../audit.js';
 
 /**
@@ -202,8 +202,8 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
   if (!hook) return finish({ ok: false, error: 'The webhook was deleted' }, false);
   if (!hook.enabled) return finish({ ok: false, error: hook.paused_at ? 'The webhook was paused because it kept failing' : 'The webhook is turned off' }, false);
   // Every real attempt counts towards (or ends) a run of failures; one that's gone on long enough pauses the webhook.
-  const failed = async (outcome: Parameters<typeof finish>[0]) => {
-    const result = await finish(outcome);
+  const failed = async (outcome: Parameters<typeof finish>[0], retry = true) => {
+    const result = await finish(outcome, retry);
     await countFailure(db, hook.id, hook.project_id, hook.name, now, outcome.error ?? 'failed');
     return result;
   };
@@ -242,6 +242,11 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
       error: ok ? undefined : redirect ? `HTTP ${res.status}: redirects aren't followed; use the final URL` : `HTTP ${res.status}`,
     });
   } catch (err) {
+    // An address the rules refuse (a local one, found after DNS) stays refused: fail now rather
+    // than retry for 11 hours (API audit, 2026-10-23). It still counts towards pausing the webhook.
+    if (err instanceof WebhookTargetError) {
+      return failed({ ok: false, error: `${err.message}. Not retried: change the webhook's address.`, duration_ms: Date.now() - startedAt.getTime() }, false);
+    }
     const result = await failed({ ok: false, error: (err as Error).message, duration_ms: Date.now() - startedAt.getTime() });
     return { ...result, unreachable: true };
   }

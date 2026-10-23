@@ -18,7 +18,9 @@ export interface InvalidParam {
 }
 
 export interface ManualResult {
-  test_plan_case_id: string;
+  /** The case: its plan link, or the case itself (an id, or a readable id like SHOP-12, already resolved by caseRefs.ts). Exactly one. */
+  test_plan_case_id: string | null;
+  test_case_id: string | null;
   verdict: ExecutionVerdict;
   status: ExecutionStatus;
   notes: string | null;
@@ -40,7 +42,12 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
   const body = (raw && typeof raw === 'object' ? raw : {}) as Record<string, any>;
   const invalid: InvalidParam[] = [];
 
-  if (!isNonEmptyString(body.test_plan_case_id)) invalid.push({ name: 'test_plan_case_id', reason: 'is required' });
+  // The case by its link to the plan (what the web app sends), or by the case itself, which is
+  // what a script knows (it used to need the link id, unlike every other route).
+  const byLink = isNonEmptyString(body.test_plan_case_id);
+  const byCase = isNonEmptyString(body.test_case_id);
+  if (!byLink && !byCase) invalid.push({ name: 'test_case_id', reason: 'is required (or test_plan_case_id)' });
+  else if (byLink && byCase) invalid.push({ name: 'test_case_id', reason: 'send test_case_id or test_plan_case_id, not both' });
   if (!isExecutionVerdict(body.verdict)) {
     invalid.push({ name: 'verdict', reason: `must be one of ${EXECUTION_VERDICTS.join(', ')}` });
   }
@@ -94,7 +101,8 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
   if (invalid.length > 0) return { invalid };
   return {
     result: {
-      test_plan_case_id: body.test_plan_case_id,
+      test_plan_case_id: byLink ? body.test_plan_case_id : null,
+      test_case_id: byCase ? body.test_case_id : null,
       verdict: body.verdict,
       status: body.status ?? 'COMPLETED',
       notes: body.notes || null,
@@ -103,6 +111,9 @@ export function validateManualResult(raw: unknown): { result: ManualResult } | {
     },
   };
 }
+
+/** How far ahead of the server's clock a result's executed_at may be: a CI machine's clock can be a little ahead. */
+const MAX_CLOCK_AHEAD_MS = 5 * 60_000;
 
 /** The most results one batch request may carry. */
 export const MAX_BATCH_RESULTS = 5000;
@@ -170,6 +181,9 @@ export function validateBatchItem(raw: unknown, index: number): { item: BatchIte
   if (it.executed_at !== undefined && it.executed_at !== null) {
     if (typeof it.executed_at !== 'string' || Number.isNaN(Date.parse(it.executed_at))) {
       invalid.push({ name: `${at}.executed_at`, reason: 'must be an ISO-8601 date-time' });
+    } else if (Date.parse(it.executed_at) > Date.now() + MAX_CLOCK_AHEAD_MS) {
+      // A result from 2099 would be the case's "latest" for decades and bend every trend.
+      invalid.push({ name: `${at}.executed_at`, reason: "can't be in the future (check the CI machine's clock)" });
     }
   }
   const notes = optionalText(invalid, `${at}.notes`, it.notes, MAX_RESULT_NOTES_LENGTH);

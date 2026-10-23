@@ -3154,3 +3154,45 @@ Tests (`api_conventions.test.ts`):
 - `settings` came back an object.
 
 The web app at `127.0.0.1:3000` signed in and loaded the demo project.
+
+## API audit, part 7: results by readable id, no future dates, refused webhook addresses fail at once (2026-10-23)
+
+Findings 7, 9 and 16.
+
+**One result by its case** (finding 7):
+- **Before:** `POST /runs/{runId}/results` needed `test_plan_case_id`, the case's link to the plan, while every other route takes a case id or a readable id like `DEMO-8`. A script had to look the link up first.
+- **Now:** it also takes `test_case_id`, the case's id or readable id. Readable ids are already resolved by `caseRefs.ts` for any `test_case_id`.
+  - The route finds the case's link in the run's plan; a case not in it is a 404.
+  - Exactly one of the two: neither or both is `400 INVALID_RESULT` naming `test_case_id`.
+  - The insert, audit row and answer use the resolved link.
+- **The web app** keeps sending `test_plan_case_id`.
+
+**No results from the future** (finding 9):
+- A batch item with `executed_at` more than 5 minutes ahead of the server is refused, that item only: "can't be in the future (check the CI machine's clock)". A result from 2099 would have been the case's latest for decades and bent every trend.
+- The 5 minutes allow for a CI machine's clock running a little fast.
+
+**Webhooks to a refused address** (finding 16):
+- **Before:** a delivery whose address the rules refuse when connecting (a name that resolves to a local address, after DNS) was retried like a network failure, for about 11 hours. It could never succeed.
+- **Now:** it's `FAILED` on its first attempt, with "Not retried: change the webhook's address" (`WebhookTargetError` in `services/webhooks.ts`). It still counts towards pausing the webhook.
+
+**Docs:**
+- RFC 03:
+  - §2.2: the case, and a duration on a manual result now being refused (since part 3);
+  - §3.1: `executed_at`;
+  - §7: retries.
+- `api_roadmap.md`: 7, 9 and 16 done.
+
+Tests:
+- New `apps/server/tests/results_by_case.test.ts` (2):
+  - by readable id and by case id (201, the right link), the link still working;
+  - neither or both refused;
+  - a case outside the plan 404;
+  - a batch with a 2099 date (refused, that item only), 2 minutes ahead and a day ago (both fine).
+- `execution_validation.test.ts`: the missing-case error names `test_case_id`.
+- `webhooks.test.ts`: the delivery refused after DNS is `FAILED` after one attempt, with the new message.
+
+**Verified live** on the dev server with a CI token:
+- a result for `DEMO-3` recorded by readable id (201);
+- a batch item dated 2099 refused with its reason (207).
+
+The refused-address case needs a public name that resolves to a local address, so the test covers it.

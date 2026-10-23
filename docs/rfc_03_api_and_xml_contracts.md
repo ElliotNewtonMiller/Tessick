@@ -137,9 +137,10 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 }
 ```
 
+- The case: `test_plan_case_id` (its link to the run's plan, what the web app sends), or `test_case_id`, the case's id or readable id (`SHOP-12`), which must be in the run's plan. One of them, not both.
 - `verdict`: `PASSED`, `FAILED`, `BLOCKED`, `SKIPPED`, `RETEST_REQUIRED` or `KNOWN_ISSUE`. `status` defaults to `COMPLETED`.
 - Step results must be steps of the version the case is pinned to in the plan.
-- Manual results are never timed: any duration sent is ignored.
+- Manual results are never timed: a `duration_ms` is refused, like any field the route doesn't take.
 - The response (`201`) is `{ "result": { "id", "test_run_id", "test_plan_case_id", "verdict", "status", "created_at" }, "run_status": "OPEN" | "CLOSED", "auto_close_deferred": false }`. The run closes automatically the first time every case in the plan has a result.
 - `"defer_auto_close": true` keeps the run open even when this result completes it; `auto_close_deferred` is then true. The web app sends it for Fail and Block, because the notes follow and a closed run would refuse them. The next result recorded one at a time closes the run. Without one, `POST /runs/{runId}/auto-close` with `{ "test_result_id": "<result.id>" }` closes it (`200 { "run_status" }`). That call needs `EXECUTE_RUN` and only accepts the caller's own result recorded through this route (`403 AUTO_CLOSE_NOT_YOURS` otherwise), so CI results still never auto-close a run. A run auto-closes once, whichever way.
 
@@ -188,7 +189,7 @@ CI pipelines send many results at once: as JSON (up to 5,000 per request), or as
 ```
 
 - **`case_identifier`:** `external_id`, `by_uuid` (the case id), or `by_path_title`. A case that isn't in the plan yet is linked to it if it's APPROVED (or the project allows drafts); a case removed from the plan is refused.
-- **Each result:** `verdict` as in §2.2; optional `status`, `duration_ms` (at most 2,147,483,647, about 24 days), `executed_at` (defaults to now), `notes`, `failure_message`, `stack_trace`, `environment_tags` (up to 50 text values), `step_results` (by `test_step_id` or `step_number`).
+- **Each result:** `verdict` as in §2.2; optional `status`, `duration_ms` (at most 2,147,483,647, about 24 days), `executed_at` (defaults to now; more than 5 minutes ahead of the server is refused), `notes`, `failure_message`, `stack_trace`, `environment_tags` (up to 50 text values), `step_results` (by `test_step_id` or `step_number`).
 - **`runner_info.run_id`** is the CI system's own run id, unrelated to Testify's `test_run_id`. Reports link back through `url`.
 
 Response:
@@ -549,7 +550,7 @@ A receiver recomputes the signature over the raw body, compares in constant time
 
 **Delivery and retries.** Events are queued in `webhook_deliveries` (an outbox) right after the change commits, and sent at once.
 - **Success:** a 2xx answer within 10 s. Redirects aren't followed (a 3xx is a failure).
-- **Retries:** after 1 min, 5 min, 30 min, 2 h and 8 h, then the delivery is `FAILED`.
+- **Retries:** after 1 min, 5 min, 30 min, 2 h and 8 h, then the delivery is `FAILED`. An address the rules refuse when connecting (it resolves to a local address) fails at once instead, with "Not retried: change the webhook's address".
 - **Pausing:** a webhook whose every attempt has failed for 3 days (at least 10 attempts) is turned off automatically: `paused_at` and `pause_reason` (with the last error) are set, a `WEBHOOK_AUTO_PAUSED` row goes to the Security Audit Log, and its waiting deliveries end as `FAILED`. Each webhook also shows `failing_since` and `consecutive_failures`; a success resets them. Turning it back on (`PATCH` with `enabled: true`) clears the pause.
 - **Workers:** deliveries are claimed with a compare-and-set lease, so several server instances never send one twice. Each webhook has one sender at a time per process, sending in order; a receiver that can't be reached holds up only its own webhook.
 - **Order:** not guaranteed across retries. Delivery is at least once.

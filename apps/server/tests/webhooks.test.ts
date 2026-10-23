@@ -393,7 +393,9 @@ describe('Webhooks', () => {
     await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'R' });
     await deliver();
     const d = body(await call(admin, 'GET', `/api/v1/webhooks/${hook.id}/deliveries`)).deliveries[0];
-    expect(d.error).toMatch(/Refused: localhost resolves to a local address/);
+    expect(d.error).toMatch(/Refused: localhost resolves to a local address.*Not retried/);
+    // Failed at once: a refused address stays refused, so no retries for 11 hours.
+    expect([d.status, d.attempts]).toEqual(['FAILED', 1]);
     expect(receiver.got).toHaveLength(0);
 
     // Deleting the project (force) removes its webhooks and their deliveries.
