@@ -2953,3 +2953,22 @@ Tests:
 - **The audit's crashes:** all 17 requests that used to answer 500 were rerun. Each now answers 400 naming the field, or is recorded: the over-long batch duration is refused per item (207), the two JUnit times are recorded with no duration, and the JUnit name with a NUL is recorded.
 - **A multipart CSV import with raw NUL bytes** in a title and a step imported as "RawNul Case".
 - **The server log** has no errors and no `unstorable_value` warnings: every probe was caught by its specific check.
+
+## API audit, part 2: API tokens can't delete their project (2026-10-23)
+
+The audit's second finding: a token could be given `PROJECT_DELETE`, and then `DELETE /projects/{id}?force=true` removed the project with every case, plan, run and result. The warn-then-confirm step protects people in the app, but a script just sends `force=true`, and there's no undo. A leaked CI token with that permission could wipe a project.
+
+- **Decided with Elliot:** `PROJECT_DELETE` joins `TOKEN_EXCLUDED_PERMISSIONS` (`packages/core/src/rbac/registry.ts`), with the reason "deleting a project removes everything in it for good, so only a person does it". There's no trash for deleted projects.
+- **What follows from the existing rules:**
+  - asking for it when creating a token is `400 CAPABILITY_NOT_GRANTABLE`;
+  - the API Tokens tab no longer offers it, since the server leaves it out of `issuer_capability_ceiling`;
+  - a token that already holds it loses it on its next use, so its delete gets `403` naming `PROJECT_DELETE`.
+- **The refusal's message** now gives each permission's own reason: "Can't be given to a token: PROJECT_DELETE (deleting a project removes everything in it for good, so only a person does it)." It used to say that every excluded permission was about working outside the token's project, which isn't true of this one. Found in the live check.
+- **Not changed:** `SPEC_DELETE` (deleting suites and cases) stays grantable. Deleting many cases is a normal agent or script job, and it was outside this decision.
+- **Docs:** CLAUDE.md/AGENTS.md, RFC 04 (token rule 5; the token-leakage threat), `api_roadmap.md`.
+
+Tests:
+- `api_token_scope.test.ts`:
+  - the excluded list now includes `PROJECT_DELETE` (so minting one is refused and it's not offered);
+  - a token holding it from before can't force-delete its project (403), and the project is still there.
+- `api_tokens.test.ts`: the "can't give a token more than you hold" test used `PROJECT_DELETE` as the permission a Test Lead lacks. Test Lead now holds every permission a token can have, so the test uses a custom role (API_TOKEN_MANAGE, SPEC_VIEW, EXECUTE_RUN) asking for `PLAN_MANAGE`.

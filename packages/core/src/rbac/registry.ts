@@ -44,14 +44,17 @@ export const PERMISSION_KEYS: string[] = PERMISSION_REGISTRY.map((p) => p.key);
  * Permissions an API token can never hold, with why. A token works only inside its one
  * project, so it can't hold permissions whose routes reach the whole system (users and roles,
  * global custom fields, creating projects), nor issue tokens (a token's tokens would never
- * work: their issuer isn't a user), nor set up webhooks (a way to send project data anywhere). Refused when a token is created, and dropped from existing
- * tokens on every use (middleware/auth.ts). The API Tokens tab never offers them.
+ * work: their issuer isn't a user), nor set up webhooks (a way to send project data anywhere),
+ * nor delete its project (everything in it, for good, in one call). Refused when a token is
+ * created, and dropped from existing tokens on every use (middleware/auth.ts). The API Tokens
+ * tab never offers them.
  */
 export const TOKEN_EXCLUDED_PERMISSIONS: Readonly<Record<string, string>> = {
   SYSTEM_ADMIN: 'it passes every check in every project',
   USER_MANAGE: 'it manages users, roles and the audit log of the whole system',
   CUSTOM_FIELD_MANAGE: 'custom field definitions apply to every project',
   PROJECT_CREATE: 'creating projects happens outside any one project',
+  PROJECT_DELETE: 'deleting a project removes everything in it for good, so only a person does it',
   API_TOKEN_MANAGE: "a token can't issue or revoke tokens",
   WEBHOOK_MANAGE: 'a webhook sends project data to any address, so only people set them up',
 };

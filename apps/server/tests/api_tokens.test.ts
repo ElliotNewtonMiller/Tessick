@@ -92,12 +92,20 @@ describe('Machine API tokens: definition CRUD, capability ceiling, and audit tra
     expect(sysAdminRes.statusCode).toBe(400);
   });
 
-  it('a Test Lead can create a token with capabilities they hold, and is rejected for one they lack', async () => {
+  it('someone can create a token with capabilities they hold, and is rejected for one they lack', async () => {
     const { app, seed } = serverInstance;
     const { token: adminToken } = await loginAsAdmin(app);
-    const { token: leadToken } = await createAndLoginAs(app, adminToken, 'Test Lead');
+    // Test Lead holds every permission a token can have, so: a role that manages tokens but not plans.
+    const role = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/roles',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { name: 'CI Owner', permission_keys: ['API_TOKEN_MANAGE', 'SPEC_VIEW', 'EXECUTE_RUN'] },
+    });
+    expect(role.statusCode, role.payload).toBe(201);
+    const { token: leadToken } = await createAndLoginAs(app, adminToken, 'CI Owner');
 
-    // Test Lead holds SPEC_VIEW/EXECUTE_RUN but not PROJECT_DELETE (Admin-only).
+    // CI Owner holds SPEC_VIEW/EXECUTE_RUN but not PLAN_MANAGE.
     const okRes = await app.inject({
       method: 'POST',
       url: `/api/v1/projects/${seed.projectId}/api-tokens`,
@@ -110,7 +118,7 @@ describe('Machine API tokens: definition CRUD, capability ceiling, and audit tra
       method: 'POST',
       url: `/api/v1/projects/${seed.projectId}/api-tokens`,
       headers: { authorization: `Bearer ${leadToken}` },
-      payload: { name: 'Over-privileged', capabilities: ['PROJECT_DELETE'] },
+      payload: { name: 'Over-privileged', capabilities: ['PLAN_MANAGE'] },
     });
     expect(exceededRes.statusCode).toBe(403);
     expect(JSON.parse(exceededRes.payload).code).toBe('CAPABILITY_CEILING_EXCEEDED');

@@ -55,14 +55,15 @@ export async function registerApiTokenRoutes(app: FastifyInstance, db: Kysely<Da
       // includes the literal string 'SYSTEM_ADMIN' itself for any SYSTEM_ADMIN-holding
       // user (see RoleRepository.evaluatePermissions), so a naive subset check would let
       // an Admin mint a token that bypasses every permission check on every route.
-      // The same goes for every permission whose routes reach beyond one project
-      // (TOKEN_EXCLUDED_PERMISSIONS in packages/core/src/rbac/registry.ts).
+      // The same goes for every permission whose routes reach beyond one project, and for
+      // deleting the project (TOKEN_EXCLUDED_PERMISSIONS in packages/core/src/rbac/registry.ts).
+      // The detail gives each one's reason: they differ.
       const excluded = capabilities.filter((k: unknown) => typeof k === 'string' && !isTokenGrantable(k));
       if (excluded.length > 0) {
         return sendError(
           reply,
           400,
-          `${excluded.map((k: string) => `'${k}'`).join(', ')} can never be granted to a token: API tokens work only inside their own project.`,
+          `Can't be given to a token: ${excluded.map((k: string) => `${k} (${TOKEN_EXCLUDED_PERMISSIONS[k]})`).join('; ')}.`,
           {
             code: 'CAPABILITY_NOT_GRANTABLE',
             invalid_params: excluded.map((k: string) => ({ name: 'capabilities', reason: `${k} can't be given to a token: ${TOKEN_EXCLUDED_PERMISSIONS[k]}` })),

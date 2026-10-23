@@ -45,7 +45,7 @@ describe('API tokens are limited to their own project', () => {
   });
 
   it("can't be given a system-wide permission, and the list of grantable ones leaves them out", async () => {
-    expect(Object.keys(TOKEN_EXCLUDED_PERMISSIONS).sort()).toEqual(['API_TOKEN_MANAGE', 'CUSTOM_FIELD_MANAGE', 'PROJECT_CREATE', 'SYSTEM_ADMIN', 'USER_MANAGE', 'WEBHOOK_MANAGE']);
+    expect(Object.keys(TOKEN_EXCLUDED_PERMISSIONS).sort()).toEqual(['API_TOKEN_MANAGE', 'CUSTOM_FIELD_MANAGE', 'PROJECT_CREATE', 'PROJECT_DELETE', 'SYSTEM_ADMIN', 'USER_MANAGE', 'WEBHOOK_MANAGE']);
     for (const key of Object.keys(TOKEN_EXCLUDED_PERMISSIONS)) {
       const res = await mint(['SPEC_VIEW', key]);
       expect(res.statusCode, key).toBe(400);
@@ -59,7 +59,7 @@ describe('API tokens are limited to their own project', () => {
   });
 
   it('is refused on every route outside a project, and changes nothing there', async () => {
-    const token = body(await mint(['SPEC_VIEW', 'EXECUTE_RUN', 'PROJECT_DELETE'])).plaintext;
+    const token = body(await mint(['SPEC_VIEW', 'EXECUTE_RUN', 'PLAN_MANAGE'])).plaintext;
     const users = await db.selectFrom('users').select('id').execute();
     const refused: Array<[string, string, unknown?]> = [
       ['GET', '/api/v1/admin/users'],
@@ -102,16 +102,20 @@ describe('API tokens are limited to their own project', () => {
     const { plaintext } = await new ApiTokenRepository(db).create({
       project_id: seed.projectId,
       name: 'old',
-      capabilities: ['SPEC_VIEW', 'API_TOKEN_MANAGE', 'USER_MANAGE'],
+      capabilities: ['SPEC_VIEW', 'API_TOKEN_MANAGE', 'USER_MANAGE', 'PROJECT_DELETE'],
       created_by: adminId,
       expires_at: null,
     });
     expect(body(await call(plaintext, 'GET', '/api/v1/auth/me')).user.permissions).toEqual(['SPEC_VIEW']);
+    // Deleting its whole project: refused, and the project is still there.
+    const deleted = await call(plaintext, 'DELETE', `/api/v1/projects/${seed.projectId}?force=true`);
+    expect([deleted.statusCode, body(deleted).required_permission]).toEqual([403, 'PROJECT_DELETE']);
+    expect(await db.selectFrom('projects').select('id').where('id', '=', seed.projectId).execute()).toHaveLength(1);
     const tokens = await call(plaintext, 'GET', `/api/v1/projects/${seed.projectId}/api-tokens`);
     expect(tokens.statusCode).toBe(403);
     expect(body(tokens).required_permission).toBe('API_TOKEN_MANAGE');
     const listed = body(await call(admin, 'GET', `/api/v1/projects/${seed.projectId}/api-tokens`)).tokens[0];
-    expect(listed.capabilities).toEqual(['SPEC_VIEW', 'API_TOKEN_MANAGE', 'USER_MANAGE']);
+    expect(listed.capabilities).toEqual(['SPEC_VIEW', 'API_TOKEN_MANAGE', 'USER_MANAGE', 'PROJECT_DELETE']);
     expect(listed.effective_capabilities).toEqual(['SPEC_VIEW']);
   });
 });

@@ -152,7 +152,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - A token's capabilities are capped by its issuer's **current** permissions, checked on every use. Disabling the issuer revokes their tokens.
 - A token works with the REST API and MCP (`BOTH`, the default), `MCP` only or `REST` only (`api_tokens.interfaces`, checked in `authenticateApiToken`; `403 TOKEN_INTERFACE_NOT_ALLOWED`). An MCP-only token also passes on the requests MCP's write tools make for it (`internalVia === 'mcp'`). Give agents MCP-only tokens: MCP's limits hold only on `/mcp`.
 - `GET /auth/me` with a token describes it (name, project, capabilities, interfaces, expiry); `GET /projects` and MCP `list_projects` add `api_token` saying the list is limited to the token's project (`apiTokenScope`).
-- Some permissions can never be granted to a token: the system-wide `SYSTEM_ADMIN`, `USER_MANAGE`, `CUSTOM_FIELD_MANAGE`, `PROJECT_CREATE`, `API_TOKEN_MANAGE`, and `WEBHOOK_MANAGE` (a webhook sends data anywhere) (`TOKEN_EXCLUDED_PERMISSIONS` in `packages/core/src/rbac/registry.ts`; existing tokens lose them on use).
+- Some permissions can never be granted to a token: the system-wide `SYSTEM_ADMIN`, `USER_MANAGE`, `CUSTOM_FIELD_MANAGE`, `PROJECT_CREATE`, `API_TOKEN_MANAGE`, `WEBHOOK_MANAGE` (a webhook sends data anywhere), and `PROJECT_DELETE` (it removes everything in the project for good; decided with Elliot, with no trash) (`TOKEN_EXCLUDED_PERMISSIONS` in `packages/core/src/rbac/registry.ts`; existing tokens lose them on use).
 - Limit: 1,200 requests per minute per token.
 
 **Permissions:**
