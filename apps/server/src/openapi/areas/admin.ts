@@ -143,6 +143,7 @@ export const setOverridesSchema = {
 export const listPermissionsSchema = {
   tags: USERS,
   summary: 'Every permission',
+  operationId: 'listPermissions',
   description: 'The permission keys, what each allows, and the group the Admin Panel shows it in. Any signed-in user.' + NO_TOKENS,
   response: {
     200: {

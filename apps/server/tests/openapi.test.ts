@@ -63,8 +63,16 @@ describe('OpenAPI spec and docs page', () => {
         expect(op.summary, `${method} ${path}`).toEqual(expect.any(String));
         expect(op.tags?.length, `${method} ${path}`).toBeGreaterThan(0);
         expect(Object.keys(op.responses).some((s) => /^2/.test(s)), `${method} ${path}`).toBe(true);
+        // What client generators and Postman name methods by, and the 400 any field can cause.
+        expect(op.operationId, `${method} ${path}`).toMatch(/^[a-z][A-Za-z0-9]+$/);
+        if (op.requestBody || (op.parameters ?? []).some((p: any) => p.in === 'query')) {
+          expect(op.responses['400'], `${method} ${path} documents no 400`).toBeDefined();
+        }
       }
     }
+    const ids = Object.values<any>(spec.paths).flatMap((item) => Object.values<any>(item).map((op) => op.operationId));
+    const repeated = ids.filter((id, i) => ids.indexOf(id) !== i);
+    expect(repeated, 'operationIds must be unique').toEqual([]);
     expect(operations).toEqual(
       expect.arrayContaining([
         'POST /api/v1/auth/login',

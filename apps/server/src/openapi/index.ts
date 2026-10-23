@@ -203,6 +203,42 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * An operation's id from its summary ("List a plan's test runs" → `listPlanTestRuns`; a GET
+ * named by a noun, "A project's webhooks", → `getProjectWebhooks`): what client generators and
+ * Postman name methods by. The spec had none (API audit, 2026-10-23); deriving them keeps them in
+ * step with the summaries, and openapi.test.ts checks they're unique.
+ */
+export function operationIdFrom(summary: string, method = 'GET'): string {
+  const words = summary
+    .replace(/'s\b/g, '')
+    .replace(/[^A-Za-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((w) => w && !['a', 'an', 'the'].includes(w.toLowerCase()));
+  if (method === 'GET' && !/^(list|get|search|find|preview|export|download)$/i.test(words[0] ?? '')) words.unshift('get');
+  return words.map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join('');
+}
+
+/**
+ * A documented route's schema with what every operation should have: an `operationId`, and a 400
+ * when it takes a body or a query string (any field can be wrong or unknown there). Several write
+ * routes didn't document their 400.
+ */
+function completeOperation<S extends { summary?: string; operationId?: string; body?: unknown; querystring?: unknown; response?: Record<string, unknown> }>(schema: S, method: string): S {
+  const out = { ...schema };
+  if (!out.operationId && out.summary) out.operationId = operationIdFrom(out.summary, method);
+  if ((out.body || out.querystring) && out.response && !out.response['400']) {
+    out.response = {
+      ...out.response,
+      400: {
+        description: 'Invalid request: `invalid_params` names each problem field, including a field the route doesn\'t take',
+        content: { 'application/problem+json': { schema: { $ref: 'Problem#' } } },
+      },
+    };
+  }
+  return out;
+}
+
 /** Registers the spec, the docs page, the validator and (optionally) the response check. Call before any route. */
 export async function registerOpenApi(app: FastifyInstance, options: OpenApiOptions = {}) {
   for (const s of SHARED_SCHEMAS) app.addSchema(s);
@@ -210,7 +246,8 @@ export async function registerOpenApi(app: FastifyInstance, options: OpenApiOpti
   const routes: RegisteredRoute[] = [];
   app.decorate('openApiRoutes', routes);
   app.addHook('onRoute', (route) => {
-    const schema = route.schema as { tags?: string[]; hide?: boolean } | undefined;
+    const schema = route.schema as { tags?: string[]; hide?: boolean; summary?: string; operationId?: string; body?: unknown; querystring?: unknown; response?: Record<string, unknown> } | undefined;
+    if (schema?.tags?.length && !schema.hide) route.schema = completeOperation(schema, [route.method].flat()[0]);
     for (const method of [route.method].flat()) {
       if (method === 'HEAD') continue;
       routes.push({ method, url: route.url, documented: Boolean(schema?.tags?.length) && !schema?.hide, hidden: Boolean(schema?.hide) });

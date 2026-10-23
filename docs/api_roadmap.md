@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Findings 1 to 7, 9, 11, 12, 14, 16 and 17 are done (2026-10-23); 13 is to fix, and 8, 10 and 15 wait on decisions.
+**Status:** in progress. Every finding but 8, 10 and 15 is done (2026-10-23); those three wait on decisions.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -91,7 +91,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 10 | Signed-in users have no request limit (only API tokens do). | | To do |
 | 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | Filter errors (with 4) and the 413 (with 5); something that isn't a token is `INVALID_TOKEN`, not "your sign-in has ended". | **Done** (changelog 2026-10-23) |
 | 12 | Missing HTTP basics: no `WWW-Authenticate` on 401, 404 instead of 405 for a wrong method, no expiry in the login answer. | `WWW-Authenticate: Bearer` on every 401; 405 with `Allow`; the login answer gives `expires_at` and `idle_timeout_seconds`. | **Done** (changelog 2026-10-23) |
-| 13 | No `operationId` in the spec (poor names in Postman and client generators); 12 write routes don't document their 400. | | To do |
+| 13 | No `operationId` in the spec (poor names in Postman and client generators); 12 write routes don't document their 400. | Every operation's id comes from its summary (`listPlanTestRuns`, `getProject`), a few named by hand; every route with a body or query documents its 400; a test keeps both. | **Done** (changelog 2026-10-23) |
 | 14 | A project's `settings` is returned as a JSON string inside the JSON. | `settings` is an object in every project answer. | **Done** (changelog 2026-10-23) |
 | 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | | To do |
 | 16 | A webhook to an address refused at delivery retries for 11 hours instead of failing at once. | It fails at once, saying why. | **Done** (changelog 2026-10-23) |

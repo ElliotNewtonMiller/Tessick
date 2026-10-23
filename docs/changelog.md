@@ -3250,3 +3250,21 @@ Tests:
 **Verified live** on the dev server with the demo data:
 - an MCP-only token's `list_plans_and_runs` with `project_id: "DEMO"` answered the demo's plan;
 - the runs list showed Run 1.0.8 at 12 cases, 6 passed, 3 failed, 2 untested, pass rate 0.6, and the runs before it likewise.
+
+## API audit, part 10: operationIds and documented 400s (2026-10-23)
+
+The audit's thirteenth finding: the OpenAPI spec had no `operationId` on any of its 114 operations, so Postman and client generators made up names. Several write routes didn't document the 400 that any of their fields can cause, now including a field the route doesn't take (part 3).
+
+- **Every documented route's `operationId`** comes from its summary when the route is registered (`operationIdFrom`, `completeOperation` in `openapi/index.ts`):
+  - camelCase, with articles and possessives dropped: "List a plan's test runs" → `listPlanTestRuns`, "Record results from a JUnit XML file" → `recordResultsFromJunitXmlFile`;
+  - a GET named by a noun gets `get`: "A project" → `getProject`, "A project's webhooks" → `getProjectWebhooks`.
+  - Five read badly and are named in their schema: `getMe`, `updateMe`, `listPermissions`, `listImportFieldOptions`, `listSearchFields`.
+  - Deriving them keeps them in step with the summaries. A route can always set its own.
+- **Every route with a body or a query string** documents a 400 ("`invalid_params` names each problem field, including a field the route doesn't take"), added where it was missing.
+- **`openapi.test.ts`** now checks:
+  - every operation has an `operationId` in camelCase;
+  - they're all unique;
+  - every operation with a body or query parameters documents a 400.
+- **Docs:** CLAUDE.md/AGENTS.md (the route-schema convention); `api_roadmap.md` (13 done; only 8, 10 and 15 are left, waiting on Elliot's decisions).
+
+**Verified live:** the dev server's `/docs/json` has an `operationId` on all 114 operations, and no operation with a body or query lacks a 400. `/docs` loads.

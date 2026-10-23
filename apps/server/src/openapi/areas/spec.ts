@@ -365,6 +365,7 @@ export const suiteFieldSchemas = fieldValueSchemas('suite');
 export const searchFieldsSchema = {
   tags: SEARCH,
   summary: 'Fields you can search and filter on',
+  operationId: 'listSearchFields',
   description:
     'The built-in properties and every custom field, each with its `key` (use it as a filter\'s `field`), its kind and its options. Reports take the same filters, and `group_by` takes the same keys.',
   params: idParams('projectId'),

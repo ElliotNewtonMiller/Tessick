@@ -58,6 +58,7 @@ export const logoutSchema = {
 export const getMeSchema = {
   tags: TAGS,
   summary: 'Who am I',
+  operationId: 'getMe',
   description: 'The signed-in user with their global permissions, or the API token in use (with `api_token`).',
   response: {
     200: userResponse('The caller'),
@@ -68,6 +69,7 @@ export const getMeSchema = {
 export const patchMeSchema = {
   tags: TAGS,
   summary: 'Change your username, email or password',
+  operationId: 'updateMe',
   description:
     'Changes only the fields sent. A new password needs `current_password`, and ends every other sign-in of the account. Changing the username needs `USER_MANAGE` (or Admin). ' +
     'A user who must change their password (`must_change_password`) can only set a new, different one here. Not available to API tokens (`TOKEN_NOT_ALLOWED`).',

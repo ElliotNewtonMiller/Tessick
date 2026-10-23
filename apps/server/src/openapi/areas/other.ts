@@ -428,6 +428,7 @@ export const importExecuteSchema = {
 export const importFieldOptionsSchema = {
   tags: IMPORT,
   summary: 'Custom fields an import can map to',
+  operationId: 'listImportFieldOptions',
   description: "Global fields and this project's own, for `ROUTE_TO_EXISTING`. Needs `IMPORT_DATA` (or `CUSTOM_FIELD_MANAGE`).",
   params: idParams('projectId'),
   querystring: { type: 'object', properties: { entity_type: oneOf(['TestCase', 'TestSuite'], 'Default TestCase.') } },
