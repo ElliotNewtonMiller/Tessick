@@ -338,7 +338,7 @@ The ones you're most likely to meet:
 | 405 `METHOD_NOT_ALLOWED` | The address is right but the method isn't (e.g. `PUT` for `PATCH`) | Use one of the methods in `Allow` |
 | 401 `TOKEN_ISSUER_INACTIVE` | Whoever made the token was disabled or lost `API_TOKEN_MANAGE` | Ask someone who manages tokens for a new one |
 | 403 `FORBIDDEN` | The token lacks a capability; `required_permission` names it | Make a token with it |
-| 403 `TOKEN_PROJECT_MISMATCH` | An id from another project | Use that project's token |
+| 404 `NOT_FOUND` | Also an id from another project: to a token, the rest of Testify doesn't exist | Use that project's token |
 | 403 `TOKEN_NOT_ALLOWED` | An admin route; tokens can't use them | Sign in as a user |
 | 422 `RUN_CLOSED`, `PLAN_LOCKED` | The run is closed, or the plan locked or archived | Reopen it, or use another run |
 | 422 `IDEMPOTENCY_KEY_REUSED` | This `Idempotency-Key` was already used for a different upload | Use a new key for each file and re-run |
@@ -349,7 +349,7 @@ The full list is in [RFC 03 §4.2](rfc_03_api_and_xml_contracts.md). An unexpect
 
 ## 8. Limits
 
-- 1,200 requests a minute per token (MCP calls included); the allowance refills evenly.
+- 1,200 requests a minute per token (MCP calls included), and per user for sign-ins; the allowance refills evenly.
 - 5,000 results and 50 MB per JSON batch; 20,000 tests and 50 MB per JUnit file. Other requests: 1 MB. A `413` says the limit (`limit_bytes`).
 - 120 exports and 60 report emails an hour.
 - Imports: 50 MB per file, two at a time.

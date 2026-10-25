@@ -3268,3 +3268,41 @@ The audit's thirteenth finding: the OpenAPI spec had no `operationId` on any of 
 - **Docs:** CLAUDE.md/AGENTS.md (the route-schema convention); `api_roadmap.md` (13 done; only 8, 10 and 15 are left, waiting on Elliot's decisions).
 
 **Verified live:** the dev server's `/docs/json` has an `operationId` on all 114 operations, and no operation with a body or query lacks a 400. `/docs` loads.
+
+## API audit, part 11: Elliot's three decisions (2026-10-25)
+
+The last three findings needed Elliot's call. He chose:
+
+**Finding 8, edits overwriting each other:** not now. Nothing outside Testify uses the API yet, and an optional `If-Match` (an ETag from `updated_at`, answering 412) can be added later without breaking any client. Recorded in `api_roadmap.md`.
+
+**Finding 10, a limit for signed-in users:** 1,200 requests a minute per user, like tokens.
+- `rateLimits.user` (`USER_REQUESTS_PER_MINUTE`) is checked in `authenticateRequest` once a sign-in is accepted.
+- It's counted once per request, and not for the requests a bulk change or MCP tool makes for its caller.
+- Over it: `429 RATE_LIMITED` with `Retry-After`, "Too many requests from this user: the limit is 1200 per minute."
+- Nobody clicking comes near it; it stops a runaway script that signed in with a password. Before, only tokens were limited.
+
+**Finding 15, a token learning that another project's item exists:**
+- **Before:** a token naming anything in another project got `403 TOKEN_PROJECT_MISMATCH` naming that project, while a made-up id got 404. So the 403 confirmed the item existed.
+- **Now:** it's `404 NOT_FOUND` ("Not found in this API token's project (<its project>). An API token works only in the project it was made for.") from `sendNotInTokenProjectError`, still checked centrally (`authenticateApiToken`, and the batch route's own check).
+- It no longer names the other project. The message still points a CI job at the right place.
+- `TOKEN_PROJECT_MISMATCH` is gone from the API.
+
+**Docs:**
+- CLAUDE.md/AGENTS.md (tokens; limits);
+- RFC 03 (§1, §4.2, §7.2);
+- RFC 04 (token rule 3, the flow diagram, rule 8, the threat model);
+- `api_getting_started.md` (errors; limits);
+- `reports_api_and_mcp.md`;
+- `api_roadmap.md` (8 decided, 10 and 15 done, three decisions; the audit is finished).
+
+Tests:
+- `rate_limits.test.ts` +1: with the user limit at 3, a bulk change of three cases counts once; the fourth request is 429 with the message and `Retry-After`; another user and a token are unaffected.
+- The tests that expected 403 `TOKEN_PROJECT_MISMATCH` now expect 404:
+  - `api_reads` (and that the detail doesn't name the other project);
+  - `api_lists`, `reports`, `report_email`, `project_scoping`, `batch_and_xml` ×2.
+
+**Verified live** on the dev server:
+- a token asking for another project's real plan got 404 with the new message, not naming it; a made-up plan id got the route's own 404;
+- 2,000 quick requests as the admin:
+  - a first run of 1,201 all passed, since the allowance refills evenly at 20 a second;
+  - a second run, started with that allowance nearly spent, got 415 answers and then 429s with `Retry-After: 1` and the message.

@@ -84,6 +84,25 @@ describe('Rate limits', () => {
     expect((await call(admin, 'GET', plans)).statusCode).toBe(200);
   });
 
+  it('limits requests per signed-in user too, counting a bulk change once, and leaves other users alone', async () => {
+    // Another user and a token, made before the limit is lowered.
+    const token = await mintToken(['SPEC_VIEW']);
+    expect((await call(admin, 'POST', '/api/v1/admin/users', { username: 'second', email: 'second@example.com', password: 'Second-User-Pass-9', global_role: 'Viewer' })).statusCode).toBe(201);
+    const second = body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: 'second', password: 'Second-User-Pass-9' } })).token;
+    app.rateLimits.user = new RateLimiter(3, 60_000);
+    const plans = `/api/v1/projects/${seed.projectId}/plans`;
+    // A bulk change runs one inner request per case; only the caller's one request counts.
+    const bulk = await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/cases/bulk`, { action: 'update', case_ids: ['SHOP-101', 'SHOP-102', 'SHOP-103'], changes: { priority: 'LOW' } });
+    expect(bulk.statusCode, bulk.payload).toBe(200);
+    expect((await call(admin, 'GET', plans)).statusCode).toBe(200);
+    expect((await call(admin, 'GET', plans)).statusCode).toBe(200);
+    expectRateLimited(await call(admin, 'GET', plans), /requests from this user: the limit is 3 per minute/);
+
+    // Another user, and a token, have their own allowances.
+    expect((await call(second, 'GET', plans)).statusCode).toBe(200);
+    expect((await call(token, 'GET', plans)).statusCode).toBe(200);
+  });
+
   it('limits exports per caller, with a message saying when to retry', async () => {
     app.rateLimits.exports = new RateLimiter(2, 60 * 60_000);
     const url = `/api/v1/projects/${seed.projectId}/exports/definitions`;

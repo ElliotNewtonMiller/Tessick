@@ -385,25 +385,14 @@ export function sendTokenIssuerInactiveError(reply: FastifyReply, reason: 'ISSUE
   });
 }
 
-export function sendTokenProjectMismatchError(
-  reply: FastifyReply,
-  tokenProjectId: string,
-  requestedProjectId: string,
-  instance?: string
-) {
-  return sendProblemDetails(reply, {
-    code: 'TOKEN_PROJECT_MISMATCH',
-    status: 403,
-    title: 'Forbidden',
-    detail: `This API token is scoped to project '${tokenProjectId}' and cannot be used against project '${requestedProjectId}'.`,
-    instance,
-    invalid_params: [
-      {
-        name: 'project_id',
-        reason: "Does not match the authenticating token's bound project",
-      },
-    ],
-  });
+/**
+ * An API token naming something in another project: 404, as for something that doesn't exist,
+ * so a token can't learn that another project's plan or run exists (it was 403
+ * TOKEN_PROJECT_MISMATCH naming the other project; decided with Elliot, 2026-10-25, after the API audit).
+ * The message still tells a CI job where to look.
+ */
+export function sendNotInTokenProjectError(reply: FastifyReply, tokenProjectId: string) {
+  return sendError(reply, 404, `Not found in this API token's project (${tokenProjectId}). An API token works only in the project it was made for.`, { code: 'NOT_FOUND' });
 }
 
 /** An API token used on a route that isn't part of any project (see tokenMayUseRoute in middleware/auth.ts). */

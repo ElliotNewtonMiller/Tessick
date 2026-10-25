@@ -194,14 +194,14 @@ sequenceDiagram
 #### Token Security Specifications
 1. **Shown once:** the plaintext token is in the creation response only. It's never stored and can't be retrieved again; the UI shows it once with a copy button.
 2. **Stored as a digest:** `api_tokens.token_hash` is an unsalted SHA-256 digest, looked up by value. A 32-byte random token has enough entropy that a slow, salted hash isn't needed (the same approach GitHub and Stripe use).
-3. **Bound to one project:** a token used on any other project gets `403 TOKEN_PROJECT_MISMATCH`, checked centrally for every route and every MCP tool call. A route that isn't part of any project (the `/api/v1/admin/...` routes, creating a project, changing your own account) refuses tokens outright with `403 TOKEN_NOT_ALLOWED`: deny by default, except `GET /auth/me`, `GET /projects` (only the token's project) and `/mcp` (which checks each call). See `tokenMayUseRoute` in `middleware/auth.ts`.
+3. **Bound to one project:** anything in another project is not found to a token, `404` as if it didn't exist (it was `403 TOKEN_PROJECT_MISMATCH` until 2026-10-25, which confirmed the other project's item existed), checked centrally for every route and every MCP tool call. A route that isn't part of any project (the `/api/v1/admin/...` routes, creating a project, changing your own account) refuses tokens outright with `403 TOKEN_NOT_ALLOWED`: deny by default, except `GET /auth/me`, `GET /projects` (only the token's project) and `/mcp` (which checks each call). See `tokenMayUseRoute` in `middleware/auth.ts`.
 4. **Capped by its issuer:** a token's capabilities can't exceed the issuer's permissions at creation. On every use they're intersected with the issuer's **current** permissions in the project. If the issuer is disabled or loses `API_TOKEN_MANAGE` there, the token stops working (`401 TOKEN_ISSUER_INACTIVE`), and disabling the issuer revokes their tokens for good.
 5. **System-wide permissions are never grantable** to a token, even by an admin (`TOKEN_EXCLUDED_PERMISSIONS` in `packages/core/src/rbac/registry.ts`): `SYSTEM_ADMIN` (it would be a cross-project superuser), `USER_MANAGE`, `CUSTOM_FIELD_MANAGE`, `PROJECT_CREATE` (their routes reach the whole system), `API_TOKEN_MANAGE` (a token can't issue tokens), `WEBHOOK_MANAGE` (a webhook sends project data anywhere, so only people set them up) and `PROJECT_DELETE` (since 2026-10-23: one call deletes the project and everything in it for good, and there's no trash). Asking for one is `400 CAPABILITY_NOT_GRANTABLE`; the API Tokens tab doesn't offer them, and a token made before the exclusion that holds one loses it on every use.
 6. **Expiry is optional:** no expiry by default, since a token can't outlive its issuer's access.
 7. **Works with the REST API, MCP, or both** (`api_tokens.interfaces`: `BOTH` by default, `MCP`, `REST`; `API_TOKEN_INTERFACES`). Checked centrally in `authenticateApiToken`. An `MCP` token works on `/mcp` and on the requests MCP's write tools make on its behalf (`internalVia(request) === 'mcp'`), and nowhere else; a `REST` token is refused on `/mcp`. Either refusal is `403 TOKEN_INTERFACE_NOT_ALLOWED`.
 8. **Self-describing:** `GET /auth/me` with a token returns its name, project, capabilities, interfaces and expiry. `GET /projects` (and MCP's `list_projects`) adds `api_token` with a note that only the token's project is listed.
 7. **Revocation:** anyone with `API_TOKEN_MANAGE` on the project can revoke a token at once (`DELETE /api/v1/api-tokens/{tokenId}`). Revoked tokens are kept, greyed out, with their last-used time, for investigation.
-8. **Rate limit:** 1,200 requests per minute per token.
+8. **Rate limit:** 1,200 requests per minute per token (and, separately, per signed-in user).
 
 ---
 
@@ -217,7 +217,7 @@ flowchart TD
     D -- Yes --> E{Issuer active and still holds API_TOKEN_MANAGE in the project?}
     E -- No --> X
     E -- Yes --> F{Request's project is the token's project?}
-    F -- No --> Y[403 TOKEN_PROJECT_MISMATCH]
+    F -- No --> Y[404 Not found]
     F -- Yes --> G{Within 1,200 requests/minute?}
     G -- No --> Z[429 RATE_LIMITED]
     G -- Yes --> H[Permissions = capabilities ∩ issuer's current permissions]
@@ -354,7 +354,7 @@ graph TD
 - **Risk:** Bots guess passwords at `/api/v1/auth/login`, or flood the API with a token.
 - **Mitigation:**
   - Sign-in (`apps/server/src/services/loginThrottle.ts`): an account locks for 15 minutes after 20 wrong passwords in a row, and an address is blocked after 50 failed sign-ins in 15 minutes. The current-password check on a password change counts too. Admins can unlock accounts.
-  - Every request made with an API token (REST, CI batches, MCP): 1,200 per minute per token, as a token bucket (`apps/server/src/services/rateLimits.ts`). A batch request can carry up to 5,000 results, a JUnit file up to 20,000 tests.
+  - Every request made with an API token (REST, CI batches, MCP): 1,200 per minute per token, as a token bucket (`apps/server/src/services/rateLimits.ts`). Every request made with a sign-in: 1,200 per minute per user (since 2026-10-25; before, signed-in users had no limit). A batch request can carry up to 5,000 results, a JUnit file up to 20,000 tests.
   - Imports: at most 50 MB per file and 2 at a time per server.
   - Over a limit the API answers `429` with `Retry-After`. Address and rate counts are kept in memory per server process; account lockouts are in the database.
 
@@ -368,7 +368,6 @@ graph TD
   - Every write is traceable: its usual audit row has "(via Testify MCP)" in its User-Agent and the token as a `SERVICE_ACCOUNT` actor, and each write-tool call adds an `MCP_WRITE` row to the Security Audit Log.
   - Agents should use a dedicated token with only the capabilities they need (`SPEC_VIEW` alone to read), revocable on its own, and **MCP only**. MCP's own limits (drafts only; no approve, deprecate, restore or delete tools; changes marked "via Testify MCP") hold only on `/mcp`. An agent holding a token that also works on the REST API can step around them, for example by falling back to REST routes when MCP doesn't connect. An MCP-only token is refused there (`403 TOKEN_INTERFACE_NOT_ALLOWED`).
 - **Gaps:**
-  - Report and MCP calls made with an API token count against that token's 1,200 requests per minute, but report reads by signed-in users aren't rate limited.
   - Report reads aren't audit-logged; only exports are.
 
 **Report emails** send report data to arbitrary addresses outside Testify, which makes them a direct exfiltration channel.

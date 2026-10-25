@@ -61,8 +61,8 @@ describe('Project scoping on routes not nested under /projects/:projectId', () =
     ];
     for (const [method, url, payload] of attempts) {
       const res = await call(tokenB, method, url, payload);
-      expect(res.statusCode, `${method} ${url}`).toBe(403);
-      expect(body(res).type ?? body(res).code ?? '', `${method} ${url}`).toMatch(/TOKEN_PROJECT_MISMATCH|token-project-mismatch/i);
+      expect(res.statusCode, `${method} ${url}`).toBe(404);
+      expect(body(res).detail, `${method} ${url}`).toMatch(/^Not found in this API token's project/);
     }
 
     // Nothing changed in project A.

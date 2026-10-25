@@ -115,7 +115,7 @@ describe('API lists: paging and filters', () => {
     const other = body(await call(admin, 'POST', '/api/v1/projects', { name: 'Other', prefix: 'OTH' })).project;
     const otherToken = body(await call(admin, 'POST', `/api/v1/projects/${other.id}/api-tokens`, { name: 'ci', capabilities: ['EXECUTE_RUN'] })).plaintext;
     for (const url of [`/api/v1/results/${failed103.id}`, `${run}/results`]) {
-      expect(body(await call(otherToken, 'GET', url)).code, url).toBe('TOKEN_PROJECT_MISMATCH');
+      expect(body(await call(otherToken, 'GET', url)).code, url).toBe('NOT_FOUND');
     }
   });
 

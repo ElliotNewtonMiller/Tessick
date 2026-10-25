@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
 import type { BatchResultsRequest, BatchResultsResponse, BatchResultOutcome } from '@testify/core';
-import { sendPlanLockedError, sendRunClosedError, sendTokenProjectMismatchError, sendProblemDetails, sendError } from '../errors.js';
+import { sendPlanLockedError, sendRunClosedError, sendNotInTokenProjectError, sendProblemDetails, sendError } from '../errors.js';
 import { MAX_BATCH_RESULTS, validateBatchItem, type InvalidParam, type BatchItemShape } from './resultValidation.js';
 import { resolveCaseLinkability } from '../routes/testPlanCases.js';
 import type { AuthenticatedUser } from '../middleware/auth.js';
@@ -140,7 +140,7 @@ export async function recordResultsBatch(
   const projectId = runPlanInfo.project_id;
 
   if (user.api_token && user.api_token.project_id !== projectId) {
-    return sendTokenProjectMismatchError(reply, user.api_token.project_id, projectId, req.url);
+    return sendNotInTokenProjectError(reply, user.api_token.project_id);
   }
 
   const nowMs = Date.now();

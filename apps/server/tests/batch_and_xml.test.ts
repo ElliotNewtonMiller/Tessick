@@ -496,8 +496,9 @@ ${tc('SEL-4', 'Done', '')}
         headers: { authorization: `Bearer ${apiToken}` },
         payload: { file_content: xmlPayload, format: 'TESTLINK_XML' },
       });
-      expect(mismatchRes.statusCode).toBe(403);
-      expect(JSON.parse(mismatchRes.payload).code).toBe('TOKEN_PROJECT_MISMATCH');
+      // Another project's item is "not found" to a token, as if it didn't exist.
+      expect(mismatchRes.statusCode).toBe(404);
+      expect(JSON.parse(mismatchRes.payload).detail).toMatch(/^Not found in this API token's project/);
     });
 
     it('rolls back the entire import, including an earlier successfully-created field, when a later AUTO_CREATE mapping fails', async () => {
@@ -940,8 +941,9 @@ ${tc('SEL-4', 'Done', '')}
         headers: { authorization: `Bearer ${apiToken}` },
         payload: { results: [{ case_identifier: { external_id: 'anything' }, verdict: 'PASSED' }] },
       });
-      expect(mismatchRes.statusCode).toBe(403);
-      expect(JSON.parse(mismatchRes.payload).code).toBe('TOKEN_PROJECT_MISMATCH');
+      // Another project's item is "not found" to a token, as if it didn't exist.
+      expect(mismatchRes.statusCode).toBe(404);
+      expect(JSON.parse(mismatchRes.payload).detail).toMatch(/^Not found in this API token's project/);
     });
   });
 

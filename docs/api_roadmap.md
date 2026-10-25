@@ -73,7 +73,7 @@ Many tools read that format, so the one file gives:
 
 ## API audit, 2026-10-23
 
-**Status:** in progress. Every finding but 8, 10 and 15 is done (2026-10-23); those three wait on decisions.
+**Status:** done (2026-10-25). Every finding is fixed except 8, which Elliot decided to leave for now.
 
 Elliot asked for a critical look at the whole API. The probing was done live, on a throwaway build with the demo data, the way a script, a CI job, an AI agent and an attacker would use it. What held up well: sign-in and sessions, paging and report parameters, XML parsing (no XXE or entity expansion), the webhook address guard, concurrent runs by name, search escaping, no mass assignment, and one error format throughout.
 
@@ -86,14 +86,14 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 5 | JSON bodies are capped at 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters; the 413 doesn't say the limit. | JSON batches take 50 MB, like JUnit files; every 413 says the limit. | **Done** (changelog 2026-10-23) |
 | 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | A plan's runs are paged, newest first (the web app follows the pages). A plan's cases (the Execute queue), the spec tree and users stay whole: the queue and the tree show everything, and users stay few. | **Done** (changelog 2026-10-23) |
 | 7 | The single-result route needs `test_plan_case_id`; elsewhere a case id or readable id works. | It also takes `test_case_id`: the case's id or readable id. | **Done** (changelog 2026-10-23) |
-| 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | | To do |
+| 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | Not now (decided with Elliot): nothing outside Testify uses the API yet, and an optional `If-Match` can be added later without breaking any client. | **Decided: not now** |
 | 9 | `executed_at` in the future (2099) is accepted, distorting "latest" and trends. | More than 5 minutes ahead is refused, per item. | **Done** (changelog 2026-10-23) |
-| 10 | Signed-in users have no request limit (only API tokens do). | | To do |
+| 10 | Signed-in users have no request limit (only API tokens do). | 1,200 a minute per user, like tokens (decided with Elliot). | **Done** (changelog 2026-10-25) |
 | 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | Filter errors (with 4) and the 413 (with 5); something that isn't a token is `INVALID_TOKEN`, not "your sign-in has ended". | **Done** (changelog 2026-10-23) |
 | 12 | Missing HTTP basics: no `WWW-Authenticate` on 401, 404 instead of 405 for a wrong method, no expiry in the login answer. | `WWW-Authenticate: Bearer` on every 401; 405 with `Allow`; the login answer gives `expires_at` and `idle_timeout_seconds`. | **Done** (changelog 2026-10-23) |
 | 13 | No `operationId` in the spec (poor names in Postman and client generators); 12 write routes don't document their 400. | Every operation's id comes from its summary (`listPlanTestRuns`, `getProject`), a few named by hand; every route with a body or query documents its 400; a test keeps both. | **Done** (changelog 2026-10-23) |
 | 14 | A project's `settings` is returned as a JSON string inside the JSON. | `settings` is an object in every project answer. | **Done** (changelog 2026-10-23) |
-| 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | | To do |
+| 15 | `TOKEN_PROJECT_MISMATCH` confirms another project's plan exists (a missing one is 404). Minor: ids aren't guessable. | 404, as for something that doesn't exist (decided with Elliot). | **Done** (changelog 2026-10-25) |
 | 16 | A webhook to an address refused at delivery retries for 11 hours instead of failing at once. | It fails at once, saying why. | **Done** (changelog 2026-10-23) |
 | 17 | MCP tools take only internal project ids, not prefixes (`DEMO`); runs carry no result counts, so a dashboard needs a call per run. | MCP's `project_id` takes an id or a prefix; a plan's run list gives each run's `summary` (the run summary report's counts). | **Done** (changelog 2026-10-23) |
 
@@ -312,3 +312,6 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-23 | API tokens can't hold `PROJECT_DELETE`; no trash for deleted projects. | Decided with Elliot (audit finding 2). |
 | 2026-10-23 | Unknown request fields and report filter keys are refused with 400. | Decided with Elliot (audit finding 4): nothing outside Testify uses the API yet, so this is the cheapest time. |
 | 2026-10-23 | Repeat uploads are caught with an optional `Idempotency-Key` header on the three result routes, kept 24 hours; no automatic de-duplication by content. | Decided with Elliot (audit finding 3). Content-based de-duplication would silently drop a genuine re-run whose report has no times. |
+| 2026-10-25 | No `If-Match`/ETag on edits for now. | Decided with Elliot (audit finding 8): nothing outside Testify uses the API yet, and an optional header can be added later without breaking clients. |
+| 2026-10-25 | Signed-in users are limited to 1,200 requests a minute each, like tokens. | Decided with Elliot (audit finding 10). Nobody clicking comes near it; it stops a runaway script on a password sign-in. |
+| 2026-10-25 | To an API token, anything in another project is `404`, as if it didn't exist (it was `403 TOKEN_PROJECT_MISMATCH`). | Decided with Elliot (audit finding 15): the 403 confirmed the other project's item existed. The message still says it's not in the token's project. |

@@ -7,7 +7,7 @@ import { verifyJwt, isTokenGrantable, type ApiTokenInterface } from '@testify/co
 import { sendTokenNotAllowedError, sendTokenInterfaceNotAllowedError, sendInvalidTokenError,
   sendTokenRevokedError,
   sendTokenExpiredError,
-  sendTokenProjectMismatchError,
+  sendNotInTokenProjectError,
   sendTokenIssuerInactiveError, sendError } from '../errors.js';
 import { sendRateLimitedError } from '../services/rateLimits.js';
 import { isInternalRequest, internalVia } from '../internalRequests.js';
@@ -286,9 +286,10 @@ async function authenticateApiToken(
   }
 
   // A token belongs to one project. Refuse a token aimed at any other project here, once,
-  // rather than relying on each route to remember to check (see resolveRequestProject).
+  // rather than relying on each route to remember to check (see resolveRequestProject). As a
+  // 404, like something that doesn't exist, so the token learns nothing about the other project.
   if (requestedProjectId && requestedProjectId !== token.project_id) {
-    sendTokenProjectMismatchError(reply, token.project_id, requestedProjectId, request.url);
+    sendNotInTokenProjectError(reply, token.project_id);
     return null;
   }
 
@@ -443,6 +444,18 @@ export async function authenticateRequest(
   if (!user || user.status === 'DISABLED') {
     sendError(reply, 401, 'Unauthorized: User account is invalid or disabled');
     return null;
+  }
+
+  // A sign-in's requests count against its user's allowance, as a token's do (rateLimits.ts):
+  // once per request, and not for the requests a bulk change or MCP tool makes for it.
+  const userLimiter = request.server.rateLimits?.user;
+  if (userLimiter && !rateCountedRequests.has(request) && !isInternalRequest(request)) {
+    rateCountedRequests.add(request);
+    const limited = userLimiter.take(`user:${user.id}`);
+    if (!limited.allowed) {
+      sendRateLimitedError(reply, 'requests from this user', userLimiter, limited.retryAfterSeconds, request.url);
+      return null;
+    }
   }
 
   if (user.must_change_password && !PASSWORD_CHANGE_ALLOWED_ROUTES.has(request.url.split('?')[0])) {

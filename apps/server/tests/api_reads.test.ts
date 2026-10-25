@@ -96,7 +96,9 @@ describe('API reads: single items and readable case ids', () => {
     const token = body(await call(admin, 'POST', `/api/v1/projects/${other.id}/api-tokens`, { name: 'ci', capabilities: ['SPEC_VIEW'] })).plaintext;
     for (const url of [`/api/v1/projects/${seed.projectId}`, `/api/v1/plans/${seed.planId}`, `/api/v1/runs/${seed.buildId}`, `/api/v1/suites/${seed.suiteId}`, '/api/v1/cases/SHOP-101']) {
       const res = await call(token, 'GET', url);
-      expect([url, res.statusCode, body(res).code]).toEqual([url, 403, 'TOKEN_PROJECT_MISMATCH']);
+      // As if it didn't exist: a token learns nothing about another project (it was 403 TOKEN_PROJECT_MISMATCH).
+      expect([url, res.statusCode, body(res).code]).toEqual([url, 404, 'NOT_FOUND']);
+      expect(body(res).detail).not.toContain(seed.projectId);
     }
   });
 });

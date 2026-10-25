@@ -171,11 +171,11 @@ describe('Reports: catalog-driven report API', () => {
 
       const other = await new ProjectRepository(db).create({ name: 'Other', prefix: 'OTH' });
       const crossRes = await report(app, apiToken, other.id, 'overview', {});
-      expect(crossRes.statusCode).toBe(403);
-      expect(JSON.parse(crossRes.payload).code).toBe('TOKEN_PROJECT_MISMATCH');
+      expect(crossRes.statusCode).toBe(404);
+      expect(JSON.parse(crossRes.payload).code).toBe('NOT_FOUND');
       // The same scoping now applies to every project-nested route, not only reports.
       const searchRes = await app.inject({ method: 'GET', url: `/api/v1/projects/${other.id}/case-search/fields`, headers: { authorization: `Bearer ${apiToken}` } });
-      expect(searchRes.statusCode).toBe(403);
+      expect(searchRes.statusCode).toBe(404);
     });
   });
 

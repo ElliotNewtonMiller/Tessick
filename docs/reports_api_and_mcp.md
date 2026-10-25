@@ -13,11 +13,11 @@ Send `Authorization: Bearer <token>` with either:
 - **A login JWT.** `POST /api/v1/auth/login` returns one. It stays valid while it's used: it ends after 8 hours without a request, and 7 days after signing in at most.
 - **A machine API token** (`tf_ci_…`), created in Admin Panel → API Tokens. This is the right credential for scripts and agents: it doesn't expire unless you set an expiry, and it's bound to one project. It needs the `SPEC_VIEW` capability.
 
-A token used against any project other than its own gets `403 TOKEN_PROJECT_MISMATCH`; on a route that isn't part of a project (e.g. `/api/v1/admin/...`) it gets `403 TOKEN_NOT_ALLOWED`.
+To a token, anything in another project is not found (`404`, as if it didn't exist); on a route that isn't part of a project (e.g. `/api/v1/admin/...`) it gets `403 TOKEN_NOT_ALLOWED`.
 
 **Rate limits** (generous, so automation and agents aren't held back):
 
-- Every request made with an API token, including MCP calls: 1,200 per minute per token. A burst of up to 1,200 at once is fine; the allowance refills evenly.
+- Every request made with an API token, including MCP calls: 1,200 per minute per token; and with a sign-in, 1,200 per minute per user. A burst of up to 1,200 at once is fine; the allowance refills evenly.
 - Exports: 120 per hour per user or token.
 - Sending report emails: 60 per hour per user or token. Previews and scheduled sends don't count.
 
@@ -93,7 +93,7 @@ claude mcp add --transport http testify http://localhost:3001/mcp --header "Auth
 - **"TLS handshake failed" / `EPROTO`:** the address says `https://`, but nothing in front of Testify speaks HTTPS there. Use `http://`, or put a proxy in front. Testify's log says so too ("A client spoke HTTPS (TLS) to this plain-HTTP port").
 - **401:** the token is wrong, revoked or expired.
 - **403 `TOKEN_INTERFACE_NOT_ALLOWED`:** a REST-only token.
-- **403 `TOKEN_PROJECT_MISMATCH`:** a project other than the token's.
+- **404:** a project other than the token's (it's not found, as if it didn't exist).
 
 Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever sees its own project. `project_id` may be the project's id or its prefix (`SHOP`, as in its case ids). An argument a tool doesn't take is refused, with the list of the ones it does.
 

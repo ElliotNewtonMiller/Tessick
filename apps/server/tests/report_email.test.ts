@@ -154,7 +154,7 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
       const other = await new ProjectRepository(db).create({ name: 'Other', prefix: 'OTH' });
       const mint = await call(app, admin, 'POST', `/api/v1/projects/${other.id}/api-tokens`, { name: 'x', capabilities: ['SPEC_VIEW', 'REPORT_EMAIL'] });
       const otherToken = JSON.parse(mint.payload).plaintext;
-      expect((await call(app, otherToken, 'POST', url, { sections, recipients: 'a@b.co' })).statusCode).toBe(403);
+      expect((await call(app, otherToken, 'POST', url, { sections, recipients: 'a@b.co' })).statusCode).toBe(404);
     });
   });
 

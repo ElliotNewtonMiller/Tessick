@@ -8,6 +8,9 @@ import { sendProblemDetails } from '../errors.js';
  * clicking around -- and exist to stop runaway loops and abuse, not normal use.
  *
  * - Every request made with an API token: API_TOKEN_REQUESTS_PER_MINUTE per token.
+ * - Every request made with a sign-in (the web app, or a script's login token):
+ *   USER_REQUESTS_PER_MINUTE per user. Nobody clicking comes near it; it stops a runaway
+ *   script that signed in with a password (decided with Elliot, 2026-10-25, after the API audit).
  * - Exports (definitions and execution results): EXPORTS_PER_HOUR per user or token.
  * - Sending report emails (Email this report, a schedule's Send now, the admin's test email):
  *   REPORT_EMAILS_PER_HOUR per user or token. Each send is already capped at 50 recipients.
@@ -18,6 +21,7 @@ import { sendProblemDetails } from '../errors.js';
  * instances each keeps its own.
  */
 export const API_TOKEN_REQUESTS_PER_MINUTE = 1200;
+export const USER_REQUESTS_PER_MINUTE = 1200;
 export const EXPORTS_PER_HOUR = 120;
 export const REPORT_EMAILS_PER_HOUR = 60;
 
@@ -60,6 +64,7 @@ export class RateLimiter {
 
 export interface RateLimits {
   apiToken: RateLimiter;
+  user: RateLimiter;
   exports: RateLimiter;
   reportEmails: RateLimiter;
 }
@@ -67,6 +72,7 @@ export interface RateLimits {
 export function createRateLimits(): RateLimits {
   return {
     apiToken: new RateLimiter(API_TOKEN_REQUESTS_PER_MINUTE, 60_000),
+    user: new RateLimiter(USER_REQUESTS_PER_MINUTE, 60_000),
     exports: new RateLimiter(EXPORTS_PER_HOUR, 60 * 60_000),
     reportEmails: new RateLimiter(REPORT_EMAILS_PER_HOUR, 60 * 60_000),
   };
