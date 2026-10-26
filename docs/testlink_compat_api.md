@@ -21,7 +21,7 @@ Built in phases; each is tested and checked live before the next.
 | :- | :--- | :--- |
 | 1 | Foundations: the three version paths, TestLink API keys, the envelope and errors, `/who`, `/whoAmI`, `/superman` | **Done** |
 | 2 | Reads: projects, plans, builds, the suite tree, testspec, custom fields, keywords, case lists with the query layer | **Done** |
-| 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | To do |
+| 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | **Done** |
 | 4 | `/testcasemetrics` and `/swagfile` | To do |
 | 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | To do |
 | 6 | The parity check: the same requests against TestLink and Testify, the answers compared | To do |
@@ -57,14 +57,15 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
 ## Responses and errors
 
 - **Success:** TestLink's envelope: `{"status": "ok", "message": "ok", ...}` with `id`, `item`, `items`, `details` or `metrics`. `/who` answers plain text, and `/whoAmI` and `/superman` answer `{"name": ...}`.
-- **Errors:** `{"status": "ko", "message": "..."}`.
-  - 400 for authentication or a bad request;
-  - 403 for missing rights;
-  - 404 for not found;
-  - 409 for a conflict (`id: -1`);
-  - 429 when over the rate limit (with `Retry-After`);
-  - 500 for a server error (the message carries the request id; details go only to the log).
+- **Refusals:** `{"status": "ko", "message": "..."}`, or `"status": "error"` where TestLink uses it (something not found). A write's refusal carries `id: -1`; a build's adds `details`.
+- **HTTP codes:** each route answers with the codes Dave's spec documents for it. TestLink's PHP reports most refusals in the body, with 200, so any other refusal is a 200 too. For example, a duplicate project prefix is `200 {"status":"ko",...,"id":-1}`, as `POST /testprojects` documents no 409. `POST /builds` documents 404 and 409, so it answers them. The exceptions, on every route:
+  - an authentication error is always 400;
+  - the rate limit is 429, with `Retry-After`;
+  - a server error is 500 (its message carries the request id; details go only to the log).
+
+  Each route lists its codes (`statuses` in `testlinkCompat/routes/`), and the contract test checks them against the spec.
 - **Answers from Testify's shared checks** (a NUL character, a body over the limit, the rate limit) are rewritten into this envelope.
+- **Bodies are read as JSON whatever their `Content-Type`** (or none), as TestLink reads them.
 
 ## Reads (phase 2)
 
@@ -93,11 +94,11 @@ It engages only when one of its parameters has a value. An empty one (Postman se
 **Who sees what:**
 - A project is visible when the key's user has `SPEC_VIEW` or `EXECUTE_RUN` there, as in Testify's own project list.
 - Its plans and builds need only that.
-- Its specification (cases, suites, spec, keywords, custom fields) needs `SPEC_VIEW`; without it the answer is `403 {"status":"ko","message":"Insufficient rights"}`.
+- Its specification (cases, suites, spec, keywords, custom fields) needs `SPEC_VIEW`; without it the answer is `{"status":"ko","message":"Insufficient rights"}`.
 - A project the user can't see reads as not found.
 
 **Choices made without TestLink to compare against** (phase 6 checks each against the real server):
-- **Not found:** `404 {"status":"error","message":"No Test Project identified by 'X'!","item":null}` (or `items`), as Dave's spec documents for a suite. TestLink's own code may answer such errors with 200.
+- **Not found:** `{"status":"error","message":"No Test Project identified by 'X'!","item":null}` (or `items`), in TestLink's words. It's a 404 only where Dave's spec documents one (a suite's cases).
 - **Empty lists** are `[]`, never `null`. A client that handles `null` handles `[]`, but not the other way round.
 - **`tc_external_id`** is the number TestLink keeps on the version (`"12"` for MA-12), as TestLink stores it and as the spec says for the spec dump. Every case list also gives `external_id` (`MA-12`).
 - **Extra fields beyond Dave's documented ones** (harmless to clients):
@@ -122,6 +123,63 @@ TESTLINK_OPENAPI="/path/to/openapi.yaml" npx vitest run apps/server/tests/testli
 ```
 
 Every read conforms. Where his spec contradicts itself (the 404 example has `items: null`, but the schema says an array), the answer follows the example.
+
+## Writes (phase 3)
+
+| Route | Versions | Does, in Testify |
+| :--- | :--- | :--- |
+| `POST /testprojects` | all | creates a project. `active`, `public` and `options` aren't kept |
+| `POST /testplans`, `/testplans/{id}` | all | creates or changes a plan. `active: 0` archives it, `active: 1` takes it out of the archive |
+| `POST /testplans/{id}/platforms` | v2, custom | links platforms (by name or id) to the plan; answers `{"status": true}`, or `false` with a list of problems |
+| `POST /builds`, `/builds/{id}` | v2, custom | creates or changes a run. `testplan` is the plan's number or API key, names are unique in a plan, and `is_open` closes or reopens it |
+| `POST /testsuites` | all | creates a suite; `parentID` is the project (or missing) for the top level, or a suite |
+| `POST /testcases` | all | creates a case, with its steps, keywords, custom fields and status |
+| `POST /testcases/{id}` | custom | changes a case; `{id}` is its number or external id |
+| `POST /testcases/{id}/move`, `/testsuites/{id}/move` | custom | moves within the project |
+| `POST /executions` | all | records a result |
+| `POST /keywords` | v2, custom | adds a keyword to the project |
+
+**Every write goes through Testify's own routes,** as the key's user. So Testify's permissions apply:
+- `PROJECT_CREATE`, `PLAN_MANAGE`, `RUN_MANAGE`, `SPEC_CREATE`, `SPEC_EDIT`, `SPEC_APPROVE`, `EXECUTE_RUN` and `EXECUTE_OVERWRITE`;
+- custom field values need `PLAN_MANAGE`, as everywhere in Testify;
+- keywords need `CUSTOM_FIELD_MANAGE`.
+
+Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks apply too.
+
+**Cases:**
+- **Content is versioned.** Summary, preconditions and steps live in a version that's editable only while it's a draft. So changing them on an approved case makes a new DRAFT copying the latest version, as MCP does (decided with Elliot); `status: 7` in the same request approves it. Title, importance, execution type, custom fields, keywords and the estimated duration change in place.
+- **`status` and `active` move the case through Testify's lifecycle:**
+  - 7 (final) approves;
+  - 5 (obsolete) or `active: 0` deprecates;
+  - any other status makes or keeps a draft;
+  - `active: 1` restores a deprecated case.
+
+  Approving, deprecating and restoring need `SPEC_APPROVE`, checked before anything changes. A deprecated case's content can't change until it's restored.
+- **A new case is a DRAFT when the request gives a draft status** (TestLink's default is 1), even for a user who may auto-approve. Without `status`, Testify's rule applies (`SPEC_AUTO_APPROVE`).
+- **HTML is stored as text,** cleaned as the TestLink XML importer does.
+- **The author is always the key's user**, since Testify records who made each version. `order` isn't kept, since Testify's cases have no order in a suite.
+- **A duplicate title in the suite** is refused (409), as TestLink does.
+- **`customFields`:**
+  - keys are a field's name or its number, and unknown ones are skipped;
+  - values are TestLink's strings, with lists joined with `|`, a checkbox as `1`/`0`, and a date as `YYYY-MM-DD` or a Unix timestamp;
+  - every value is checked before the case is created or changed.
+- **`keywords`** are keyword numbers: unknown ones are skipped, and `[]` clears them.
+- **`estimatedExecDuration`** is written when the project has the `estimated_exec_duration` field.
+
+**Executions:**
+- **Recorded as a CI result,** so they never auto-close a run, as TestLink never closes a build.
+- **Refused** when the code isn't p, f or b, the build is closed or isn't the plan's, or the case isn't linked to the plan.
+- **Re-recording a case** that already has a result in the run needs `EXECUTE_OVERWRITE`.
+- **In a plan with platforms,** `platformID` is required. Each (build, platform) has its own run, named "Build — Platform" and made on its first result. The builds list shows only the builds, and changing a build's name or `is_open` changes its platform runs too.
+
+**Keywords** are the options of the project's `keywords` field:
+- the first keyword creates the field, for that project;
+- a keyword's number follows the field and its text, so it doesn't change when other keywords are added;
+- a duplicate is refused, and notes aren't kept.
+
+**Not in Dave's API,** so done in Testify:
+- adding cases to a plan;
+- making platforms (the migration brings TestLink's, phase 5).
 
 ## How Testify's model maps (phases 2 to 5)
 

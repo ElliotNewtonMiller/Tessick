@@ -64,7 +64,27 @@ export async function testLinkFixture() {
     expect([b.status, b.message]).toEqual(['ok', 'ok']);
     return b;
   };
-  return { app, db, seed, admin, key, body, call, tl, ok };
+  /** A POST on the compatible API, with a JSON body; its status and body. */
+  const post = async (path: string, payload: unknown, version = 'custom', apikey = key) => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/lib/api/rest/${version}${path}`,
+      headers: {
+        'content-type': 'application/json',
+        ...(version === 'v1' ? { authorization: `Basic ${Buffer.from(`${apikey}:`).toString('base64')}` } : { apikey }),
+      },
+      payload: JSON.stringify(payload),
+    });
+    return { status: res.statusCode, body: body(res) };
+  };
+  /** A TestLink user: made by the admin with `role`, signed in, with a TestLink key. */
+  const userWithKey = async (username: string, role: string) => {
+    const password = `${username}-Key-Test-9!`;
+    await call(admin, 'POST', '/api/v1/admin/users', { username, email: `${username}@example.com`, password, global_role: role });
+    const token = body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password } })).token;
+    return (await call(token, 'POST', '/api/v1/auth/me/testlink-key')).plaintext as string;
+  };
+  return { app, db, seed, admin, key, body, call, tl, ok, post, userWithKey };
 }
 
 export const q = (params: Record<string, string>) => '?' + new URLSearchParams(params).toString();

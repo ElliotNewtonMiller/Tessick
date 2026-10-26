@@ -565,7 +565,7 @@ A receiver recomputes the signature over the raw body, compares in constant time
 Testify also serves Dave's TestLink REST API (v1, v2 and custom), so clients written for TestLink work with only the host changed. It's a translation layer in `apps/server/src/testlinkCompat/`, outside this RFC's conventions on purpose:
 - **Paths:** TestLink's own, under `/lib/api/rest/v1`, `/v2` and `/custom`, each version with the routes TestLink's has.
 - **Authentication:** a user's TestLink API key, as the `APIKEY` header or the HTTP Basic user name (v1: Basic only). It isn't accepted on `/api` or `/mcp`.
-- **Answers:** TestLink's envelope (`{status: "ok"|"ko", message, ...}`), never problem details; an authentication failure is `400 "authentication error"`, as in TestLink.
+- **Answers:** TestLink's envelope (`{status: "ok"|"ko", message, ...}`), never problem details, with the HTTP codes Dave's spec documents for each route (other refusals are 200, as TestLink's PHP answers them); an authentication failure is `400 "authentication error"`, as in TestLink.
 - **Ids:** TestLink's numeric ids, kept beside Testify's UUIDs (`compat_ids`).
 - **Writes** go through the routes in §2 as the key's user (an inner request, `via: 'testlink'`), so permissions, validation, audit rows and webhooks are the same.
 - These routes aren't in Testify's OpenAPI spec; Dave's `openapi.yaml` documents them.
@@ -626,7 +626,7 @@ sequenceDiagram
 | **REST conventions** | Resource naming, verbs, status codes, one id name each (§1-2) | Built (2026-10-12). OpenAPI spec at `/docs/json` for every route; no paging yet ([api_roadmap.md](api_roadmap.md) steps 3-4). |
 | **CI results** | Batch endpoint with all-or-nothing mode (§3) | Built: up to 5,000 results and 50 MB per request, one transaction. |
 | **Errors** | Problem details for every error, with a code registry (§4) | Built. |
-| **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phases 1 and 2 of 6 built: paths, keys, envelope, test routes, and every read with the query layer ([testlink_compat_api.md](testlink_compat_api.md)). |
+| **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phases 1 to 3 of 6 built: paths, keys, envelope, test routes, every read with the query layer, and every write ([testlink_compat_api.md](testlink_compat_api.md)). |
 | **Closed runs, locked plans** | Writes rejected with HTTP 422 `RUN_CLOSED` / `PLAN_LOCKED` (§4.1) | Built. |
 | **Attachments and retention** | `IStorageProvider`, pre-signed uploads, 365-day purge (§5) | Not built. Audit logs append-only forever: built. |
 | **Import formats** | Parser interface; TestLink XML, JSON, CSV (§6.1-6.2) | Built, plus JUnit XML and TestRail CSV. |

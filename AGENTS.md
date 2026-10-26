@@ -75,8 +75,9 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/testlinkCompat/  The TestLink-compatible API (/lib/api/rest/{v1,v2,custom}, docs/testlink_compat_api.md):
                    index.ts (mounting per version), auth.ts (TestLink API keys), envelope.ts (TestLink's answers),
-                   versions.ts, projectData.ts (Testify's rows as TestLink rows, with numeric ids), routes/ (one file per
-                   area; reads use the repositories, writes go through innerRequest with via 'testlink').
+                   versions.ts, projectData.ts (Testify's rows as TestLink rows, with numeric ids), writes.ts (calling
+                   Testify's routes as the key's user, refusals in TestLink's envelope), routes/ (one file per area;
+                   reads use the repositories, writes go through innerRequest with via 'testlink').
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
@@ -167,6 +168,8 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Sent as the `APIKEY` header (v2, custom) or the HTTP Basic user name (every version; v1 takes only that). Accepted **only** on `/lib/api/rest/...` (`testlinkCompat/auth.ts`), never on `/api` or `/mcp`.
 - It acts as its user, with their permissions in each project, and counts against the per-user limit. Writes go through Testify's routes as an inner request carrying the user's id (`innerRequest(..., { asUserId })`, `via: 'testlink'`, honoured only with the per-process secret).
 - A missing or wrong key gets TestLink's `400 {"status":"ko","message":"authentication error"}`; every answer on those paths is TestLink's envelope, not problem details.
+- Each compat route answers only with the HTTP codes Dave's spec documents for it (`statuses` on the route): any other refusal is a 200 with `status: "ko"`/`"error"`, as TestLink's PHP answers, except auth (400), the rate limit (429) and server errors.
+- Editing an approved case's content through it makes a new DRAFT (as MCP; decided with Elliot); `status: 7` approves, `5`/`active: 0` deprecates, both needing SPEC_APPROVE.
 
 **Permissions:**
 - The registry is in `packages/core/src/rbac/registry.ts` (20 keys).
@@ -197,7 +200,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Lists that grow (a project's cases, a run's results, a plan's runs, the audit log, case history) are paged: `limit` and `cursor` in, `next_cursor` out (null on the last page). Keyset helpers are in `packages/db/src/paging.ts`; routes read the page with `readPage` (`apps/server/src/paging.ts`), which answers `400 INVALID_CURSOR`. Short lists stay whole.
   - Fields are snake_case, and ids are named after their database columns (`test_plan_id`, `test_run_id`, `test_case_id`, ...). Never "build" or "execution" in a new address, field or code.
   - A case may be named by its readable id (SHOP-12) wherever a case id is taken: `authenticateRequest` replaces `:caseId`, `test_case_id` and `case_ids` with internal ids once the caller is known (`caseRefs.ts`). A readable id shared by several projects is settled by the request's project or an API token's, otherwise `400 AMBIGUOUS_CASE_ID`.
-  - Bulk changes (`routes/bulkChanges.ts`) and MCP write tools run each change through its ordinary route in-process (`innerRequest` in `internalRequests.ts`, as the caller), so they need no rules of their own. Such requests carry a per-process secret: they aren't rate-limited twice, and `internalVia(request)` says `bulk` or `mcp` (`mcp` makes new cases DRAFT and marks audit User-Agents "(via Testify MCP)").
+  - Bulk changes (`routes/bulkChanges.ts`) and MCP write tools run each change through its ordinary route in-process (`innerRequest` in `internalRequests.ts`, as the caller), so they need no rules of their own. Such requests carry a per-process secret: they aren't rate-limited twice, and `internalVia(request)` says `bulk`, `mcp` or `testlink` (`mcp` makes new cases DRAFT and marks audit User-Agents "(via Testify MCP)"; `testlink` acts as the key's user, marks them "(via TestLink API)", and starts a case as DRAFT when the client asked for one: `startsAsDraft`).
   - In the web app, take addresses from `apps/web/src/api/routes.ts`.
 - **Route schemas (OpenAPI):**
   - A documented route has `schema` (tags, summary, params, query, body, responses) from `apps/server/src/openapi/areas/<area>.ts`; shared schemas and helpers (`wrapped`, `list`, `authedErrors`, `NO_CONTENT`, `FORCE_QUERY`, `handlerValidated`, and `oneOf` for any field limited to a set of values, which also lists them in the description) are in `openapi/schemas.ts`. Routes without a tag stay out of the spec, and `openapi.test.ts` fails if any `/api` or `/mcp` route is missing (or mark it `hide: true`).
@@ -281,6 +284,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - A custom-field change made by another admin shows only after the next case or suite switch or a reload; nothing is pushed.
 - `AuditLogRepository` is used only by tests; routes insert audit rows directly.
 - Recharts 2 is deprecated upstream; the Recharts 3 upgrade hasn't been done.
+- The TestLink-compatible API can't add cases to a plan or make platforms (Dave's API has no such calls): that's done in Testify, or by the migration (phase 5).
 - Webhooks:
   - No filters beyond events (e.g. only one plan's runs).
   - Events are queued just after their change commits, so a crash between the two loses one. Order isn't guaranteed across retries.

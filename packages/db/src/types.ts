@@ -337,6 +337,9 @@ export interface Database {
   compat_ids: CompatIdsTable;
   user_api_keys: UserApiKeysTable;
   compat_api_keys: CompatApiKeysTable;
+  compat_platforms: CompatPlatformsTable;
+  compat_plan_platforms: CompatPlanPlatformsTable;
+  compat_platform_runs: CompatPlatformRunsTable;
 }
 
 /** TestLink's numeric id for a Testify row, in its id space (migration 016; testlinkCompat). */
@@ -362,6 +365,29 @@ export interface CompatApiKeysTable {
   entity_type: string;
   entity_id: string;
   api_key: string;
+}
+
+/** A project's TestLink platform (migration 017; testlinkCompat). */
+export interface CompatPlatformsTable {
+  id: string;
+  project_id: string;
+  name: string;
+  notes: string | null;
+  created_at: string;
+}
+
+/** A platform linked to a plan (migration 017). */
+export interface CompatPlanPlatformsTable {
+  test_plan_id: string;
+  platform_id: string;
+  created_at: string;
+}
+
+/** The run a build's results on one platform go in (migration 017). */
+export interface CompatPlatformRunsTable {
+  build_run_id: string;
+  platform_id: string;
+  run_id: string;
 }
 
 /** A result request's Idempotency-Key and, once it succeeded, its answer (migration 015). */

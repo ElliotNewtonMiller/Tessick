@@ -3,11 +3,14 @@ import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
 import { logServerError } from '../errors.js';
 import { compatAuth } from './auth.js';
-import { problemToEnvelope, tlKo } from './envelope.js';
+import { isAuthFailure, problemToEnvelope, tlKo } from './envelope.js';
 import { TESTLINK_VERSIONS, versionPrefix, type TestLinkVersion } from './versions.js';
 import { basicRoutes } from './routes/basics.js';
 import { projectRoutes } from './routes/projects.js';
 import { specRoutes } from './routes/spec.js';
+import { projectWriteRoutes } from './routes/projectWrites.js';
+import { specWriteRoutes } from './routes/specWrites.js';
+import { executionRoutes } from './routes/executions.js';
 
 /**
  * Testify's TestLink-compatible API: Dave's TestLink REST API (v1, v2 and custom), answered
@@ -30,16 +33,34 @@ export interface CompatRoute {
   versions: TestLinkVersion[];
   /** Needs a TestLink API key (testlinkCompat/auth.ts). */
   auth: boolean;
+  /**
+   * The HTTP codes besides 200 Dave's spec documents for the route. TestLink's PHP reports most
+   * refusals in the body (`status: "ko"` or `"error"`) with 200, so any other code a handler
+   * sends becomes 200, except an authentication error (400), the rate limit (429) and a server
+   * error (5xx).
+   */
+  statuses: number[];
   handle: (request: FastifyRequest, reply: FastifyReply, ctx: CompatContext) => Promise<unknown>;
 }
 
-export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes, ...projectRoutes, ...specRoutes];
+export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes, ...projectRoutes, ...specRoutes, ...projectWriteRoutes, ...specWriteRoutes, ...executionRoutes];
 
 export async function registerTestLinkCompat(app: FastifyInstance, db: Kysely<Database>): Promise<void> {
   for (const version of TESTLINK_VERSIONS) {
     await app.register(
       async (scope) => {
         scope.addHook('onSend', problemToEnvelope);
+        // TestLink reads every body as JSON, whatever its Content-Type (or none).
+        scope.removeContentTypeParser('text/plain');
+        scope.addContentTypeParser('*', { parseAs: 'string' }, (_request, body, done) => {
+          const text = String(body ?? '').trim();
+          if (!text) return done(null, undefined);
+          try {
+            done(null, JSON.parse(text));
+          } catch {
+            done(Object.assign(new Error("The request body isn't valid JSON"), { statusCode: 400 }), undefined);
+          }
+        });
         scope.setNotFoundHandler((request, reply) => tlKo(reply, 404, `Route ${request.method} ${request.url.split('?')[0]} not found`));
         scope.setErrorHandler((error: any, request, reply) => {
           const status = typeof error?.statusCode === 'number' && error.statusCode < 500 ? error.statusCode : 500;
@@ -48,10 +69,16 @@ export async function registerTestLinkCompat(app: FastifyInstance, db: Kysely<Da
         });
         const ctx: CompatContext = { db, version };
         for (const route of COMPAT_ROUTES.filter((r) => r.versions.includes(version))) {
+          const documented = new Set([200, ...route.statuses]);
           scope.route({
             method: route.method,
             url: route.path,
             schema: { hide: true },
+            onSend: async (_request, reply, payload) => {
+              const code = reply.statusCode;
+              if (!documented.has(code) && code < 500 && code !== 429 && !isAuthFailure(reply)) reply.code(200);
+              return payload;
+            },
             ...(route.auth ? { preHandler: compatAuth(db, version) } : {}),
             handler: (request, reply) => route.handle(request, reply, ctx),
           });

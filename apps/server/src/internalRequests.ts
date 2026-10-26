@@ -23,6 +23,7 @@ const INTERNAL_SECRET = randomBytes(32).toString('hex');
 const SECRET_HEADER = 'x-testify-internal';
 const VIA_HEADER = 'x-testify-via';
 const USER_HEADER = 'x-testify-internal-user';
+const DRAFT_HEADER = 'x-testify-start-draft';
 
 export type InternalVia = 'bulk' | 'mcp' | 'testlink';
 
@@ -44,6 +45,16 @@ export function internalUserId(request: FastifyRequest): string | null {
   return typeof id === 'string' && id ? id : null;
 }
 
+/**
+ * Whether a case this request creates starts as a DRAFT even for a user who may auto-approve:
+ * always through MCP, and through the TestLink-compatible API when the client asked for a
+ * draft status (TestLink's default).
+ */
+export function startsAsDraft(request: FastifyRequest): boolean {
+  const via = internalVia(request);
+  return via === 'mcp' || (via === 'testlink' && request.headers[DRAFT_HEADER] === '1');
+}
+
 export interface InnerResponse {
   status: number;
   body: any;
@@ -56,9 +67,10 @@ export async function innerRequest(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
   payload?: unknown,
-  options: { asUserId?: string } = {}
+  options: { asUserId?: string; startDraft?: boolean } = {}
 ): Promise<InnerResponse> {
   const headers: Record<string, string> = { [SECRET_HEADER]: INTERNAL_SECRET, [VIA_HEADER]: via };
+  if (options.startDraft) headers[DRAFT_HEADER] = '1';
   if (options.asUserId) {
     headers[USER_HEADER] = options.asUserId;
   } else {

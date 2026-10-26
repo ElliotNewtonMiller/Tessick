@@ -3438,3 +3438,94 @@ The full suite passes (788, plus the contract test skipped without the file), an
   - an unknown project's 404 `status: "error"`;
   - a bad `cfFilters`' 400;
   - `/testspec` on v1, TestLink's route 404.
+
+## TestLink-compatible API, phase 3: every write (2026-10-26)
+
+Phase 3 of the TestLink-compatible API (`docs/testlink_compat_api.md`, roadmap step 10): every write in Dave's TestLink REST API.
+
+**Routes** (`testlinkCompat/routes/projectWrites.ts`, `specWrites.ts`, `executions.ts`):
+- **Projects and plans:** `POST /testprojects`; `/testplans` and `/testplans/{id}`, where `active: 0` archives and `active: 1` takes a plan out of the archive.
+- **Platforms:** `/testplans/{id}/platforms`, answering `status: true` or `false` with a list of problems, as Dave documents.
+- **Builds:** `/builds` and `/builds/{id}`:
+  - by plan number or API key;
+  - a name is unique in a plan;
+  - `is_open` closes or reopens it.
+- **Spec:** `/testsuites`, `/testcases`, `/testcases/{id}`, `/testcases/{id}/move` and `/testsuites/{id}/move`.
+- **Executions and keywords:** `/executions` and `/keywords`.
+
+**Through Testify's own routes** (`writes.ts`): every change is an inner request as the key's user, so Testify's permissions, validation, audit rows ("… (via TestLink API)") and webhooks apply. A refusal comes back in TestLink's envelope.
+
+**Cases:**
+- **Approved content:** changing an approved case's summary, preconditions or steps makes a new DRAFT, as MCP does (decided with Elliot); `status: 7` approves it in the same request.
+- **Lifecycle:**
+  - `status`/`active` go through Testify's approve, deprecate and restore routes (needing `SPEC_APPROVE`, checked first);
+  - a deprecated case's content changes only after `active: 1` restores it.
+- **Drafts:** a draft status (TestLink's default) makes the new case a DRAFT even for a user who may auto-approve. `startsAsDraft` in `internalRequests.ts` now covers MCP and this.
+- **Content and fields:**
+  - HTML is stored as text, cleaned as the XML importer does (`cleanHtmlText`, now exported);
+  - custom field values are TestLink's strings, each checked before anything changes, with unknown fields skipped;
+  - keywords are keyword numbers, and `[]` clears them;
+  - a duplicate title in the suite is refused.
+
+**Executions:**
+- **Recorded through the CI batch route,** so they never auto-close a run.
+- **Refused** when the code isn't p/f/b, the build is closed or isn't the plan's, or the case isn't linked to the plan. Testify's batch would add an approved case to the plan; TestLink refuses, so this does too.
+- **Platforms:** migration `017_testlink_platforms` adds `compat_platforms`, `compat_plan_platforms` and `compat_platform_runs`, with `CompatPlatformRepository`.
+  - In a plan with platforms, each (build, platform) gets its own run ("Build — Platform") on its first result.
+  - The builds list leaves these runs out, and they follow their build's name and `is_open`.
+  - Linking platforms writes a `PLAN_PLATFORMS_LINKED` audit row.
+
+**Keywords:**
+- **The field:** a keyword is an option of the project's `keywords` MULTI_SELECT field; the first one creates the field (`CUSTOM_FIELD_MANAGE`).
+- **Numbers:** changing a field's options replaces their rows, so a keyword's number now hangs on a digest of the field and its text (`keywordKey`), not the option row. Phase 2 used the row id, which changed whenever a keyword was added.
+
+**HTTP codes as Dave documents them:**
+- **The rule:** Dave's spec lists 4xx codes for only some routes: builds, case updates and moves, suite moves, the duplicate case. On the others, such as creating a project, plan, suite, keyword or execution, a refusal is reported in the body, as TestLink's PHP does.
+- **How:** each route now lists its documented codes (`statuses`). Any other refusal becomes 200 with `status: "ko"`/`"error"`, except an authentication error (400), the rate limit (429) and server errors.
+- **Phase 2's not-found answers** for projects and plans are therefore 200 with `status: "error"`; a suite's cases keep their documented 404.
+- **The contract test** checks every route's versions and codes against the spec.
+
+**Other changes:**
+- Bodies are read as JSON whatever their `Content-Type`, as TestLink reads them. Fastify's text/plain parser is removed in the compat scope.
+- The core gains the write-direction mappings in `map.ts`: `priorityFromImportance`, `executionTypeFromCode`, `statusTarget`, `customFieldValueFromString` and `TL_EXECUTION_STATUS`.
+
+**Not in Dave's API,** so done in Testify: adding cases to a plan, and making platforms (the migration brings TestLink's).
+
+**Tests:**
+- **`testlink_compat_writes.test.ts` (11):**
+  - projects and plans (archived, renamed, refused);
+  - builds (by key, duplicate name, open and close, invalid);
+  - suites (top level, nested, bad parent);
+  - Dave's full case example (HTML, steps, keywords, custom fields, draft for an auto-approving admin, status 7, duplicate, a bad value refused before anything is made);
+  - a tester refused approval and a viewer refused creation;
+  - case updates (fields in place, a new draft, approving it, clearing keywords, deprecating, refused until restored, restoring);
+  - case and suite moves (no-op, cross-project, into a descendant, back to the top);
+  - keywords (first makes the field, ids stable as more are added, duplicate);
+  - executions (ten results leave the run open; bad code, unlinked case, missing field, closed build);
+  - platforms (validation, a run per platform, builds list, a rename and close followed);
+  - a text/plain body, an invalid one, and the audit User-Agent.
+- **Core (+2):** the write mappings and `keywordKey`.
+- **Contract test:**
+  - every write's answer conforms to Dave's spec;
+  - each route's versions and codes match it.
+- **Expectations moved from 403/404/409 to 200** in the read and write tests where the spec documents no such code.
+
+The full suite passes (801, plus the 3 contract tests skipped without Dave's file), and the type check is clean.
+
+**Verified live** on the dev server, with `curl` and a TestLink key:
+- **Spec:**
+  - created a project (a duplicate prefix answered `200 status:"ko"`);
+  - a suite and a nested one;
+  - a keyword;
+  - a case with HTML, steps, keyword and `status: 7`.
+- **Plans and executions:**
+  - created a plan and a build;
+  - linked the case to the plan in Testify;
+  - recorded a failed execution, and the run stayed open with 1 of 1 done.
+- **Case updates:**
+  - edited the approved case's summary, which made version 2, a DRAFT, and skipped an unknown custom field;
+  - `status: 7` approved it.
+- **Moves:**
+  - moved the case and a suite;
+  - moving a suite into its descendant answered the documented 409.
+- **Audit:** the rows carry "curl/8.5.0 (via TestLink API)".

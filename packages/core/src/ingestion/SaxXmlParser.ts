@@ -32,7 +32,8 @@ function decodeHtmlEntities(text: string): string {
   });
 }
 
-function cleanHtmlText(html: string): string {
+/** TestLink's HTML (summaries, steps) as plain text: paragraphs and line breaks kept, tags dropped, entities decoded. */
+export function cleanHtmlText(html: string): string {
   if (!html) return '';
   const text = html
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * Testify's values as TestLink's REST API shows them (docs/testlink_compat_api.md, "How
  * Testify's model maps"), and back. Pure, so the TestLink-compatible API, its migration and its
@@ -91,8 +93,78 @@ export const TL_CHECKBOX_VALUE = '1';
 export const TL_KEYWORDS_FIELD = 'keywords';
 export const TL_DURATION_FIELD = 'estimated_exec_duration';
 
+/**
+ * The stable key a keyword's numeric id hangs on: its field and its text, as a UUID-shaped
+ * digest. (A field's options are replaced whole when they change, so their row ids don't last.)
+ */
+export function keywordKey(fieldId: string, keyword: string): string {
+  const hex = createHash('sha256').update(`${fieldId}\u0000${keyword}`).digest('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 /** The number TestLink keeps on the version ("1" for MA-1); the whole id when it has no number. */
 export function externalIdNumber(externalId: string): string {
   const match = /-(\d+)$/.exec(externalId);
   return match ? match[1] : externalId;
+}
+
+// --- From TestLink's values (the compatible API's writes) -----------------------------------
+
+/** TestLink's importance (1-3) as a Testify priority; anything else is left unset. */
+export function priorityFromImportance(importance: unknown): 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
+  const n = Number(importance);
+  return n === 1 ? 'LOW' : n === 2 ? 'MEDIUM' : n === 3 ? 'HIGH' : undefined;
+}
+
+/** TestLink's execution_type (1, 2) as Testify's. */
+export function executionTypeFromCode(code: unknown): 'MANUAL' | 'AUTOMATED' | undefined {
+  const n = Number(code);
+  return n === 1 ? 'MANUAL' : n === 2 ? 'AUTOMATED' : undefined;
+}
+
+/**
+ * The lifecycle a TestLink write asks for, from its `status` (1-7) and `active` (0, 1):
+ * final is APPROVED, obsolete or inactive DEPRECATED, every other status DRAFT. `reactivate`
+ * is `active: 1` without a status: a deprecated case is restored, any other left as it is.
+ */
+export function statusTarget(status: unknown, active: unknown): { target?: 'DRAFT' | 'APPROVED' | 'DEPRECATED'; reactivate: boolean } {
+  const a = active === undefined || active === null || active === '' ? undefined : Number(active);
+  const s = status === undefined || status === null || status === '' ? undefined : Number(status);
+  if (a === 0 || s === TL_STATUS.obsolete) return { target: 'DEPRECATED', reactivate: false };
+  if (s === TL_STATUS.final) return { target: 'APPROVED', reactivate: false };
+  if (s !== undefined && Number.isInteger(s) && s >= 1 && s <= 7) return { target: 'DRAFT', reactivate: false };
+  return { reactivate: a === 1 };
+}
+
+/** TestLink's execution status codes, as Testify verdicts ("n", not run, isn't a result). */
+export const TL_EXECUTION_STATUS: Record<string, 'PASSED' | 'FAILED' | 'BLOCKED'> = { p: 'PASSED', f: 'FAILED', b: 'BLOCKED' };
+
+/**
+ * A custom field value a TestLink client sent (a string, as TestLink stores it) as the value
+ * Testify's field takes: lists split on "|", numbers and checkboxes parsed, and a date given as
+ * a Unix timestamp (as TestLink keeps dates) turned into YYYY-MM-DD. What doesn't parse is
+ * passed on as given, for Testify's validation to refuse with its own message.
+ */
+export function customFieldValueFromString(fieldType: string, raw: unknown): unknown {
+  if (raw === null || raw === undefined) return null;
+  if (fieldType === 'MULTI_SELECT') {
+    const parts = Array.isArray(raw) ? raw.map(String) : String(raw).split(TL_LIST_SEPARATOR);
+    return parts.map((p) => p.trim()).filter(Boolean);
+  }
+  const text = String(raw).trim();
+  if (text === '') return null;
+  switch (fieldType) {
+    case 'NUMBER':
+      return Number.isFinite(Number(text)) ? Number(text) : text;
+    case 'CHECKBOX': {
+      const lower = text.toLowerCase();
+      if (['1', 'true', 'yes', 'on', 'checked'].includes(lower)) return true;
+      if (['0', 'false', 'no', 'off'].includes(lower)) return false;
+      return text;
+    }
+    case 'DATE':
+      return /^\d{9,11}$/.test(text) ? new Date(Number(text) * 1000).toISOString().slice(0, 10) : text;
+    default:
+      return text;
+  }
 }

@@ -15,7 +15,7 @@ import { validateStepsInput } from '../services/stepValidation.js';
 import type { InvalidParam } from '../services/resultValidation.js';
 import { actorType, requestOrigin, type RequestOrigin } from '../audit.js';
 import * as S from '../openapi/areas/spec.js';
-import { internalVia } from '../internalRequests.js';
+import { internalVia, startsAsDraft } from '../internalRequests.js';
 import { emitTestCaseEvent, webhookActor } from '../services/webhookEvents.js';
 import { PRIORITIES, VERSION_STATUSES } from '../openapi/schemas.js';
 import { commaList, readPage } from '../paging.js';
@@ -318,7 +318,7 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
       // to the full registry (see CLAUDE.md's "machine API tokens" entry), so any SYSTEM_ADMIN
       // holder's permissions array already contains this key.
       // Cases an AI agent creates through MCP always start as DRAFT, for a person to approve.
-      let autoApprove = actor.permissions.includes('SPEC_AUTO_APPROVE') && internalVia(request) !== 'mcp';
+      let autoApprove = actor.permissions.includes('SPEC_AUTO_APPROVE') && !startsAsDraft(request);
       if (autoApprove) {
         // A brand-new case has no custom field values yet, so any required TestCase field
         // with no default_value is unconditionally unsatisfied -- don't auto-approve past a

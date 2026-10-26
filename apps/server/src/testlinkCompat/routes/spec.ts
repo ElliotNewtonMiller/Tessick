@@ -74,6 +74,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/testcases',
+    statuses: [400],
     versions: ALL,
     auth: true,
     // Every case's latest version; v2 and custom add keywords and custom fields. suiteIds
@@ -93,6 +94,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testsuites/:id/testcases',
+    statuses: [400, 404, 500],
     versions: CUSTOM,
     auth: true,
     // The suite's own cases, or with deep=1 its sub-suites' too.
@@ -114,6 +116,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/testsuites',
+    statuses: [400, 500],
     versions: CUSTOM,
     auth: true,
     handle: refusingBadParams(async (request, reply, ctx) => {
@@ -126,6 +129,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/testspec',
+    statuses: [400, 500],
     versions: CUSTOM,
     auth: true,
     handle: async (request, reply, ctx) => {
@@ -141,6 +145,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/keywords',
+    statuses: [400, 500],
     versions: CUSTOM,
     auth: true,
     handle: async (request, reply, ctx) => {
@@ -152,6 +157,7 @@ export const specRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/customfields',
+    statuses: [400, 500],
     versions: CUSTOM,
     auth: true,
     handle: async (request, reply, ctx) => {

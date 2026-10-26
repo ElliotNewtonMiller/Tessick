@@ -198,3 +198,87 @@ export class CompatApiKeyRepository {
       .execute();
   }
 }
+
+export interface CompatPlatform {
+  id: string;
+  project_id: string;
+  name: string;
+  notes: string | null;
+}
+
+/**
+ * TestLink's platforms (migration 017). Testify has none of its own: a build of a plan with
+ * platforms keeps one run per platform, made on the first result (`platformRun`).
+ */
+export class CompatPlatformRepository {
+  constructor(private db: Kysely<Database>) {}
+
+  /** A new platform in a project (the migration from TestLink makes them; TestLink's API can't). */
+  async create(projectId: string, name: string, notes: string | null = null): Promise<CompatPlatform> {
+    const row = { id: uuidv7(), project_id: projectId, name, notes, created_at: new Date().toISOString() };
+    await this.db.insertInto('compat_platforms').values(row).execute();
+    return { id: row.id, project_id: projectId, name, notes };
+  }
+
+  async listForProject(projectId: string): Promise<CompatPlatform[]> {
+    return this.db.selectFrom('compat_platforms').select(['id', 'project_id', 'name', 'notes']).where('project_id', '=', projectId).orderBy('name').execute();
+  }
+
+  async linkToPlan(planId: string, platformIds: string[]): Promise<void> {
+    if (platformIds.length === 0) return;
+    const now = new Date().toISOString();
+    await this.db
+      .insertInto('compat_plan_platforms')
+      .values(platformIds.map((platform_id) => ({ test_plan_id: planId, platform_id, created_at: now })))
+      .onConflict((oc) => oc.columns(['test_plan_id', 'platform_id']).doNothing())
+      .execute();
+  }
+
+  async platformsOfPlan(planId: string): Promise<CompatPlatform[]> {
+    return this.db
+      .selectFrom('compat_plan_platforms')
+      .innerJoin('compat_platforms', 'compat_platforms.id', 'compat_plan_platforms.platform_id')
+      .select(['compat_platforms.id', 'compat_platforms.project_id', 'compat_platforms.name', 'compat_platforms.notes'])
+      .where('compat_plan_platforms.test_plan_id', '=', planId)
+      .orderBy('compat_platforms.name')
+      .execute();
+  }
+
+  /** The run a build's results on a platform go in, if it has been made. */
+  async platformRun(buildRunId: string, platformId: string): Promise<string | undefined> {
+    const row = await this.db
+      .selectFrom('compat_platform_runs')
+      .select('run_id')
+      .where('build_run_id', '=', buildRunId)
+      .where('platform_id', '=', platformId)
+      .executeTakeFirst();
+    return row?.run_id;
+  }
+
+  /** Records a platform's run for a build; when another request got there first, its run (the caller's is then unused). */
+  async setPlatformRun(buildRunId: string, platformId: string, runId: string): Promise<string> {
+    await this.db
+      .insertInto('compat_platform_runs')
+      .values({ build_run_id: buildRunId, platform_id: platformId, run_id: runId })
+      .onConflict((oc) => oc.columns(['build_run_id', 'platform_id']).doNothing())
+      .execute();
+    return (await this.platformRun(buildRunId, platformId))!;
+  }
+
+  /** A build's platform runs. */
+  async runsOfBuild(buildRunId: string): Promise<Array<{ platform_id: string; run_id: string; name: string }>> {
+    return this.db
+      .selectFrom('compat_platform_runs')
+      .innerJoin('compat_platforms', 'compat_platforms.id', 'compat_platform_runs.platform_id')
+      .select(['compat_platform_runs.platform_id', 'compat_platform_runs.run_id', 'compat_platforms.name'])
+      .where('compat_platform_runs.build_run_id', '=', buildRunId)
+      .execute();
+  }
+
+  /** Which of these runs are platform runs (not builds of their own). */
+  async platformRunIds(runIds: string[]): Promise<Set<string>> {
+    if (runIds.length === 0) return new Set();
+    const rows = await this.db.selectFrom('compat_platform_runs').select('run_id').where('run_id', 'in', runIds).execute();
+    return new Set(rows.map((r) => r.run_id));
+  }
+}

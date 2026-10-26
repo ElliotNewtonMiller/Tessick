@@ -26,7 +26,13 @@ export function tlError(reply: FastifyReply, httpStatus: number, message: string
 
 export const INSUFFICIENT_RIGHTS = 'Insufficient rights';
 
+const authFailures = new WeakSet<FastifyReply>();
+
+/** Whether the reply is TestLink's authentication error, which is a 400 on every route. */
+export const isAuthFailure = (reply: FastifyReply) => authFailures.has(reply);
+
 export function tlAuthError(reply: FastifyReply) {
+  authFailures.add(reply);
   return tlKo(reply, 400, AUTH_ERROR_MESSAGE);
 }
 
@@ -47,6 +53,7 @@ export async function problemToEnvelope(_request: FastifyRequest, reply: Fastify
   }
   reply.header('content-type', 'application/json; charset=utf-8');
   if (reply.statusCode === 401) {
+    authFailures.add(reply);
     reply.code(400);
     return JSON.stringify({ status: 'ko', message: AUTH_ERROR_MESSAGE });
   }

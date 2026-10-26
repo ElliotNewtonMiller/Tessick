@@ -1,4 +1,4 @@
-import { CompatApiKeyRepository, CompatIdRepository, ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
+import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
 import { buildFlags, planFlags } from '@testify/core';
 import type { CompatRoute } from '../index.js';
 import { ALL, V2_UP } from '../versions.js';
@@ -15,6 +15,7 @@ export const projectRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects',
+    statuses: [400],
     versions: ALL,
     auth: true,
     // Every project the caller can see, as `item` (an array, as TestLink names it).
@@ -29,6 +30,7 @@ export const projectRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id',
+    statuses: [400],
     versions: ALL,
     auth: true,
     handle: async (request, reply, ctx) => {
@@ -41,6 +43,7 @@ export const projectRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testprojects/:id/testplans',
+    statuses: [500],
     versions: ALL,
     auth: true,
     handle: async (request, reply, ctx) => {
@@ -70,6 +73,7 @@ export const projectRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/testplans/:id/builds',
+    statuses: [400],
     versions: V2_UP,
     auth: true,
     // `{id}` is the plan's API key, not its id (as in TestLink).
@@ -79,7 +83,10 @@ export const projectRoutes: CompatRoute[] = [
       const planId = await new CompatApiKeyRepository(ctx.db).entityFor('plan', id);
       const plan = planId ? await new TestPlanRepository(ctx.db).findById(planId) : undefined;
       if (!plan || !(await projectAccess(request, ctx, plan.project_id)).visible) return notFound();
-      const runs = (await new TestRunRepository(ctx.db).findByTestPlan(plan.id)).sort(byName);
+      // A build's per-platform runs aren't builds of their own.
+      const allRuns = await new TestRunRepository(ctx.db).findByTestPlan(plan.id);
+      const platformRuns = await new CompatPlatformRepository(ctx.db).platformRunIds(allRuns.map((r) => r.id));
+      const runs = allRuns.filter((r) => !platformRuns.has(r.id)).sort(byName);
       const ids = new CompatIdRepository(ctx.db);
       const buildIds = await ids.intIds('build', runs.map((r) => r.id));
       const planIntId = await ids.intId('plan', plan.id);

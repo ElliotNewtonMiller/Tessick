@@ -34,7 +34,7 @@ describe('TestLink-compatible API: reads', () => {
     // v1 doesn't take a prefix; an unknown project is TestLink's error.
     for (const [path, version] of [['/testprojects/SHOP', 'v1'], ['/testprojects/999999', 'custom'], ['/testprojects/999999/testplans', 'custom']]) {
       const res = await tl(path, version);
-      expect([res.statusCode, body(res).status, body(res).message], path).toEqual([404, 'error', `No Test Project identified by '${path.split('/')[2]}'!`]);
+      expect([res.statusCode, body(res).status, body(res).message], path).toEqual([200, 'error', `No Test Project identified by '${path.split('/')[2]}'!`]);
     }
   });
 
@@ -48,7 +48,7 @@ describe('TestLink-compatible API: reads', () => {
     // Not on v1; an unknown key is an error.
     expect((await tl(`/testplans/${plans[0].api_key}/builds`, 'v1')).statusCode).toBe(404);
     const unknown = await tl('/testplans/nope/builds');
-    expect([unknown.statusCode, body(unknown).status]).toEqual([404, 'error']);
+    expect([unknown.statusCode, body(unknown).status]).toEqual([200, 'error']);
   });
 
   it("lists a project's cases in TestLink's shape; v1 without keywords and custom fields", async () => {
@@ -193,7 +193,7 @@ describe('TestLink-compatible API: reads', () => {
     const as = (path: string) => tl(path, 'custom', runnerKey);
 
     expect(body(await as('/testprojects')).item).toEqual([]);
-    expect((await as('/testprojects/SHOP')).statusCode).toBe(404);
+    expect(body(await as('/testprojects/SHOP')).status).toBe('error');
 
     await call(admin, 'POST', '/api/v1/admin/roles', { name: 'Runner only', permission_keys: ['EXECUTE_RUN'] });
     await call(admin, 'PATCH', `/api/v1/admin/users/${user.id}/roles`, { project_roles: [{ project_id: seed.projectId, role: 'Runner only' }] });
@@ -201,7 +201,7 @@ describe('TestLink-compatible API: reads', () => {
     expect((await as('/testprojects/SHOP/testplans')).statusCode).toBe(200);
     for (const path of ['/testprojects/SHOP/testcases', '/testprojects/SHOP/testspec', '/testprojects/SHOP/testsuites']) {
       const res = await as(path);
-      expect([res.statusCode, body(res)], path).toEqual([403, { status: 'ko', message: 'Insufficient rights' }]);
+      expect([res.statusCode, body(res)], path).toEqual([200, { status: 'ko', message: 'Insufficient rights' }]);
     }
   });
 });

@@ -6,6 +6,7 @@ export const basicRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/who',
+    statuses: [],
     versions: ALL,
     auth: false,
     // Plain text, no envelope (ICD §3.2).
@@ -14,6 +15,7 @@ export const basicRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/whoAmI',
+    statuses: [400],
     versions: ALL,
     auth: true,
     handle: async (_request, reply) => reply.send({ name: 'tlRestApi : You have called Get Route /whoAmI' }),
@@ -21,6 +23,7 @@ export const basicRoutes: CompatRoute[] = [
   {
     method: 'GET',
     path: '/superman',
+    statuses: [400],
     versions: V2_UP,
     auth: true,
     handle: async (_request, reply) => reply.send({ name: 'tlRestApi : You have called the Get Route /superman' }),

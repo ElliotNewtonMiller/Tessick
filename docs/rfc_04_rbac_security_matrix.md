@@ -299,7 +299,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Webhooks | `WEBHOOK_CREATED`, `WEBHOOK_UPDATED`, `WEBHOOK_DELETED`, `WEBHOOK_SECRET_ROTATED`, `WEBHOOK_AUTO_PAUSED` (by the system) |
 | Agents | `MCP_WRITE` (one per MCP write-tool call) |
 
-Plans and runs are audited too (`PLAN_CREATED`, `PLAN_UPDATED`, `PLAN_DELETED`, `RUN_CREATED`, `RUN_UPDATED`, `RUN_CLOSED`, `RUN_REOPENED`, `RUN_DELETED`), with what changed (`changes: { field: { from, to } }`), how a run was made or closed (`via: run_name` or `close_run` for CI), and what a delete destroyed (`deleted_runs`, `deleted_results`). Of these, only the deletes show in the Admin Panel's Security Audit Log; the rest are read with `GET /api/v1/admin/audit-logs?action=...`.
+Plans and runs are audited too (`PLAN_CREATED`, `PLAN_UPDATED`, `PLAN_DELETED`, `PLAN_PLATFORMS_LINKED` (the TestLink-compatible API), `RUN_CREATED`, `RUN_UPDATED`, `RUN_CLOSED`, `RUN_REOPENED`, `RUN_DELETED`), with what changed (`changes: { field: { from, to } }`), how a run was made or closed (`via: run_name` or `close_run` for CI), and what a delete destroyed (`deleted_runs`, `deleted_results`). Of these, only the deletes show in the Admin Panel's Security Audit Log; the rest are read with `GET /api/v1/admin/audit-logs?action=...`.
 
 ---
 

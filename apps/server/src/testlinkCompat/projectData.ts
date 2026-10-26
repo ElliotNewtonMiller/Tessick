@@ -21,6 +21,7 @@ import {
   executionTypeCode,
   externalIdNumber,
   importanceCode,
+  keywordKey,
   resolveDefaultValue,
   versionStatusCodes,
   type CustomFieldType,
@@ -101,8 +102,8 @@ export interface ProjectSpec {
 const byCreation = <T extends { created_at: string; id: string }>(rows: T[]) =>
   [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
 
-const isKeywordsField = (d: CustomFieldDefinition) => d.name === TL_KEYWORDS_FIELD && d.field_type === 'MULTI_SELECT';
-const isDurationField = (d: CustomFieldDefinition) => d.name === TL_DURATION_FIELD && d.field_type === 'NUMBER';
+export const isKeywordsField = (d: CustomFieldDefinition) => d.name === TL_KEYWORDS_FIELD && d.field_type === 'MULTI_SELECT';
+export const isDurationField = (d: CustomFieldDefinition) => d.name === TL_DURATION_FIELD && d.field_type === 'NUMBER';
 
 function customFieldDef(d: CustomFieldDefinition, intId: number): TlCustomFieldDef {
   const { type, type_name } = customFieldTypeCode(d.field_type);
@@ -148,7 +149,7 @@ export async function loadProjectSpec(ctx: CompatContext, projectId: string, opt
     await ids.intIds('case', byCreation(caseRows).map((c) => c.id)),
     await ids.intIds('version', byCreation(caseRows).map((c) => c.latest_version!.id)),
     await ids.intIds('customfield', shownFields.map((d) => d.id)),
-    await ids.intIds('keyword', (keywordsField?.options ?? []).map((o) => o.id!).filter(Boolean)),
+    await ids.intIds('keyword', (keywordsField?.options ?? []).map((o) => keywordKey(keywordsField!.id, o.option_value))),
   ];
 
   const suites: TlSuite[] = suiteRows.map((s) => ({
@@ -160,7 +161,9 @@ export async function loadProjectSpec(ctx: CompatContext, projectId: string, opt
   }));
   const paths = new SuiteTree(suites);
   const fieldDefs = new Map(shownFields.map((d) => [d.id, customFieldDef(d, fieldIds.get(d.id)!)]));
-  const keywordByValue = new Map((keywordsField?.options ?? []).filter((o) => o.id).map((o) => [o.option_value, { id: keywordIds.get(o.id!)!, keyword: o.option_value }]));
+  const keywordByValue = new Map(
+    (keywordsField?.options ?? []).map((o) => [o.option_value, { id: keywordIds.get(keywordKey(keywordsField!.id, o.option_value))!, keyword: o.option_value }])
+  );
 
   const cases: TlCase[] = caseRows.map((c) => {
     const v = c.latest_version!;

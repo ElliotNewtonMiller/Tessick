@@ -18,6 +18,11 @@ import {
   customFieldTypeCode,
   customFieldValueString,
   externalIdNumber,
+  priorityFromImportance,
+  executionTypeFromCode,
+  statusTarget,
+  customFieldValueFromString,
+  keywordKey,
   type TlCase,
   type TlSuite,
 } from '../src/testlink/index.js';
@@ -272,5 +277,32 @@ describe('TestLink value mapping', () => {
     expect(customFieldValueString('CHECKBOX', false)).toBe('0');
     expect(customFieldValueString('TEXT', null)).toBeNull();
     expect([externalIdNumber('MA-12'), externalIdNumber('LEGACY')]).toEqual(['12', 'LEGACY']);
+  });
+
+  it("reads TestLink's values back: importance, execution type, status and active, custom field strings", () => {
+    expect([1, 2, 3, '3', 4, undefined].map(priorityFromImportance)).toEqual(['LOW', 'MEDIUM', 'HIGH', 'HIGH', undefined, undefined]);
+    expect([1, 2, '2', 0].map(executionTypeFromCode)).toEqual(['MANUAL', 'AUTOMATED', 'AUTOMATED', undefined]);
+    expect(statusTarget(7, undefined)).toEqual({ target: 'APPROVED', reactivate: false });
+    expect(statusTarget(5, 1)).toEqual({ target: 'DEPRECATED', reactivate: false });
+    expect(statusTarget(7, 0)).toEqual({ target: 'DEPRECATED', reactivate: false });
+    expect([1, 2, 3, 4, 6].map((s) => statusTarget(s, undefined).target)).toEqual(['DRAFT', 'DRAFT', 'DRAFT', 'DRAFT', 'DRAFT']);
+    expect(statusTarget(undefined, 1)).toEqual({ reactivate: true });
+    expect(statusTarget('', '')).toEqual({ reactivate: false });
+
+    expect(customFieldValueFromString('MULTI_SELECT', 'a| b |')).toEqual(['a', 'b']);
+    expect(customFieldValueFromString('MULTI_SELECT', ['x'])).toEqual(['x']);
+    expect(customFieldValueFromString('NUMBER', '5')).toBe(5);
+    expect(customFieldValueFromString('NUMBER', 'five')).toBe('five');
+    expect(['1', 'Yes', '0', 'off'].map((v) => customFieldValueFromString('CHECKBOX', v))).toEqual([true, true, false, false]);
+    expect(customFieldValueFromString('DATE', '1780272000')).toBe('2026-06-01');
+    expect(customFieldValueFromString('DATE', '2026-06-01')).toBe('2026-06-01');
+    expect(customFieldValueFromString('TEXT', '  ')).toBeNull();
+  });
+
+  it('keys a keyword by its field and text, so its id outlives the option row', () => {
+    const key = keywordKey('field-1', 'smoke');
+    expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(keywordKey('field-1', 'smoke')).toBe(key);
+    expect(new Set([key, keywordKey('field-2', 'smoke'), keywordKey('field-1', 'Smoke')]).size).toBe(3);
   });
 });
