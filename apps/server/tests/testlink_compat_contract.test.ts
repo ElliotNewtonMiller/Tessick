@@ -134,6 +134,16 @@ describe.skipIf(!specPath)("TestLink-compatible API against Dave's openapi.yaml"
     await conforms('post', '/testplans/{id}/platforms', `/testplans/${plan.id}/platforms`, () => [{ name: 'iOS' }]);
   });
 
+  it('answers the metrics and the SWAG file as the spec describes them', async () => {
+    const project = (await fx.ok('/testprojects/SHOP')).item;
+    await conforms('post', '/swagfile', '/swagfile', () => ({ Shop: { productKey: project.api_key, api: 80 } }));
+    await conforms('post', '/swagfile', '/swagfile', () => [1]);
+    await conforms('get', '/swagfile', '/swagfile');
+    for (const params of [{ projectApiKey: project.api_key }, { projectApiKey: project.api_key, includeExecutionType: '1', excludeSuiteNames: '' }, {}, { projectApiKey: 'nope' }]) {
+      await conforms('get', '/testcasemetrics', `/testcasemetrics${q(params)}`);
+    }
+  });
+
   it("gives each route the versions and HTTP codes the spec documents", () => {
     for (const route of COMPAT_ROUTES) {
       const op = spec.paths[route.path.replace(/:(\w+)/g, '{$1}')]?.[route.method.toLowerCase()];

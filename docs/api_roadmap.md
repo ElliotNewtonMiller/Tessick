@@ -250,7 +250,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 
 ### 10. TestLink-compatible API
 
-**Status:** In progress. Phases 1 to 3 of 6 done (2026-10-26): the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, every read (with Dave's query layer) and every write (projects, plans, builds, suites, cases, moves, keywords, platforms, executions). Next: `/testcasemetrics` and `/swagfile`.
+**Status:** In progress. Phases 1 to 4 of 6 done (2026-10-26): every route in Dave's API. That's the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, every read (with Dave's query layer), every write, `/testcasemetrics` and the SWAG file. Next: the migration from TestLink's database (phase 5).
 
 **What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Testify as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
 
@@ -333,3 +333,5 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-26 | Its credential is a per-user TestLink API key, accepted only on `/lib/api/rest/...`. | Decided with Elliot: TestLink's keys are per user. Keeping it off `/api` and `/mcp` leaves the project-bound tokens and MCP's limits as they are. |
 | 2026-10-26 | An approved case edited through it gets a new DRAFT. | Decided with Elliot, as MCP: Testify keeps its approval rule. |
 | 2026-10-26 | TestLink's whole history is migrated, keeping its ids and keys. | Decided with Elliot (phase 5). |
+| 2026-10-26 | No platforms feature in Testify. The TestLink-compatible API keeps TestLink's platform data as one plain run per (build, platform). | Decided with Elliot: teams that want to tell platforms apart do it their own way; Testify doesn't decipher platforms. |
+| 2026-10-26 | The SWAG file (`/swagfile`) needs a TestLink key to read and `PLAN_MANAGE` to replace, though TestLink serves it to anyone. | It holds every project's API key. To confirm with Dave: his `manageSWAGS.html` must send an `APIKEY` header. |

@@ -237,6 +237,7 @@ A third credential, only for the TestLink-compatible API (`/lib/api/rest/{v1,v2,
 6. **Rate limit:** the user's own, 1,200 requests a minute.
 7. **Failures** answer TestLink's `400 {"status":"ko","message":"authentication error"}`, for a missing, wrong or removed key alike.
 8. **Audited:** `TESTLINK_KEY_CREATED` and `TESTLINK_KEY_REVOKED` (with `by_admin` when an admin removed it), shown in the Security Audit Log. API tokens can't make or remove keys.
+9. **The SWAG file** (`/swagfile`), which TestLink serves to anyone and which holds every project's API key, needs a key to read and `PLAN_MANAGE` to replace.
 
 ---
 
@@ -289,7 +290,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Users and access | `USER_CREATED`, `USER_DISABLED`, `USER_ACTIVATED`, `ROLE_ASSIGNED`, `PROJECT_ACCESS_GRANTED`, `PERMISSION_OVERRIDES_UPDATED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_DELETED` |
 | Sign-in security | `CREDENTIALS_CHANGED`, `PASSWORD_RESET`, `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED` |
 | API tokens | `API_TOKEN_GENERATED`, `API_TOKEN_REVOKED` |
-| TestLink API keys | `TESTLINK_KEY_CREATED`, `TESTLINK_KEY_REVOKED` |
+| TestLink API keys | `TESTLINK_KEY_CREATED`, `TESTLINK_KEY_REVOKED`; `TESTLINK_SWAG_SAVED` (the SWAG file replaced) |
 | Projects | `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_DELETED` |
 | Specifications | `SUITE_CREATED`, `SUITE_UPDATED`, `SUITE_DELETED`, `CASE_CREATED`, `CASE_UPDATED`, `CASE_DELETED`, `CASE_DRAFT_CREATED`, `CASE_VERSION_UPDATED`, `CASE_VERSION_APPROVED`, `CASE_VERSION_DEPRECATED`, `CASE_VERSION_RESTORED`, `SPEC_ITEMS_MOVED` |
 | Plan membership | `PLAN_CASE_ADDED`, `PLAN_CASE_REMOVED`, `PLAN_CASE_RETIRED`, `PLAN_CASE_CASCADE_ADD`, `PLAN_CASE_CASCADE_REMOVE` |

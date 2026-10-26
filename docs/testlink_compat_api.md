@@ -22,7 +22,7 @@ Built in phases; each is tested and checked live before the next.
 | 1 | Foundations: the three version paths, TestLink API keys, the envelope and errors, `/who`, `/whoAmI`, `/superman` | **Done** |
 | 2 | Reads: projects, plans, builds, the suite tree, testspec, custom fields, keywords, case lists with the query layer | **Done** |
 | 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | **Done** |
-| 4 | `/testcasemetrics` and `/swagfile` | To do |
+| 4 | `/testcasemetrics` and `/swagfile` | **Done** |
 | 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | To do |
 | 6 | The parity check: the same requests against TestLink and Testify, the answers compared | To do |
 
@@ -171,6 +171,7 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
 - **Refused** when the code isn't p, f or b, the build is closed or isn't the plan's, or the case isn't linked to the plan.
 - **Re-recording a case** that already has a result in the run needs `EXECUTE_OVERWRITE`.
 - **In a plan with platforms,** `platformID` is required. Each (build, platform) has its own run, named "Build — Platform" and made on its first result. The builds list shows only the builds, and changing a build's name or `is_open` changes its platform runs too.
+- **Platforms aren't a Testify feature,** and won't be (decided with Elliot, 2026-10-26). Testify has no platform screens, fields or reports. A team that wants to tell platforms apart does it its own way, with runs, plans or custom fields. This API only represents TestLink's platform data in Testify's terms, as plain runs, so TestLink clients and migrated history keep working.
 
 **Keywords** are the options of the project's `keywords` field:
 - the first keyword creates the field, for that project;
@@ -180,6 +181,37 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
 **Not in Dave's API,** so done in Testify:
 - adding cases to a plan;
 - making platforms (the migration brings TestLink's, phase 5).
+
+## Metrics and the SWAG file (phase 4)
+
+**`GET /testcasemetrics`** (custom) counts a project's cases by their `automationStatus` custom field (by that internal name):
+- **The project** is the one `projectApiKey` names (the `api_key` in the project list), or the one `suiteIds` are in.
+  - Neither is a 400.
+  - An unknown key, or a project the user can't see, is a 404 (`No Test Project found with API key: …`).
+  - Suites from two projects are a 400.
+- **The cases** are the query layer's, so the metrics count exactly what the case lists count:
+  - the filters (`executionType`, `active`, `status`, `importance`, `keyword`, `cfFilters`);
+  - `suiteIds` (each deep);
+  - the exclusions.
+
+  A suite named **Deprecated** is left out unless `excludeSuiteNames` is given; an empty value leaves out nothing. A requested suite is never left out.
+- **The answer** is `metrics`:
+  - `projectName` and `total`;
+  - `automation_status`: the five known values (N/A, To Do, In Progress, Done, No), each counted, 0 included. Other values count only in `total`.
+  - `testcases_without_automation_status`: case ids, ascending;
+  - with `includeExecutionType=1`, `byExecutionType` (`{"1": manual, "2": automated}`) and `automated` (automated and Done);
+  - `testCoverageSWAGS`: the SWAG file's entry for the project, without its `productKey`, when one matches.
+
+**`GET` and `POST /swagfile`** (custom) read and replace the SWAG file (testCoverageSWAG.json): per product, coverage estimates and the project API key (`productKey`) that ties it to a project.
+- Testify keeps it in `system_settings`.
+- `GET` answers it as saved (404 `File not found` before the first save).
+- `POST` takes a JSON object and stores it pretty-printed. It answers `{"status":"ok","message":"File saved successfully","bytes_written":…}`; anything else is a 400 `Invalid JSON content`.
+- Each save writes a `TESTLINK_SWAG_SAVED` audit row.
+
+**Authentication differs from TestLink (to confirm with Dave):**
+- **TestLink serves the file to anyone,** read and write, though it holds every project's API key.
+- **Testify asks for a TestLink key** to read it, and also `PLAN_MANAGE` (as a Test Lead has) to replace it.
+- **Dave's `manageSWAGS.html`** must therefore send an `APIKEY` header.
 
 ## How Testify's model maps (phases 2 to 5)
 
@@ -193,7 +225,7 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
 | custom fields (12 types; pipe-delimited values) | custom fields (6 types; lists) |
 | keywords | a project MULTI_SELECT case field named `keywords`, one option per keyword; it isn't listed among the custom fields |
 | `estimated_exec_duration` | a NUMBER case field named `estimated_exec_duration`, when the project has one (otherwise `null`); not listed among the custom fields |
-| platforms | one run per (build, platform) when a plan has platforms |
+| platforms | not a Testify feature (decided with Elliot): one plain run per (build, platform) when a TestLink plan has platforms |
 | project and plan API keys | kept as identifiers (`compat_api_keys`) |
 
 Numeric ids:

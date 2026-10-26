@@ -11,6 +11,7 @@ import { specRoutes } from './routes/spec.js';
 import { projectWriteRoutes } from './routes/projectWrites.js';
 import { specWriteRoutes } from './routes/specWrites.js';
 import { executionRoutes } from './routes/executions.js';
+import { metricsRoutes } from './routes/metrics.js';
 
 /**
  * Testify's TestLink-compatible API: Dave's TestLink REST API (v1, v2 and custom), answered
@@ -43,7 +44,7 @@ export interface CompatRoute {
   handle: (request: FastifyRequest, reply: FastifyReply, ctx: CompatContext) => Promise<unknown>;
 }
 
-export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes, ...projectRoutes, ...specRoutes, ...projectWriteRoutes, ...specWriteRoutes, ...executionRoutes];
+export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes, ...projectRoutes, ...specRoutes, ...projectWriteRoutes, ...specWriteRoutes, ...executionRoutes, ...metricsRoutes];
 
 export async function registerTestLinkCompat(app: FastifyInstance, db: Kysely<Database>): Promise<void> {
   for (const version of TESTLINK_VERSIONS) {

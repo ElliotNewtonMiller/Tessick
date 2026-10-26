@@ -3529,3 +3529,45 @@ The full suite passes (801, plus the 3 contract tests skipped without Dave's fil
   - moved the case and a suite;
   - moving a suite into its descendant answered the documented 409.
 - **Audit:** the rows carry "curl/8.5.0 (via TestLink API)".
+
+## TestLink-compatible API, phase 4: metrics and the SWAG file (2026-10-26)
+
+Phase 4 of the TestLink-compatible API (`docs/testlink_compat_api.md`, roadmap step 10). With it, every route in Dave's API is answered.
+
+**Platforms, decided with Elliot:** Testify won't have a platforms feature. Teams that want to tell platforms apart do it their own way. Phase 3's design stays: TestLink's platform data is kept only as plain runs, one per (build, platform). Recorded in CLAUDE.md's decisions, the roadmap and the compat doc.
+
+**`GET /testcasemetrics`** (`routes/metrics.ts`, with the counting in `packages/core/src/testlink/metrics.ts`):
+- **The project:** by `projectApiKey`, or the one `suiteIds` are in.
+- **The cases:** the query layer's filters and exclusions, so it counts what the case lists count.
+  - The Deprecated suite is left out unless `excludeSuiteNames` is given, and an empty value excludes nothing. That's the one parameter whose empty value matters.
+  - A requested suite is never left out.
+- **The counts:**
+  - `automation_status` gives the five known values, zeros included;
+  - `testcases_without_automation_status` lists case ids;
+  - `includeExecutionType=1` adds `byExecutionType` and `automated`;
+  - the project's SWAG entry is merged in as `testCoverageSWAGS`.
+
+**`GET`/`POST /swagfile`:**
+- the file is kept in `system_settings`;
+- `GET` answers it as saved, and 404 before the first save;
+- `POST` takes a JSON object, stores it pretty-printed, and answers `bytes_written`;
+- each save writes a `TESTLINK_SWAG_SAVED` audit row.
+
+TestLink serves this file to anyone, read and write, though it holds every project's API key. Testify asks for a key to read it, and also `PLAN_MANAGE` to replace it. To confirm with Dave: his `manageSWAGS.html` needs an `APIKEY` header.
+
+**Tests:**
+- **`testlink_compat_metrics.test.ts` (4):**
+  - the counts with the Deprecated suite left out, and with an empty `excludeSuiteNames`;
+  - `active`, `executionType`, `cfFilters` and `keyword`;
+  - `includeExecutionType`;
+  - the project from `suiteIds`, a requested suite never left out;
+  - the 400s and 404s, and a hidden project answered as an unknown key;
+  - the SWAG file: 404, save, read back, merged into metrics, invalid bodies, a tester reading but refused saving, no key, the audit row.
+- **The contract test** now covers both routes, and each route's versions and codes.
+
+The full suite passes (805, plus the 4 contract tests skipped without Dave's file), and the type check is clean.
+
+**Verified live** on the dev server, with the report demo's project and an `automationStatus` field set on five cases:
+- **Metrics:** 12 cases, `To Do` 1, `In Progress` 1, `Done` 2, `No` 1, and 7 without a status; `byExecutionType` 2 manual and 10 automated, 2 automated and Done.
+- **The SWAG file:** saved (180 bytes) and read back. The metrics for automated cases (10) then carried its coverage.
+- **Without a key:** `/swagfile` got the 400 authentication error.
