@@ -348,6 +348,8 @@ export interface CompatIdsTable {
   int_id: number;
   entity_type: string;
   entity_id: string;
+  /** 'testlink' (kept by the migration) or 'testify' (numbered when first shown). */
+  origin: Generated<string>;
 }
 
 /** A user's TestLink API key, as a SHA-256 digest (migration 016). */

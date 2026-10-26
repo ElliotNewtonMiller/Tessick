@@ -102,6 +102,12 @@ export function keywordKey(fieldId: string, keyword: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
+/**
+ * The run a TestLink build's results on one platform go in (Testify has no platforms: a plan
+ * with platforms keeps one plain run per build and platform).
+ */
+export const platformRunName = (build: string, platform: string) => `${build} — ${platform}`;
+
 /** The number TestLink keeps on the version ("1" for MA-1); the whole id when it has no number. */
 export function externalIdNumber(externalId: string): string {
   const match = /-(\d+)$/.exec(externalId);

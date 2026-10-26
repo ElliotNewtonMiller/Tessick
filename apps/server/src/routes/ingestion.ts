@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { addImportedKeywords, keepTestLinkId } from '../testlinkCompat/importIds.js';
 import { Readable } from 'node:stream';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
@@ -593,6 +594,8 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                 updated_at: now,
               })
               .execute();
+            // A TestLink XML suite keeps its TestLink id, for the TestLink-compatible API.
+            if (suite.testlink_id !== undefined) await keepTestLinkId(trx, 'suite', suiteId, suite.testlink_id);
           }
 
           // Import cases in suite
@@ -669,6 +672,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
 
               importedCasesCount++;
               createdVersionsCount++;
+              if (tc.testlink_id !== undefined && !existingCase) await keepTestLinkId(trx, 'case', caseId, tc.testlink_id);
             } else if (action === 'VERSION_UP') {
               caseId = existingCase.id;
 
@@ -742,6 +746,8 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
               }
               overwrittenCasesCount++;
             }
+
+            if (tc.keywords?.length) await addImportedKeywords(trx, targetProjectId!, caseId, tc.keywords);
 
             // Insert test steps
             if (tc.steps && tc.steps.length > 0) {

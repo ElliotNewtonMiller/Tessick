@@ -23,7 +23,7 @@ Built in phases; each is tested and checked live before the next.
 | 2 | Reads: projects, plans, builds, the suite tree, testspec, custom fields, keywords, case lists with the query layer | **Done** |
 | 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | **Done** |
 | 4 | `/testcasemetrics` and `/swagfile` | **Done** |
-| 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | To do |
+| 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | **Done** (tested on TestLink 1.9.20's own PostgreSQL schema; not yet on a real TestLink database) |
 | 6 | The parity check: the same requests against TestLink and Testify, the answers compared | To do |
 
 ## Keys
@@ -212,6 +212,70 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
 - **TestLink serves the file to anyone,** read and write, though it holds every project's API key.
 - **Testify asks for a TestLink key** to read it, and also `PLAN_MANAGE` (as a Test Lead has) to replace it.
 - **Dave's `manageSWAGS.html`** must therefore send an `APIKEY` header.
+
+## Migration (phase 5)
+
+`apps/server/scripts/migrate-testlink.ts` moves a TestLink 1.9 database into Testify, keeping TestLink's ids, keys and history. After the move, TestLink's clients pointed at Testify see the same projects, suites, cases, plans, builds and executions under the same numbers.
+
+```bash
+DATABASE_URL=postgres://…testify… npx tsx apps/server/scripts/migrate-testlink.ts --from postgres://…testlink… --time-zone America/Chicago --dry-run
+```
+
+- **`--from`** is TestLink's database, or `TESTLINK_DATABASE_URL`. A PostgreSQL TestLink is read with Testify's own driver. A MySQL one (`mysql://…`) needs the `mysql2` package, which Testify doesn't install: `npm install mysql2 --workspace=apps/server`.
+- **`DATABASE_URL`** is Testify's PostgreSQL. Start Testify on it once first, so it has its tables and its admin.
+- **`--dry-run`** does everything and rolls it back, so its report is exact and nothing is written.
+- **`--time-zone`** is the zone TestLink's server keeps its times in (TestLink stores them without one); UTC by default.
+- **`--table-prefix`** is TestLink's `DB_TABLE_PREFIX`, if it has one.
+- **`--actor`** is the Testify user the migration is recorded as (`admin` by default). It's also used as author or tester where TestLink's is unknown.
+- **`--json`** prints the report as JSON.
+
+**How it runs:**
+- **One transaction:** everything commits, or nothing does.
+- **Again and again:** what's already migrated is kept as it is, and a later run brings only what TestLink gained since. Changes made in TestLink to rows already migrated aren't brought. So: migrate early, check, then run once more at the switch.
+- **A clean start:** the numbers must be free in Testify. If Testify's TestLink-compatible API was used first and numbered a row with a number TestLink uses, the migration stops and changes nothing. Each number records whether it came from TestLink or from Testify (`compat_ids.origin`).
+- **The report:** per kind of row, how many TestLink has, how many are new, already there and skipped, plus notes on everything that couldn't be kept exactly.
+- **A record:** a `TESTLINK_MIGRATED` audit row for each project. No webhooks are sent.
+
+**What it brings and how:**
+
+| TestLink | Testify |
+| :--- | :--- |
+| users | users with the same login; an existing Testify user of that name is taken as the same person and left as they are. Passwords aren't brought (TestLink's are unsalted MD5): an admin sets each one (Admin Panel → Reset password). A missing or duplicate email becomes `login@testlink.invalid`. Inactive users are disabled. |
+| users' API keys (`script_key`) | their TestLink API keys, so their scripts keep working on day one |
+| roles, project roles | by what each role may do: user management → Admin, planning → Test Lead, editing or executing → Tester, viewing → Viewer, else No Access. Project roles too, for users the migration made |
+| projects, suites, cases, versions, steps | the same, with TestLink's ids. HTML becomes text. Each version keeps its status (final → APPROVED, obsolete or inactive → DEPRECATED, the rest DRAFT), author and times |
+| project and plan API keys | kept |
+| custom fields (on cases and suites) | Testify fields for the projects that use them. Lists, numbers, dates and text map directly; checkboxes become multi-selects, radio buttons single selects, the other types text or dates (each noted in the report). A required field without a usable default isn't required. A value a case never had stays unset, rather than taking the default |
+| keywords | the project's `keywords` field, with TestLink's keyword ids |
+| estimated duration | the project's `estimated_exec_duration` NUMBER field |
+| plans, their cases | plans (inactive → ARCHIVED, closed → LOCKED) with each case pinned to TestLink's version |
+| platforms | TestLink's platforms for this API; in Testify, a plain run per build and platform |
+| builds | runs (closed or inactive → CLOSED), with their dates |
+| executions, step results | results with their tester, time, duration, notes and step results. p, f and b are recorded; "not run" and other codes are skipped (other codes are listed in the report). A result of a case no longer in its plan is kept on a retired link |
+
+**Not brought:**
+- requirements;
+- attachments;
+- custom fields on plans or builds;
+- keyword notes;
+- tester assignments;
+- milestones.
+
+The report counts the requirements and attachments it left.
+
+**TestLink XML imports keep TestLink's ids too:**
+- suites keep their `id`, and cases their `internalid`, when Testify hasn't used those numbers;
+- a case's keywords go into the project's `keywords` field.
+
+Versions and keywords have no ids in TestLink's XML, so they're numbered when first shown.
+
+**Tests:**
+- `apps/server/tests/testlink_migration.test.ts` migrates a small TestLink built from Testify's own DDL of the tables it reads (TestLink's install scripts are GPL, so they aren't in the repository). It then reads everything back through this API with a migrated user's own key.
+- Given TestLink's `install/sql/postgres` folder, the same tests build the TestLink from TestLink's own schema and default data:
+
+```bash
+TESTLINK_SQL_DIR=/path/to/testlink-code/install/sql/postgres npx vitest run apps/server/tests/testlink_migration.test.ts
+```
 
 ## How Testify's model maps (phases 2 to 5)
 

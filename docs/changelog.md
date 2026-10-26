@@ -3571,3 +3571,77 @@ The full suite passes (805, plus the 4 contract tests skipped without Dave's fil
 - **Metrics:** 12 cases, `To Do` 1, `In Progress` 1, `Done` 2, `No` 1, and 7 without a status; `byExecutionType` 2 manual and 10 automated, 2 automated and Done.
 - **The SWAG file:** saved (180 bytes) and read back. The metrics for automated cases (10) then carried its coverage.
 - **Without a key:** `/swagfile` got the 400 authentication error.
+
+## TestLink-compatible API, phase 5: the migration from TestLink's database (2026-10-26)
+
+Phase 5 of the TestLink-compatible API (`docs/testlink_compat_api.md`, "Migration"; roadmap step 10). TestLink's whole history moves into Testify, keeping its ids, keys and times (decided with Elliot), so TestLink clients pointed at Testify see the same numbers.
+
+**Built against TestLink 1.9.20's published schema:**
+- **The schema files:** Elliot approved downloading TestLink's install scripts from its GitHub repository (branch `testlink_1_9_20_fixed`, MySQL and PostgreSQL). They're GPL and Testify is MIT, so they stay outside the repository.
+- **The tests' own TestLink:** built from Testify's own DDL of just the tables and columns read.
+- **The full schema:** with `TESTLINK_SQL_DIR`, the same tests load TestLink's own schema and default data. That run passes too, and caught two things the small DDL hadn't: TestLink's unique `cookie_string` per user, and its foreign keys.
+- **Not yet tested on a real TestLink database.**
+
+**The tool** (`apps/server/src/testlinkMigration/`, `apps/server/scripts/migrate-testlink.ts`):
+- **Sources:**
+  - `source.ts` reads a PostgreSQL TestLink with Testify's own driver.
+  - A MySQL one needs the `mysql2` package, loaded only when used and not installed; the message says how.
+  - `read.ts` uses plain SELECTs both databases accept, and normalizes their drivers' types.
+- **`migrate.ts`:**
+  - one transaction, all or nothing;
+  - `--dry-run` is the same migration rolled back, so its report is exact;
+  - running again brings only what TestLink gained;
+  - rows are written in batches, values still checked by the custom field rules;
+  - a `TESTLINK_MIGRATED` audit row per project, and no webhooks.
+- **What it brings:**
+  - users (no passwords, their TestLink keys);
+  - roles mapped by rights (`testifyRoleFor`), and project roles;
+  - projects and their API keys;
+  - suites, cases, every version with its status, author and times, and steps;
+  - custom fields (types mapped, `customFieldTypeFromTestLink`) and values, an unset value kept unset rather than the default;
+  - keywords, with their ids, and the estimated duration;
+  - plans (archived, locked) with pinned versions;
+  - platforms (a plain run per build and platform, as decided);
+  - builds;
+  - executions with testers, times, durations, notes and step results. A case that left its plan keeps its results on a retired link.
+- **The report:** counts per kind (in TestLink, new, already there, skipped), and notes on everything not kept exactly: types, unknown status codes, requirements and attachments.
+
+**Problems the tests found, fixed:**
+- **Times:** TestLink stores times without a zone, and PostgreSQL's driver read them in this machine's zone (10:00 became 17:00 UTC). Times are now read back as the wall-clock time stored and placed in `--time-zone` (UTC by default), whatever the driver (`isoTimestamp`).
+  - Dates (`wallDate`) aren't moved at all.
+  - node-postgres gives a DATE as local midnight and PGlite as UTC midnight; both read right.
+- **Migrated users' keys:** a migrated user, who must change a password they don't have, couldn't make changes through their TestLink key. The key isn't the password, so `signedInUser` no longer applies the password-change requirement to TestLink-key requests.
+- **A missed collision:** if Testify's compatible API had already numbered its own project 1, the migration took it for TestLink's project 1.
+  - `compat_ids` now records each number's `origin`: `testlink` (the migration, an XML import, `assign`) or `testify` (numbered when first shown).
+  - The migration refuses a number Testify gave, changing nothing.
+  - Added to migration 016, which hasn't shipped.
+
+**TestLink XML imports keep TestLink's ids:**
+- **The parser** reads a suite's `id`, a case's `internalid` and its keywords. The parser upper-cases attribute names, so they're matched in any case.
+- **The importer** records the ids for new suites and cases when the numbers are free (`keepTestLinkId`). Keywords go into the project's `keywords` field (`addImportedKeywords`).
+
+**Docs:**
+- `testlink_compat_api.md`: a Migration section and the status;
+- `deployment.md`: "Moving from TestLink";
+- CLAUDE.md/AGENTS.md: the command, the layout, the key and `origin` rules;
+- RFC 03 (summary) and RFC 04 (key rule 10, the audit action);
+- the roadmap.
+
+**Tests:**
+- **`testlink_migration.test.ts` (6):**
+  - the report's counts and notes;
+  - reading back through the compatible API with a migrated user's key: ids, names, keys, versions, steps, keywords, custom fields (unset kept unset, the case-node value, the timestamp date), metrics, plans and builds;
+  - the history: a run per build and platform, testers, times, durations, step results, the retired link;
+  - users: no password, roles, project role, keys, disabled;
+  - new numbers above TestLink's, a second run bringing nothing, a third bringing one new execution;
+  - a dry run writing nothing, and a number Testify gave stopping the migration.
+- **`testlink_xml_ids.test.ts` (1):** ids and keywords kept; a second project's import of the same file gets new numbers.
+- **`packages/core/tests/testlinkMigration.test.ts` (5):** roles, field types, statuses, verdicts, stored values, zones (CDT, CST, Sydney, a driver's Date, an explicit offset) and dates.
+
+The full suite passes (817; the contract tests and the full-schema run pass when given their files), and the type check is clean, the script included.
+
+**Verified:**
+- **The script:**
+  - its error answers: no `--from`; an in-memory `DATABASE_URL`; a MySQL URL without `mysql2`.
+  - It type-checks.
+- **Not run end to end:** that needs two real PostgreSQL databases, and this machine has no PostgreSQL image. Pulling one (or getting a copy of Dave's TestLink) needs Elliot's approval.

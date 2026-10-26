@@ -91,10 +91,18 @@ export class SaxXmlParser implements IFileParser {
 
       const attrName =
         (node.attributes.name || node.attributes.NAME || node.attributes.Name) as string;
+      // TestLink's own ids (a suite's `id`, a case's `internalid`), when the file has them.
+      const idAttr = (key: string) => {
+        // The parser may upper-case attribute names, as with `name` above.
+        const found = Object.entries(node.attributes).find(([k]) => k.toLowerCase() === key);
+        const raw = String(found?.[1] ?? '').trim();
+        return /^\d+$/.test(raw) ? Number(raw) : undefined;
+      };
 
       if (tagName === 'testsuite') {
         const suite: ParsedSuite = {
           name: attrName ? attrName.trim() : 'Unnamed Suite',
+          ...(idAttr('id') !== undefined ? { testlink_id: idAttr('id') } : {}),
           details: '',
           node_order: 0,
           sub_suites: [],
@@ -104,6 +112,7 @@ export class SaxXmlParser implements IFileParser {
       } else if (tagName === 'testcase') {
         currentCase = {
           title: attrName ? attrName.trim() : 'Unnamed Case',
+          ...(idAttr('internalid') !== undefined ? { testlink_id: idAttr('internalid') } : {}),
           summary: '',
           preconditions: '',
           importance: mapImportance(undefined, options?.defaultImportance),
@@ -120,6 +129,8 @@ export class SaxXmlParser implements IFileParser {
         };
       } else if (tagName === 'custom_field') {
         currentCustomField = {};
+      } else if (tagName === 'keyword' && currentCase && !currentStep && attrName?.trim()) {
+        currentCase.keywords = [...new Set([...(currentCase.keywords ?? []), attrName.trim()])];
       }
     };
 

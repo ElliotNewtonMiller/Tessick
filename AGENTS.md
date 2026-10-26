@@ -38,6 +38,7 @@ npm run build                            # production: apps/web/dist + apps/serv
 npm start                                # production: one process serving the API and web app (needs DATABASE_URL, JWT_SECRET)
 docker compose up -d                     # Testify + PostgreSQL; copy .env.example to .env first
 npx tsx apps/server/scripts/report-demo.ts   # loads a demo project with 8 runs of results through the API
+npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Testify's)
 ```
 
 **Development database:**
@@ -78,6 +79,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    versions.ts, projectData.ts (Testify's rows as TestLink rows, with numeric ids), writes.ts (calling
                    Testify's routes as the key's user, refusals in TestLink's envelope), routes/ (one file per area;
                    reads use the repositories, writes go through innerRequest with via 'testlink').
+  src/testlinkMigration/  The migration from TestLink's database: source.ts (PostgreSQL, or MySQL with mysql2),
+                   read.ts (portable SELECTs), migrate.ts (one transaction, TestLink's ids kept; scripts/migrate-testlink.ts).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
@@ -170,6 +173,8 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - A missing or wrong key gets TestLink's `400 {"status":"ko","message":"authentication error"}`; every answer on those paths is TestLink's envelope, not problem details.
 - Each compat route answers only with the HTTP codes Dave's spec documents for it (`statuses` on the route): any other refusal is a 200 with `status: "ko"`/`"error"`, as TestLink's PHP answers, except auth (400), the rate limit (429) and server errors.
 - Editing an approved case's content through it makes a new DRAFT (as MCP; decided with Elliot); `status: 7` approves, `5`/`active: 0` deprecates, both needing SPEC_APPROVE.
+- A TestLink key isn't the password: the password-change requirement (`must_change_password`) doesn't hold its requests, so a migrated user's scripts work before an admin sets their password.
+- `compat_ids.origin` says whether a number came from TestLink (the migration, an XML import) or was given by Testify; the migration refuses a number Testify gave.
 
 **Permissions:**
 - The registry is in `packages/core/src/rbac/registry.ts` (20 keys).

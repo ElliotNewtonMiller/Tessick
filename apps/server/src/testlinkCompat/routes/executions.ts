@@ -1,10 +1,9 @@
 import { CompatIdRepository, CompatPlatformRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
-import { TL_EXECUTION_STATUS } from '@testify/core';
+import { TL_EXECUTION_STATUS, platformRunName } from '@testify/core';
 import type { CompatRoute } from '../index.js';
 import { ALL } from '../versions.js';
 import { tlKo, tlOk } from '../envelope.js';
 import { asUser, bodyOf, buildRunId, caseByRef, given, missing, planByNumber, refuse, textOf } from '../writes.js';
-import { platformRunName } from './projectWrites.js';
 
 const ID_FAIL = { id: -1 };
 

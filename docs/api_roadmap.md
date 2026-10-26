@@ -250,7 +250,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 
 ### 10. TestLink-compatible API
 
-**Status:** In progress. Phases 1 to 4 of 6 done (2026-10-26): every route in Dave's API. That's the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, every read (with Dave's query layer), every write, `/testcasemetrics` and the SWAG file. Next: the migration from TestLink's database (phase 5).
+**Status:** In progress. Phases 1 to 5 of 6 done (2026-10-26): every route in Dave's API. That's the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, every read (with Dave's query layer), every write, `/testcasemetrics` and the SWAG file. Phase 5 done too: the migration from TestLink's database (`apps/server/scripts/migrate-testlink.ts`), and TestLink XML imports keeping TestLink's ids. Next: the parity check against the real TestLink (phase 6), which needs access to Dave's TestLink.
 
 **What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Testify as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
 

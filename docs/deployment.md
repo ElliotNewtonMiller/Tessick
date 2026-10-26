@@ -90,6 +90,10 @@ Several instances can share one database if they share `JWT_SECRET` and `SECRETS
 
 Account lockouts are stored in the database and apply across all instances.
 
+## Moving from TestLink
+
+To move a TestLink 1.9 database into Testify, keeping its ids, API keys and history for the TestLink-compatible API, run `apps/server/scripts/migrate-testlink.ts` with `--dry-run` first. The options and what it brings are in [testlink_compat_api.md](testlink_compat_api.md), "Migration". Migrated users have no password until an admin sets one; their TestLink API keys work from the start.
+
 ## Security checklist
 
 - Strong, unique `JWT_SECRET`, `SECRETS_KEY` and database password, kept out of version control (`.env` is git-ignored).

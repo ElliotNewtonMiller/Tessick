@@ -481,7 +481,8 @@ async function signedInUser(
     }
   }
 
-  if (user.must_change_password && !PASSWORD_CHANGE_ALLOWED_ROUTES.has(request.url.split('?')[0])) {
+  // A TestLink API key isn't the password, so the password-change gate doesn't hold its requests.
+  if (user.must_change_password && !internalUserId(request) && !PASSWORD_CHANGE_ALLOWED_ROUTES.has(request.url.split('?')[0])) {
     sendError(reply, 403, 'You must choose a new password before continuing.', { code: 'PASSWORD_CHANGE_REQUIRED' });
     return null;
   }

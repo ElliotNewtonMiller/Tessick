@@ -30,6 +30,10 @@ export function normalizePriority(raw: unknown, fallback?: string): ParsedPriori
 
 export interface ParsedCase {
   external_id?: string;
+  /** TestLink XML: the case's internal id (`internalid`), kept for the TestLink-compatible API. */
+  testlink_id?: number;
+  /** TestLink XML: the case's keywords. */
+  keywords?: string[];
   title: string;
   summary?: string;
   preconditions?: string;
@@ -49,6 +53,8 @@ export interface ParsedCase {
 
 export interface ParsedSuite {
   name: string;
+  /** TestLink XML: the suite's id, kept for the TestLink-compatible API. */
+  testlink_id?: number;
   details?: string;
   node_order: number;
   sub_suites: ParsedSuite[];

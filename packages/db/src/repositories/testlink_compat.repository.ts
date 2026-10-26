@@ -18,6 +18,8 @@ export const COMPAT_ID_SPACES = {
   case: 'node',
   version: 'node',
   plan: 'node',
+  // Steps are nodes in TestLink too; numbered only by the migration, to find them again.
+  step: 'node',
   build: 'build',
   execution: 'execution',
   keyword: 'keyword',
@@ -90,8 +92,8 @@ export class CompatIdRepository {
   async assign(entityType: CompatEntityType, entityId: string, intId: number): Promise<void> {
     await this.db
       .insertInto('compat_ids')
-      .values({ id_space: COMPAT_ID_SPACES[entityType], int_id: intId, entity_type: entityType, entity_id: entityId })
-      .onConflict((oc) => oc.columns(['entity_type', 'entity_id']).doUpdateSet({ int_id: intId }))
+      .values({ id_space: COMPAT_ID_SPACES[entityType], int_id: intId, entity_type: entityType, entity_id: entityId, origin: 'testlink' })
+      .onConflict((oc) => oc.columns(['entity_type', 'entity_id']).doUpdateSet({ int_id: intId, origin: 'testlink' }))
       .execute();
   }
 }

@@ -1,4 +1,5 @@
 import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, TestRunRepository } from '@testify/db';
+import { platformRunName } from '@testify/core';
 import { writeAudit } from '../../audit.js';
 import { permissionsInProject } from '../../middleware/auth.js';
 import type { CompatRoute } from '../index.js';
@@ -11,9 +12,6 @@ import { noProject } from './projects.js';
  * Creating projects, plans and builds, changing plans and builds, and linking platforms to a
  * plan. TestLink answers a change with 200 and the row's id (`id: -1` when refused).
  */
-
-/** A build's per-platform run is named after both. */
-export const platformRunName = (build: string, platform: string) => `${build} — ${platform}`;
 
 const dateOf = (v: unknown) => (given(v) ? String(v).slice(0, 10) : undefined);
 
