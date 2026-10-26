@@ -3306,3 +3306,55 @@ Tests:
 - 2,000 quick requests as the admin:
   - a first run of 1,201 all passed, since the allowance refills evenly at 20 a second;
   - a second run, started with that allowance nearly spent, got 415 answers and then 429s with `Retry-After: 1` and the message.
+
+## TestLink-compatible API, phase 1: paths, keys and TestLink's answers (2026-10-26)
+
+Elliot's boss, Dave, has built a REST API on TestLink (v1, v2 and custom versions, 29 endpoints) that his scripts, AI tooling, metrics page and SWAG editor use. For the company to use Testify instead, those clients must keep working. Testify will answer that API as TestLink does: the design, the mapping and what can't be exact are in the new `docs/testlink_compat_api.md`, and it's step 10 of `api_roadmap.md`.
+
+**Decided with Elliot:**
+- drop-in: only the host changes (TestLink's paths, numeric ids, bodies, answers and errors);
+- a per-user key, as TestLink's;
+- an approved case edited through it gets a new DRAFT, as with MCP;
+- TestLink's whole history is migrated, keeping its ids.
+
+It's built in six phases. This is the first: everything the endpoints will stand on.
+
+**Paths and answers** (`apps/server/src/testlinkCompat/`):
+- One plugin per version under `/lib/api/rest/v1`, `/v2` and `/custom`, from one route table where each route lists its versions (custom ⊇ v2 ⊇ v1, as Dave's `x-versions`).
+- TestLink's envelope: `{status: "ok"|"ko", message, ...}`. Problem details from Testify's shared checks (the NUL guard, body limits, the rate limit) are rewritten into it (`problemToEnvelope`). An unknown path is TestLink's `404 "Route GET <path> not found"`.
+- The test routes, word for word: `/who` (plain text, no key), `/whoAmI`, and `/superman` (not on v1).
+- The routes are hidden from Testify's OpenAPI spec; Dave's `openapi.yaml` describes them.
+
+**TestLink API keys:**
+- One per user (migration `016`'s `user_api_keys`): 32 hex characters like TestLink's, stored as SHA-256, with its first 6 characters and last use for display.
+- Sent as the `APIKEY` header (v2, custom) or the HTTP Basic user name (v1 takes only that, as TestLink's v1 does).
+- It acts as its user with their permissions, counts against the per-user limit, and works only on these paths, never on `/api` or `/mcp`.
+- A missing or wrong key, or a disabled user, gets TestLink's `400 {"status":"ko","message":"authentication error"}`.
+- **Routes:** `GET`/`POST`/`DELETE /api/v1/auth/me/testlink-key` (tokens refused), and `DELETE /api/v1/admin/users/{userId}/testlink-key` (`USER_MANAGE`). Disabling a user removes theirs. The admin users list includes `testlink_key`.
+- Audit rows `TESTLINK_KEY_CREATED` and `TESTLINK_KEY_REVOKED` (with `by_admin`), shown in the Security Audit Log.
+- **Web:** My Account has a "TestLink API key" section (make, shown once with Copy, two-step Remove, last use). The Admin Panel roster shows a 🔑 TL KEY badge and Remove TL Key (two-step).
+
+**For the later phases:**
+- **Numeric ids:** `compat_ids` maps TestLink's numeric ids to Testify's UUIDs. Project, suite, case, version and plan share one sequence, as TestLink's `nodes_hierarchy` does (a `parentID` may be a project or a suite); builds, executions, keywords, custom fields and platforms have their own. New ids are the highest + 1, numbered in one atomic statement per round, so concurrent requests never share one. A first try with an advisory lock didn't hold on the in-memory database, whose one shared connection doesn't isolate transactions. The migration will keep TestLink's ids (`assign`).
+- **Project and plan API keys** (`compat_api_keys`), which TestLink uses in URLs: 64 hex characters, made when first asked for, or kept from TestLink.
+- **Inner requests as a user:** `innerRequest(..., { asUserId })` with `via: 'testlink'` sends the user's id (`x-testify-internal-user`) instead of a credential. `authenticateRequest` honours it only with the per-process secret, then runs the same checks as a sign-in (`signedInUser`, split out of the JWT path). Audit User-Agents are marked "(via TestLink API)".
+
+**Docs:** `testlink_compat_api.md` (new), CLAUDE.md/AGENTS.md (layout, keys, the error exception, the doc map), RFC 03 (§7.1, new §7.4, the summary), RFC 04 (§4 intro, new §4.4, audit events, the token-leakage threat), `api_roadmap.md` (step 10, four decisions, 118 endpoints).
+
+**Tests:** new `testlink_compat_basics.test.ts` (6):
+- the test routes on each version, and `/superman` absent from v1;
+- the key forms: `APIKEY`, Basic, v1 refusing the header, wrong, empty and Bearer credentials;
+- a key replaced, removed by its user, removed by an admin, and ended by disabling the user; never accepted on `/api`; the audit rows;
+- the key never shown after it's made; tokens can't manage keys;
+- the envelope for an unknown path, a NUL character and a 429 with `Retry-After`;
+- numbering: the shared node space, the build space from 1, carrying on above a kept id (70581 → 70582), concurrent numbering without duplicates, plan keys.
+
+`openapi.test.ts` counts 118 routes. The full suite passes (766), and the type check is clean.
+
+**Verified live** on the dev servers:
+- In a separate tab at 127.0.0.1:3000, as admin: My Account made a key, shown once with Copy. The Admin Panel roster showed the TL KEY badge and Remove TL Key.
+- With `curl`:
+  - `/who` and `/whoAmI` on v1 (Basic), v2 and custom (`APIKEY`) answered TestLink's words;
+  - a wrong key got the 400 envelope;
+  - v1 refused the header-only key;
+  - `/superman` answered on custom, and got the 404 envelope on v1.

@@ -343,7 +343,19 @@ export const SHARED_SCHEMAS: Schema[] = [
       permissions: { ...PERMISSIONS_LIST, description: 'Global permissions' },
       overrides: { type: 'array', items: { $ref: 'PermissionOverride#' }, description: 'Global permission overrides' },
       must_change_password: { type: 'boolean' },
+      testlink_key: { anyOf: [{ $ref: 'TestLinkKey#' }, { type: 'null' }], description: 'Their TestLink API key, if any (in the list)' },
       created_at: timestamp(),
+    },
+  },
+  {
+    $id: 'TestLinkKey',
+    type: 'object',
+    description: "A user's TestLink API key, for the TestLink-compatible API under /lib/api/rest (never the key itself)",
+    required: ['key_prefix', 'created_at', 'last_used_at'],
+    properties: {
+      key_prefix: str('The first characters, to tell keys apart'),
+      created_at: timestamp(),
+      last_used_at: { anyOf: [timestamp(), { type: 'null' }] },
     },
   },
   {

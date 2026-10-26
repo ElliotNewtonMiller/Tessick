@@ -78,6 +78,14 @@ export const updateUserRolesSchema = {
   response: { 200: wrapped('user', 'AdminUser', 'Changed'), ...authedErrors([400, '`UNKNOWN_ROLE`'], GUARD_403, 404, [409, '`LAST_ADMIN`']) },
 };
 
+export const revokeUserTestLinkKeySchema = {
+  tags: USERS,
+  summary: "Remove a user's TestLink API key",
+  description: "It stops working at once (e.g. a leaked key, or someone leaving; disabling a user removes it too). Within the guard's rank rule. Needs `USER_MANAGE`." + NO_TOKENS,
+  params: idParams('userId'),
+  response: { 204: NO_CONTENT, ...authedErrors(GUARD_403, 404) },
+};
+
 export const resetPasswordSchema = {
   tags: USERS,
   summary: "Reset a user's password",

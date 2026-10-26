@@ -4,6 +4,7 @@ import { jsonHeaders } from "../utils/session";
 
 import { errorMessage as apiErrorMessage } from "../api/errors";
 import { api } from "../api/routes";
+import { TestLinkKeySection } from "./TestLinkKeySection";
 export interface UserProfile {
   id: string;
   username: string;
@@ -452,6 +453,7 @@ export function AuthModal({
             </button>
           </form>
         )}
+        {currentUser && !currentUser.must_change_password && <TestLinkKeySection />}
       </div>
     </div>
   );

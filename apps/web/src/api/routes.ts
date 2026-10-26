@@ -26,6 +26,8 @@ export const api = {
   login: `${V1}/auth/login`,
   logout: `${V1}/auth/logout`,
   me: `${V1}/auth/me`,
+  /** Your TestLink API key, for the TestLink-compatible API. */
+  myTestLinkKey: `${V1}/auth/me/testlink-key`,
 
   // Projects, plans, runs
   projects: `${V1}/projects`,
@@ -101,6 +103,7 @@ export const api = {
   admin: {
     users: `${V1}/admin/users`,
     user: (userId: string) => `${V1}/admin/users/${enc(userId)}`,
+    userTestLinkKey: (userId: string) => `${V1}/admin/users/${enc(userId)}/testlink-key`,
     userRoles: (userId: string) => `${V1}/admin/users/${enc(userId)}/roles`,
     userOverrides: (userId: string, projectId?: string | null) =>
       withQuery(`${V1}/admin/users/${enc(userId)}/permission-overrides`, { project_id: projectId }),

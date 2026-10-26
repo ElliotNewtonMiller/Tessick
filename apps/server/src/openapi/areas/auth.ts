@@ -55,6 +55,44 @@ export const logoutSchema = {
   },
 };
 
+const TESTLINK_KEY_TEXT =
+  "Your TestLink API key works only on Testify's TestLink-compatible API (`/lib/api/rest/{v1,v2,custom}/...`, docs/testlink_compat_api.md), sent as the `APIKEY` header (or the HTTP Basic user name) as TestLink takes it, with your own permissions in each project. Not available to API tokens.";
+
+export const getTestLinkKeySchema = {
+  tags: TAGS,
+  summary: 'Your TestLink API key',
+  operationId: 'getMyTestLinkKey',
+  description: `Whether you have one, and when it was made and last used. ${TESTLINK_KEY_TEXT}`,
+  response: {
+    200: { description: 'Yours, or null', type: 'object', required: ['testlink_key'], properties: { testlink_key: { anyOf: [{ $ref: 'TestLinkKey#' }, { type: 'null' }] } } },
+    ...authedErrors(),
+  },
+};
+
+export const createTestLinkKeySchema = {
+  tags: TAGS,
+  summary: 'Make your TestLink API key',
+  operationId: 'createMyTestLinkKey',
+  description: `A new key, shown once in \`plaintext\`; it replaces the one you had. ${TESTLINK_KEY_TEXT}`,
+  response: {
+    201: {
+      description: 'Made',
+      type: 'object',
+      required: ['testlink_key', 'plaintext'],
+      properties: { testlink_key: { $ref: 'TestLinkKey#' }, plaintext: { type: 'string', description: 'The key (32 hex characters, like TestLink\'s); never shown again' } },
+    },
+    ...authedErrors(),
+  },
+};
+
+export const deleteTestLinkKeySchema = {
+  tags: TAGS,
+  summary: 'Remove your TestLink API key',
+  operationId: 'deleteMyTestLinkKey',
+  description: `It stops working at once. ${TESTLINK_KEY_TEXT}`,
+  response: { 204: { description: 'Removed (or there was none)', type: 'null' }, ...authedErrors() },
+};
+
 export const getMeSchema = {
   tags: TAGS,
   summary: 'Who am I',

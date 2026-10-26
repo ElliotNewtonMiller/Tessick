@@ -12,13 +12,19 @@ import type { FastifyRequest } from 'fastify';
  * token's rate limit (the outer request was), and its `via` (bulk or mcp) is believed: an MCP
  * change is recorded with "via Testify MCP" in its audit rows' User-Agent, and cases it creates
  * start as DRAFT. The secret is random per process and never leaves it (headers aren't logged).
+ *
+ * The TestLink-compatible API (testlinkCompat/) makes its changes the same way, `via` testlink,
+ * as the user whose TestLink API key the outer request carried: that key works only on the
+ * compatible paths, so the inner request names the user instead (`asUserId`), which only a
+ * request carrying the secret may do.
  */
 
 const INTERNAL_SECRET = randomBytes(32).toString('hex');
 const SECRET_HEADER = 'x-testify-internal';
 const VIA_HEADER = 'x-testify-via';
+const USER_HEADER = 'x-testify-internal-user';
 
-export type InternalVia = 'bulk' | 'mcp';
+export type InternalVia = 'bulk' | 'mcp' | 'testlink';
 
 export function isInternalRequest(request: FastifyRequest): boolean {
   return request.headers[SECRET_HEADER] === INTERNAL_SECRET;
@@ -28,7 +34,14 @@ export function isInternalRequest(request: FastifyRequest): boolean {
 export function internalVia(request: FastifyRequest): InternalVia | null {
   if (!isInternalRequest(request)) return null;
   const via = request.headers[VIA_HEADER];
-  return via === 'bulk' || via === 'mcp' ? via : null;
+  return via === 'bulk' || via === 'mcp' || via === 'testlink' ? via : null;
+}
+
+/** The user an internal request acts as when it carries no credential of its own (the TestLink-compatible API). */
+export function internalUserId(request: FastifyRequest): string | null {
+  if (internalVia(request) !== 'testlink') return null;
+  const id = request.headers[USER_HEADER];
+  return typeof id === 'string' && id ? id : null;
 }
 
 export interface InnerResponse {
@@ -42,16 +55,21 @@ export async function innerRequest(
   via: InternalVia,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
-  payload?: unknown
+  payload?: unknown,
+  options: { asUserId?: string } = {}
 ): Promise<InnerResponse> {
   const headers: Record<string, string> = { [SECRET_HEADER]: INTERNAL_SECRET, [VIA_HEADER]: via };
-  for (const name of ['authorization', 'cookie', 'x-testify-client'] as const) {
-    const value = outer.headers[name];
-    if (typeof value === 'string') headers[name] = value;
+  if (options.asUserId) {
+    headers[USER_HEADER] = options.asUserId;
+  } else {
+    for (const name of ['authorization', 'cookie', 'x-testify-client'] as const) {
+      const value = outer.headers[name];
+      if (typeof value === 'string') headers[name] = value;
+    }
   }
   const agent = typeof outer.headers['user-agent'] === 'string' ? outer.headers['user-agent'] : '';
-  const MARK = '(via Testify MCP)';
-  headers['user-agent'] = via === 'mcp' && !agent.includes(MARK) ? `${agent} ${MARK}`.trim() : agent;
+  const MARK = via === 'mcp' ? '(via Testify MCP)' : via === 'testlink' ? '(via TestLink API)' : '';
+  headers['user-agent'] = MARK && !agent.includes(MARK) ? `${agent} ${MARK}`.trim() : agent;
   if (payload !== undefined) headers['content-type'] = 'application/json';
   const res = await outer.server.inject({
     method,

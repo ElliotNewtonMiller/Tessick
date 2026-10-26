@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
-import { UserRepository, RoleRepository, SessionRepository, ApiTokenRepository, RoleName, decodeCursor, toPage } from '@testify/db';
+import { UserRepository, RoleRepository, SessionRepository, ApiTokenRepository, UserApiKeyRepository, RoleName, decodeCursor, toPage } from '@testify/db';
 import { commaList, readPage } from '../paging.js';
 import { authenticateRequest, requirePermission } from '../middleware/auth.js';
 import { sendRoleInUseError, sendError } from '../errors.js';
@@ -40,6 +40,7 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
   // GET /api/v1/admin/users - List all system users & assigned roles (Gated by USER_MANAGE)
   app.get('/api/v1/admin/users', { schema: A.listUsersSchema, preHandler: requirePermission('USER_MANAGE', db, jwtSecret) }, async () => {
     const rawUsers = await userRepo.findAll();
+    const testLinkKeys = await new UserApiKeyRepository(db).listAll();
 
     const users = await Promise.all(
       rawUsers.map(async (u) => {
@@ -59,6 +60,8 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
           project_roles: projectRoles,
           permissions,
           overrides,
+          // Their TestLink API key for the TestLink-compatible API, if they have one (never the key itself).
+          testlink_key: testLinkKeys.get(u.id) ?? null,
           created_at: u.created_at,
         };
       })
@@ -255,6 +258,7 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
         if (status === 'DISABLED') {
           await new SessionRepository(trx).revokeAllForUser(userId);
           revokedTokens = await new ApiTokenRepository(trx).revokeAllIssuedBy(userId);
+          await new UserApiKeyRepository(trx).revoke(userId);
         }
         if (status === 'ACTIVE') await new UserRepository(trx).resetLoginFailures(userId);
         return new UserRepository(trx).updateStatus(userId, status);
@@ -281,6 +285,38 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
       .execute();
 
     return reply.status(200).send({ user: { id: updatedUser.id, status: updatedUser.status } });
+  });
+
+  // DELETE /api/v1/admin/users/:userId/testlink-key -- removes someone's TestLink API key (a
+  // leaked one, or someone leaving), within the guard's rank rule like every change to a user.
+  app.delete('/api/v1/admin/users/:userId/testlink-key', { schema: A.revokeUserTestLinkKeySchema, preHandler: requirePermission('USER_MANAGE', db, jwtSecret) }, async (request, reply) => {
+    const activeUser = request.user!;
+    const { userId } = request.params as { userId: string };
+    if (!(await userRepo.findById(userId))) return sendError(reply, 404, 'User not found');
+    let removed = false;
+    try {
+      removed = await guard.run(activeUser, [{ userId, projectId: null }], (trx) => new UserApiKeyRepository(trx).revoke(userId));
+    } catch (err) {
+      if (sendGuardError(reply, err)) return;
+      throw err;
+    }
+    if (removed) {
+      await db
+        .insertInto('audit_logs')
+        .values({
+          id: crypto.randomUUID(),
+          actor_id: activeUser.id,
+          actor_type: 'USER',
+          action: 'TESTLINK_KEY_REVOKED',
+          resource_type: 'user',
+          resource_id: userId,
+          diff: JSON.stringify({ by_admin: true }),
+          ...requestOrigin(request),
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+    }
+    return reply.status(204).send();
   });
 
   // POST /api/v1/admin/users/:userId/reset-password -- for someone who forgot theirs. Sets a
@@ -397,6 +433,8 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
       'WEBHOOK_DELETED',
       'WEBHOOK_SECRET_ROTATED',
       'WEBHOOK_AUTO_PAUSED',
+      'TESTLINK_KEY_CREATED',
+      'TESTLINK_KEY_REVOKED',
     ];
 
     const query = request.query as { action?: string; actor_id?: string; since?: string };

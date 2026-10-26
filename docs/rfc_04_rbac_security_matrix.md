@@ -141,7 +141,7 @@ Every role, override, status and password change in the Admin Panel goes through
 
 ## 4. Authentication Architecture & Token Lifecycle
 
-Testify has two kinds of credentials: **sign-ins** for people, and **machine API tokens** for CI pipelines and agents.
+Testify has two kinds of credentials: **sign-ins** for people, and **machine API tokens** for CI pipelines and agents. A third, **TestLink API keys**, works only on the TestLink-compatible API (§4.4).
 
 ### 4.1 Interactive User Sessions
 - **Passwords** are checked against a password policy (`packages/core/src/security/passwordPolicy.ts`) and stored as a PBKDF2-SHA512 hash at 210,000 iterations (OWASP's recommendation) with a 16-byte random salt, as `pbkdf2_sha512$<iterations>$<salt>$<key>` (`UserRepository`). Hashes from before 2026-10-22 (100,000 iterations, `<salt>:<key>`) still work and are re-hashed at the current setting when their user next signs in. Hashing runs on Node's thread pool, so sign-ins don't stall other requests. A sign-in naming an unknown account still checks a password, so response times don't reveal which usernames exist.
@@ -226,6 +226,20 @@ flowchart TD
 
 ---
 
+### 4.4 TestLink API Keys
+
+A third credential, only for the TestLink-compatible API (`/lib/api/rest/{v1,v2,custom}`, [testlink_compat_api.md](testlink_compat_api.md)), so Dave's TestLink clients keep working:
+1. **One per user,** made in My Account (`POST /api/v1/auth/me/testlink-key`) and shown once. A new one replaces the old. 32 hex characters, like TestLink's; stored only as a SHA-256 digest (`user_api_keys`), with its first 6 characters and last use for display.
+2. **Sent** as the `APIKEY` header (v2, custom) or the HTTP Basic user name (any version; v1 takes only that).
+3. **Acts as its user,** with the user's permissions in each project, as a sign-in would. Unlike an API token it isn't bound to a project, as TestLink's key isn't.
+4. **Only on the TestLink paths.** `/api` and `/mcp` don't accept it, so the project-bound tokens and MCP's limits are unaffected. Writes reach Testify's routes as inner requests naming the user (`x-testify-internal-user`), honoured only with the per-process secret and `via: 'testlink'`.
+5. **Ends** when the user removes it, an admin removes it (`DELETE /api/v1/admin/users/{userId}/testlink-key`), or the user is disabled. A disabled user's key is refused even before then.
+6. **Rate limit:** the user's own, 1,200 requests a minute.
+7. **Failures** answer TestLink's `400 {"status":"ko","message":"authentication error"}`, for a missing, wrong or removed key alike.
+8. **Audited:** `TESTLINK_KEY_CREATED` and `TESTLINK_KEY_REVOKED` (with `by_admin` when an admin removed it), shown in the Security Audit Log. API tokens can't make or remove keys.
+
+---
+
 ## 5. In-Database Append-Only Audit Subsystem
 
 ### 5.1 Retention & Immutability Rules
@@ -275,6 +289,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Users and access | `USER_CREATED`, `USER_DISABLED`, `USER_ACTIVATED`, `ROLE_ASSIGNED`, `PROJECT_ACCESS_GRANTED`, `PERMISSION_OVERRIDES_UPDATED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_DELETED` |
 | Sign-in security | `CREDENTIALS_CHANGED`, `PASSWORD_RESET`, `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED` |
 | API tokens | `API_TOKEN_GENERATED`, `API_TOKEN_REVOKED` |
+| TestLink API keys | `TESTLINK_KEY_CREATED`, `TESTLINK_KEY_REVOKED` |
 | Projects | `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_DELETED` |
 | Specifications | `SUITE_CREATED`, `SUITE_UPDATED`, `SUITE_DELETED`, `CASE_CREATED`, `CASE_UPDATED`, `CASE_DELETED`, `CASE_DRAFT_CREATED`, `CASE_VERSION_UPDATED`, `CASE_VERSION_APPROVED`, `CASE_VERSION_DEPRECATED`, `CASE_VERSION_RESTORED`, `SPEC_ITEMS_MOVED` |
 | Plan membership | `PLAN_CASE_ADDED`, `PLAN_CASE_REMOVED`, `PLAN_CASE_RETIRED`, `PLAN_CASE_CASCADE_ADD`, `PLAN_CASE_CASCADE_REMOVE` |
@@ -349,6 +364,7 @@ graph TD
   - Tokens are shown once and stored only as a digest, so a database dump yields no usable token.
   - A token is limited to one project and to its issuer's current permissions, and can never hold `SYSTEM_ADMIN` or `PROJECT_DELETE`, so a leaked token can't delete its project.
   - One-click revocation, with last-used time shown.
+- **TestLink API keys** (§4.4) are weaker on two counts, by design for compatibility: they have no prefix (TestLink's shape, 32 hex characters), and they aren't bound to a project (they act as their user everywhere). They're stored only as a digest, work only on the TestLink-compatible paths, carry no more than their user's own permissions, and can be removed by the user or an admin at once, with their last use shown in My Account and the Admin Panel.
 
 #### 6. Brute Force & Request Floods
 - **Risk:** Bots guess passwords at `/api/v1/auth/login`, or flood the API with a token.

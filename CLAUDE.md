@@ -73,6 +73,9 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
   src/middleware/auth.ts   Authentication and permission checks (see "Auth and permissions").
   src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; writeTools.ts: write tools that call
                    the REST routes as the caller (internalRequests.ts).
+  src/testlinkCompat/  The TestLink-compatible API (/lib/api/rest/{v1,v2,custom}, docs/testlink_compat_api.md):
+                   index.ts (mounting per version), auth.ts (TestLink API keys), envelope.ts (TestLink's answers),
+                   versions.ts, routes/ (one file per area; writes go through innerRequest with via 'testlink').
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
@@ -157,6 +160,12 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Some permissions can never be granted to a token: the system-wide `SYSTEM_ADMIN`, `USER_MANAGE`, `CUSTOM_FIELD_MANAGE`, `PROJECT_CREATE`, `API_TOKEN_MANAGE`, `WEBHOOK_MANAGE` (a webhook sends data anywhere), and `PROJECT_DELETE` (it removes everything in the project for good; decided with Elliot, with no trash) (`TOKEN_EXCLUDED_PERMISSIONS` in `packages/core/src/rbac/registry.ts`; existing tokens lose them on use).
 - Limit: 1,200 requests per minute per token, and the same per signed-in user (`services/rateLimits.ts`).
 
+**TestLink API keys** (for the TestLink-compatible API, `docs/testlink_compat_api.md`):
+- One per user (`user_api_keys`, SHA-256 hashed, 32 hex characters like TestLink's), made in My Account; a new one replaces the old. An admin can remove anyone's (`DELETE /admin/users/:userId/testlink-key`), and disabling a user removes theirs.
+- Sent as the `APIKEY` header (v2, custom) or the HTTP Basic user name (every version; v1 takes only that). Accepted **only** on `/lib/api/rest/...` (`testlinkCompat/auth.ts`), never on `/api` or `/mcp`.
+- It acts as its user, with their permissions in each project, and counts against the per-user limit. Writes go through Testify's routes as an inner request carrying the user's id (`innerRequest(..., { asUserId })`, `via: 'testlink'`, honoured only with the per-process secret).
+- A missing or wrong key gets TestLink's `400 {"status":"ko","message":"authentication error"}`; every answer on those paths is TestLink's envelope, not problem details.
+
 **Permissions:**
 - The registry is in `packages/core/src/rbac/registry.ts` (20 keys).
 - Default roles: Admin, Test Lead, Tester, Viewer, Automation Service and No Access. Roles are editable and deletable once unused. New users default to Tester.
@@ -199,7 +208,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Send errors with `sendError(reply, status, detail, { code?, invalid_params?, ...extensions })` from `errors.ts`, or one of its specific `send*Error` helpers. `code` defaults from the status (404 → `NOT_FOUND`).
   - Throw a plain `Error` only when its message is meant for users (`isPublicError`).
   - Anything else becomes a generic 500 with a `request_id`, and the details go only to the log. Unknown addresses get a 404 in the same format, and an API address under the wrong method a 405 with `Allow` (`unknownAddress.ts`). A 401 carries `WWW-Authenticate: Bearer` (`sendError`).
-  - Exceptions: the MCP endpoint answers in JSON-RPC (the protocol requires it), and a batch request's per-item results carry their own `detail`/`code` inside a normal response.
+  - Exceptions: the MCP endpoint answers in JSON-RPC (the protocol requires it); the TestLink-compatible API answers TestLink's `{status:"ko", message}` (problem details from shared checks are rewritten, `problemToEnvelope`); and a batch request's per-item results carry their own `detail`/`code` inside a normal response.
   - In the web app, read error messages with `errorMessage(body)` from `apps/web/src/api/errors.ts`.
 - **Audit rows:**
   - Write one for every security-relevant change, with `...requestOrigin(request)` (real address and User-Agent) and `actor_type: actorType(user)` (`SERVICE_ACCOUNT` for an API token).
@@ -308,3 +317,4 @@ These were chosen deliberately; don't reverse them without asking Elliot.
    - `docs/01_vertical_slices_roadmap.md`: what each build slice planned and delivered.
    - `docs/00_requirements_alignment.md` (identical to `.antigravity/requirements_alignment.md`): the locked intake decisions, with "As built" notes.
    - `.antigravity/agents/*.md`: the original planning briefs; they record what was asked for, not what was built.
+6. `docs/testlink_compat_api.md`: the TestLink-compatible API for Dave's TestLink clients: keys, paths, the model mapping, its phases and what can't be exact.

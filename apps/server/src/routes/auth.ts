@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
-import { UserRepository, RoleRepository, SessionRepository } from '@testify/db';
+import { UserRepository, RoleRepository, SessionRepository, UserApiKeyRepository } from '@testify/db';
 import { signJwt, verifyJwt } from '@testify/core';
 import { authenticateRequest } from '../middleware/auth.js';
 import { clearSessionCookie, passesCsrfCheck, requestCredential, setSessionCookie } from '../sessionCookie.js';
@@ -16,7 +16,7 @@ import {
 import { requestOrigin, type RequestOrigin } from '../audit.js';
 
 import { sendError } from '../errors.js';
-import { loginSchema, logoutSchema, getMeSchema, patchMeSchema } from '../openapi/areas/auth.js';
+import { loginSchema, logoutSchema, getMeSchema, patchMeSchema, getTestLinkKeySchema, createTestLinkKeySchema, deleteTestLinkKeySchema } from '../openapi/areas/auth.js';
 /** How long a sign-in lasts (the login token and its session expire together). */
 
 export async function registerAuthRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {
@@ -145,6 +145,48 @@ export async function registerAuthRoutes(app: FastifyInstance, db: Kysely<Databa
     if (!user) return;
 
     return reply.status(200).send({ user });
+  });
+
+  // Your TestLink API key: what Dave's TestLink REST API clients send as APIKEY to Testify's
+  // TestLink-compatible API (testlinkCompat/). One per user, shown once when made; making a new
+  // one replaces it. API tokens can't reach these routes (they're outside any project).
+  const testLinkKeys = new UserApiKeyRepository(db);
+  const auditKey = async (request: any, actorId: string, action: 'TESTLINK_KEY_CREATED' | 'TESTLINK_KEY_REVOKED', userId: string) => {
+    await db
+      .insertInto('audit_logs')
+      .values({
+        id: crypto.randomUUID(),
+        actor_id: actorId,
+        actor_type: 'USER',
+        action,
+        resource_type: 'user',
+        resource_id: userId,
+        diff: JSON.stringify({}),
+        ...requestOrigin(request),
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+  };
+
+  app.get('/api/v1/auth/me/testlink-key', { schema: getTestLinkKeySchema }, async (request, reply) => {
+    const user = await authenticateRequest(request, reply, db, jwtSecret);
+    if (!user) return;
+    return { testlink_key: (await testLinkKeys.getForUser(user.id)) ?? null };
+  });
+
+  app.post('/api/v1/auth/me/testlink-key', { schema: createTestLinkKeySchema }, async (request, reply) => {
+    const user = await authenticateRequest(request, reply, db, jwtSecret);
+    if (!user) return;
+    const { plaintext, key } = await testLinkKeys.create(user.id);
+    await auditKey(request, user.id, 'TESTLINK_KEY_CREATED', user.id);
+    return reply.status(201).send({ testlink_key: key, plaintext });
+  });
+
+  app.delete('/api/v1/auth/me/testlink-key', { schema: deleteTestLinkKeySchema }, async (request, reply) => {
+    const user = await authenticateRequest(request, reply, db, jwtSecret);
+    if (!user) return;
+    if (await testLinkKeys.revoke(user.id)) await auditKey(request, user.id, 'TESTLINK_KEY_REVOKED', user.id);
+    return reply.status(204).send();
   });
 
   // PATCH /api/v1/auth/me - Self-service username, email & password update (only what the body names)

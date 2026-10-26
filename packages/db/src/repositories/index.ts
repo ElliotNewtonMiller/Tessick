@@ -13,3 +13,4 @@ export * from './api_token.repository.js';
 export * from './report_email.repository.js';
 export * from './session.repository.js';
 export * from './webhook.repository.js';
+export * from './testlink_compat.repository.js';

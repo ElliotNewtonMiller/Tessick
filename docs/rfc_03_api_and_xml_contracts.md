@@ -479,6 +479,8 @@ Every API request needs a credential (RFC 04 §4 has the details):
 - **Machine API tokens** (`Authorization: Bearer tf_ci_...`), for CI and agents. Each is created per project in Admin Panel → API Tokens, with chosen capabilities, and is bound to that project and capped by its issuer's current permissions. Tokens can't use the admin routes or hold system-wide permissions (RFC 04 §4.2).
 - **Sign-in tokens:** `POST /api/v1/auth/login` returns a JWT for scripts, with `expires_at` (7 days at most) and `idle_timeout_seconds` (it ends sooner after 8 hours unused). The web app uses an HttpOnly session cookie instead, plus a `X-Testify-Client: web` header on changes.
 
+- **TestLink API keys**, one per user, only for the TestLink-compatible API under `/lib/api/rest/{v1,v2,custom}` (§7.4, RFC 04 §4.4).
+
 There are no personal access tokens or separate runner-token types; a token's capabilities decide what it can do. The built-in Automation Service role's set (`SPEC_VIEW`, `RUN_MANAGE`, `EXECUTE_RUN`) suits CI.
 
 ---
@@ -558,6 +560,18 @@ A receiver recomputes the signature over the raw body, compares in constant time
 
 **Addresses.** `http(s)` only, no user name or password in the URL. Public and private-network addresses are allowed (a self-hosted Jenkins or Jira), but loopback, unspecified, link-local (cloud metadata at 169.254.169.254) and multicast addresses are refused: when saving, for literal addresses and `localhost`, and on every connection after DNS, so a name can't later resolve to one. `WEBHOOK_ALLOW_LOCAL=true` lifts this, for a receiver on the same machine (`npm run dev` sets it).
 
+### 7.4 TestLink-compatible API
+
+Testify also serves Dave's TestLink REST API (v1, v2 and custom), so clients written for TestLink work with only the host changed. It's a translation layer in `apps/server/src/testlinkCompat/`, outside this RFC's conventions on purpose:
+- **Paths:** TestLink's own, under `/lib/api/rest/v1`, `/v2` and `/custom`, each version with the routes TestLink's has.
+- **Authentication:** a user's TestLink API key, as the `APIKEY` header or the HTTP Basic user name (v1: Basic only). It isn't accepted on `/api` or `/mcp`.
+- **Answers:** TestLink's envelope (`{status: "ok"|"ko", message, ...}`), never problem details; an authentication failure is `400 "authentication error"`, as in TestLink.
+- **Ids:** TestLink's numeric ids, kept beside Testify's UUIDs (`compat_ids`).
+- **Writes** go through the routes in §2 as the key's user (an inner request, `via: 'testlink'`), so permissions, validation, audit rows and webhooks are the same.
+- These routes aren't in Testify's OpenAPI spec; Dave's `openapi.yaml` documents them.
+
+The details, the model mapping, the phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
+
 ---
 
 ## 8. System Workflows
@@ -612,6 +626,7 @@ sequenceDiagram
 | **REST conventions** | Resource naming, verbs, status codes, one id name each (§1-2) | Built (2026-10-12). OpenAPI spec at `/docs/json` for every route; no paging yet ([api_roadmap.md](api_roadmap.md) steps 3-4). |
 | **CI results** | Batch endpoint with all-or-nothing mode (§3) | Built: up to 5,000 results and 50 MB per request, one transaction. |
 | **Errors** | Problem details for every error, with a code registry (§4) | Built. |
+| **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phase 1 of 6 built: paths, keys, envelope, test routes ([testlink_compat_api.md](testlink_compat_api.md)). |
 | **Closed runs, locked plans** | Writes rejected with HTTP 422 `RUN_CLOSED` / `PLAN_LOCKED` (§4.1) | Built. |
 | **Attachments and retention** | `IStorageProvider`, pre-signed uploads, 365-day purge (§5) | Not built. Audit logs append-only forever: built. |
 | **Import formats** | Parser interface; TestLink XML, JSON, CSV (§6.1-6.2) | Built, plus JUnit XML and TestRail CSV. |

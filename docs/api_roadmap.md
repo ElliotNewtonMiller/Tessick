@@ -12,7 +12,7 @@ Status values: **Not started**, **Planning**, **In progress**, **Done**, **Dropp
 ## Where the API stands (2026-10-12)
 
 **Good:**
-- **Coverage:** 114 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
+- **Coverage:** 118 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
 - **Security:** project-bound API tokens (`tf_ci_...`), permissions checked per project, rate limits and an audit log (RFC 04).
 - **CI:** a build uploads its JUnit XML report as it is (up to 20,000 tests), or sends JSON batches of up to 5,000 results, into a run named after the build (step 5).
 - **Consistent** (step 1, 2026-10-12): one address style, verbs and status codes, one error format, one name per id, "runs" and "results" throughout.
@@ -248,6 +248,19 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 - One audit row per change, as today.
 - Split from step 8 on 2026-10-12, to keep that pass to reads and paging.
 
+### 10. TestLink-compatible API
+
+**Status:** In progress. Phase 1 of 6 done (2026-10-26): the three version paths, TestLink API keys, TestLink's envelope and errors, and the test routes. Next: reads with the query layer.
+
+**What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Testify as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
+
+**How:**
+- A translation layer (`apps/server/src/testlinkCompat/`): reads through the repositories, writes through Testify's routes as the key's user (`innerRequest`, `via: 'testlink'`), so permissions, validation, audit and webhooks apply unchanged.
+- TestLink's numeric ids kept beside the UUIDs (`compat_ids`), with project, suite, case, version and plan sharing one sequence, as TestLink's nodes do.
+- A migration from TestLink's database that keeps its ids and users' keys (phase 5; needs database access and a MySQL client package).
+
+**To settle with Dave:** custom execution status codes; whether platforms are used; database access for the migration; whether Testify serves his HTML pages (they need their own Content-Security-Policy); `/swagfile` requiring a key.
+
 ### Related gaps worth doing alongside
 
 - ~~Plan and run create/edit/delete write no audit entry.~~ Done 2026-10-14.
@@ -264,7 +277,8 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 4. **Steps 8 and 4:** the missing reads and paging, together. Done.
 5. **Step 5:** CI integration, built on the published spec. Done.
 6. **Steps 9 and 6:** bulk changes and agent writes, together. Done.
-7. **Step 7:** webhooks.
+7. **Step 7:** webhooks. Done.
+8. **Step 10:** the TestLink-compatible API, in six phases.
 
 ---
 
@@ -315,3 +329,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-25 | No `If-Match`/ETag on edits for now. | Decided with Elliot (audit finding 8): nothing outside Testify uses the API yet, and an optional header can be added later without breaking clients. |
 | 2026-10-25 | Signed-in users are limited to 1,200 requests a minute each, like tokens. | Decided with Elliot (audit finding 10). Nobody clicking comes near it; it stops a runaway script on a password sign-in. |
 | 2026-10-25 | To an API token, anything in another project is `404`, as if it didn't exist (it was `403 TOKEN_PROJECT_MISMATCH`). | Decided with Elliot (audit finding 15): the 403 confirmed the other project's item existed. The message still says it's not in the token's project. |
+| 2026-10-26 | A TestLink-compatible API (step 10): drop-in, only the host changes. | Decided with Elliot, for Dave's TestLink clients: TestLink's paths, numeric ids, bodies, answers and errors. |
+| 2026-10-26 | Its credential is a per-user TestLink API key, accepted only on `/lib/api/rest/...`. | Decided with Elliot: TestLink's keys are per user. Keeping it off `/api` and `/mcp` leaves the project-bound tokens and MCP's limits as they are. |
+| 2026-10-26 | An approved case edited through it gets a new DRAFT. | Decided with Elliot, as MCP: Testify keeps its approval rule. |
+| 2026-10-26 | TestLink's whole history is migrated, keeping its ids and keys. | Decided with Elliot (phase 5). |

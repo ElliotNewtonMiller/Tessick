@@ -334,6 +334,34 @@ export interface Database {
   webhooks: WebhooksTable;
   webhook_deliveries: WebhookDeliveriesTable;
   idempotency_keys: IdempotencyKeysTable;
+  compat_ids: CompatIdsTable;
+  user_api_keys: UserApiKeysTable;
+  compat_api_keys: CompatApiKeysTable;
+}
+
+/** TestLink's numeric id for a Testify row, in its id space (migration 016; testlinkCompat). */
+export interface CompatIdsTable {
+  id_space: string;
+  int_id: number;
+  entity_type: string;
+  entity_id: string;
+}
+
+/** A user's TestLink API key, as a SHA-256 digest (migration 016). */
+export interface UserApiKeysTable {
+  id: string;
+  user_id: string;
+  key_hash: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+/** A project's or plan's TestLink API key, an identifier in requests (migration 016). */
+export interface CompatApiKeysTable {
+  entity_type: string;
+  entity_id: string;
+  api_key: string;
 }
 
 /** A result request's Idempotency-Key and, once it succeeded, its answer (migration 015). */

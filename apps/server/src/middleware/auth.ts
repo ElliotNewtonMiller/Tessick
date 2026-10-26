@@ -10,7 +10,7 @@ import { sendTokenNotAllowedError, sendTokenInterfaceNotAllowedError, sendInvali
   sendNotInTokenProjectError,
   sendTokenIssuerInactiveError, sendError } from '../errors.js';
 import { sendRateLimitedError } from '../services/rateLimits.js';
-import { isInternalRequest, internalVia } from '../internalRequests.js';
+import { isInternalRequest, internalVia, internalUserId } from '../internalRequests.js';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import { applyCaseRefs, resolveCaseRef } from '../caseRefs.js';
 
@@ -368,8 +368,18 @@ export async function authenticateRequest(
   db: Kysely<Database>,
   jwtSecret: string
 ): Promise<AuthenticatedUser | null> {
-  const userRepo = new UserRepository(db);
-  const roleRepo = new RoleRepository(db);
+  // A request the TestLink-compatible API makes for the user whose TestLink API key it was sent
+  // with (internalRequests.ts): it acts as that user, as a sign-in would.
+  const actingUserId = internalUserId(request);
+  if (actingUserId) {
+    const resolved = await resolveRequestProject(request, db, null);
+    if ('conflict' in resolved) {
+      sendError(reply, 400, 'The ids in this request belong to different projects.', { code: 'PROJECTS_DIFFER', project_ids: resolved.conflict });
+      return null;
+    }
+    request.projectId = resolved.projectId;
+    return signedInUser(request, reply, db, actingUserId, resolved.projectId, undefined);
+  }
 
   // The Authorization header wins; the web app's HttpOnly session cookie is the fallback
   // (see sessionCookie.ts).
@@ -439,7 +449,20 @@ export async function authenticateRequest(
   } catch {
     // Best-effort -- failing to extend the session must never fail the request itself.
   }
+  return signedInUser(request, reply, db, userId, projectId, sessionId);
+}
 
+/** The signed-in user (a session, or the TestLink-compatible API's key user), with their permissions in the request's project; null after refusing. */
+async function signedInUser(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: Kysely<Database>,
+  userId: string,
+  projectId: string | null,
+  sessionId: string | undefined
+): Promise<AuthenticatedUser | null> {
+  const userRepo = new UserRepository(db);
+  const roleRepo = new RoleRepository(db);
   const user = await userRepo.findById(userId);
   if (!user || user.status === 'DISABLED') {
     sendError(reply, 401, 'Unauthorized: User account is invalid or disabled');

@@ -38,6 +38,7 @@ import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
 import { registerNulGuard, unstorableValueMessage } from './storableInput.js';
 import { sendUnknownAddress } from './unknownAddress.js';
+import { registerTestLinkCompat } from './testlinkCompat/index.js';
 import { registerOpenApi, validationProblem } from './openapi/index.js';
 import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
@@ -209,6 +210,9 @@ export async function createServer(
 
   // GET /api/v1/health, for load balancers and uptime monitors (observability.ts).
   registerHealthRoute(app, db);
+
+  // Dave's TestLink REST API, answered as TestLink does, under /lib/api/rest/{v1,v2,custom} (testlinkCompat/).
+  await registerTestLinkCompat(app, db);
 
   // The built web app, served for every address the API doesn't handle (webApp.ts).
   if (options.webDistDir) registerWebApp(app, options.webDistDir);

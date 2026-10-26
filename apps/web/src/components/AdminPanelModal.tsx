@@ -22,6 +22,8 @@ interface UserItem extends UserProfile {
   locked_until?: string | null;
   project_roles: Array<{ project_id: string; role: string }>;
   overrides: PermissionOverride[];
+  /** Their TestLink API key (for the TestLink-compatible API), if they have one. */
+  testlink_key?: { key_prefix: string; created_at: string; last_used_at: string | null } | null;
   created_at: string;
 }
 
@@ -272,6 +274,8 @@ export function AdminPanelModal({
   // Password reset (User Roster): the user being confirmed, then the temporary password,
   // shown once like a new API token.
   const [resetPrompt, setResetPrompt] = useState<{ id: string; username: string } | null>(null);
+  // The user whose TestLink API key is about to be removed (the second click removes it).
+  const [keyRevokePrompt, setKeyRevokePrompt] = useState<string | null>(null);
   const [resetResult, setResetResult] = useState<{ username: string; password: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -571,6 +575,24 @@ export function AdminPanelModal({
       }
     } catch {
       setErrorMessage("Unable to reach the server.");
+    }
+  };
+
+  const handleRevokeTestLinkKey = async (userId: string) => {
+    setErrorMessage(null);
+    try {
+      const res = await fetch(api.admin.userTestLinkKey(userId), { method: "DELETE", headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrorMessage(apiErrorMessage(data) || "Failed to remove the TestLink API key");
+      } else {
+        fetchUsers();
+        fetchAuditLogs();
+      }
+    } catch {
+      setErrorMessage("Unable to reach the server.");
+    } finally {
+      setKeyRevokePrompt(null);
     }
   };
 
@@ -1648,6 +1670,14 @@ export function AdminPanelModal({
                             🔒 LOCKED
                           </span>
                         )}
+                        {u.testlink_key && (
+                          <span
+                            title={`Has a TestLink API key (${u.testlink_key.key_prefix}…), ${u.testlink_key.last_used_at ? `last used ${new Date(u.testlink_key.last_used_at).toLocaleString()}` : "never used"}`}
+                            style={{ color: "#93c5fd", fontWeight: 600, marginLeft: "6px" }}
+                          >
+                            🔑 TL KEY
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap" }}>
                         {u.locked_until && u.status === "ACTIVE" && (
@@ -1666,6 +1696,25 @@ export function AdminPanelModal({
                             }}
                           >
                             Unlock
+                          </button>
+                        )}
+                        {u.testlink_key && (
+                          <button
+                            onClick={() => (keyRevokePrompt === u.id ? handleRevokeTestLinkKey(u.id) : setKeyRevokePrompt(u.id))}
+                            onBlur={() => setKeyRevokePrompt((p) => (p === u.id ? null : p))}
+                            title="Remove their TestLink API key: scripts using it stop working at once"
+                            style={{
+                              backgroundColor: keyRevokePrompt === u.id ? "#b45309" : "#334155",
+                              border: "none",
+                              color: "#fff",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              cursor: "pointer",
+                              marginRight: "6px",
+                            }}
+                          >
+                            {keyRevokePrompt === u.id ? "Remove Anyway" : "Remove TL Key"}
                           </button>
                         )}
                         {u.id !== currentUser?.id && (
