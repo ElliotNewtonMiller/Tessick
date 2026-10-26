@@ -6,6 +6,8 @@ import { compatAuth } from './auth.js';
 import { problemToEnvelope, tlKo } from './envelope.js';
 import { TESTLINK_VERSIONS, versionPrefix, type TestLinkVersion } from './versions.js';
 import { basicRoutes } from './routes/basics.js';
+import { projectRoutes } from './routes/projects.js';
+import { specRoutes } from './routes/spec.js';
 
 /**
  * Testify's TestLink-compatible API: Dave's TestLink REST API (v1, v2 and custom), answered
@@ -31,7 +33,7 @@ export interface CompatRoute {
   handle: (request: FastifyRequest, reply: FastifyReply, ctx: CompatContext) => Promise<unknown>;
 }
 
-export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes];
+export const COMPAT_ROUTES: CompatRoute[] = [...basicRoutes, ...projectRoutes, ...specRoutes];
 
 export async function registerTestLinkCompat(app: FastifyInstance, db: Kysely<Database>): Promise<void> {
   for (const version of TESTLINK_VERSIONS) {

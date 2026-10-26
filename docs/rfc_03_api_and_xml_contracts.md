@@ -626,7 +626,7 @@ sequenceDiagram
 | **REST conventions** | Resource naming, verbs, status codes, one id name each (§1-2) | Built (2026-10-12). OpenAPI spec at `/docs/json` for every route; no paging yet ([api_roadmap.md](api_roadmap.md) steps 3-4). |
 | **CI results** | Batch endpoint with all-or-nothing mode (§3) | Built: up to 5,000 results and 50 MB per request, one transaction. |
 | **Errors** | Problem details for every error, with a code registry (§4) | Built. |
-| **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phase 1 of 6 built: paths, keys, envelope, test routes ([testlink_compat_api.md](testlink_compat_api.md)). |
+| **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phases 1 and 2 of 6 built: paths, keys, envelope, test routes, and every read with the query layer ([testlink_compat_api.md](testlink_compat_api.md)). |
 | **Closed runs, locked plans** | Writes rejected with HTTP 422 `RUN_CLOSED` / `PLAN_LOCKED` (§4.1) | Built. |
 | **Attachments and retention** | `IStorageProvider`, pre-signed uploads, 365-day purge (§5) | Not built. Audit logs append-only forever: built. |
 | **Import formats** | Parser interface; TestLink XML, JSON, CSV (§6.1-6.2) | Built, plus JUnit XML and TestRail CSV. |

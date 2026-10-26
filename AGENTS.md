@@ -75,7 +75,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/testlinkCompat/  The TestLink-compatible API (/lib/api/rest/{v1,v2,custom}, docs/testlink_compat_api.md):
                    index.ts (mounting per version), auth.ts (TestLink API keys), envelope.ts (TestLink's answers),
-                   versions.ts, routes/ (one file per area; writes go through innerRequest with via 'testlink').
+                   versions.ts, projectData.ts (Testify's rows as TestLink rows, with numeric ids), routes/ (one file per
+                   area; reads use the repositories, writes go through innerRequest with via 'testlink').
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
@@ -91,7 +92,8 @@ packages/core/     Domain logic with no database, each module unit-tested: inges
                    (report math, catalog, email rendering, schedules), rbac/ (permission registry, default roles),
                    custom-fields/ (validation, defaults, type inference, regex time limit), case-filter/, execution/
                    (verdict and status lists), security/ (JWT, password policy), webhooks/ (events, signing, Slack messages,
-                   blocked addresses), limits/ (what the database can store: name and integer limits, NUL helpers).
+                   blocked addresses), limits/ (what the database can store: name and integer limits, NUL helpers),
+                   testlink/ (the TestLink-compatible API's value mapping and Dave's query layer).
 packages/db/       Kysely, Postgres-compatible SQL only. createDbClient(): no connection string = in-memory PGlite,
                    otherwise pg. migrations/ (tracked), repositories/, seeds/ (rbac registry, sample project, dev fixtures).
 docs/              changelog.md, api_roadmap.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).

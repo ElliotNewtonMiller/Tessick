@@ -36,13 +36,15 @@ export function checkValidationPattern(pattern: string): string | null {
 export const VALIDATION_PATTERN_TIMEOUT_MESSAGE =
   "INVALID_FIELD_VALUE: checking this value against the field's validation pattern took too long, so it was refused. Ask an administrator to simplify the pattern.";
 
-const sandbox = createContext({ pattern: '', value: '' });
-const matchScript = new Script('new RegExp(pattern).test(value)');
+const sandbox = createContext({ pattern: '', value: '', flags: '' });
+const matchScript = new Script('new RegExp(pattern, flags).test(value)');
 
-/** Whether `value` matches `pattern`, stopping after VALIDATION_PATTERN_TIME_LIMIT_MS. */
-export function matchesValidationPattern(pattern: string, value: string, timeLimitMs = VALIDATION_PATTERN_TIME_LIMIT_MS): boolean {
+/** Whether `value` matches `pattern`, stopping after VALIDATION_PATTERN_TIME_LIMIT_MS. `flags`
+ * are the RegExp's ('i' for the TestLink-compatible API's case-insensitive filters). */
+export function matchesValidationPattern(pattern: string, value: string, timeLimitMs = VALIDATION_PATTERN_TIME_LIMIT_MS, flags = ''): boolean {
   sandbox.pattern = pattern;
   sandbox.value = value;
+  sandbox.flags = flags;
   try {
     return matchScript.runInContext(sandbox, { timeout: timeLimitMs }) === true;
   } catch (err: any) {

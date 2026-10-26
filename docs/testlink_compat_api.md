@@ -20,7 +20,7 @@ Built in phases; each is tested and checked live before the next.
 | Phase | What | Status |
 | :- | :--- | :--- |
 | 1 | Foundations: the three version paths, TestLink API keys, the envelope and errors, `/who`, `/whoAmI`, `/superman` | **Done** |
-| 2 | Reads: projects, plans, builds, the suite tree, testspec, custom fields, keywords, case lists with the query layer | To do |
+| 2 | Reads: projects, plans, builds, the suite tree, testspec, custom fields, keywords, case lists with the query layer | **Done** |
 | 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | To do |
 | 4 | `/testcasemetrics` and `/swagfile` | To do |
 | 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | To do |
@@ -66,6 +66,63 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
   - 500 for a server error (the message carries the request id; details go only to the log).
 - **Answers from Testify's shared checks** (a NUL character, a body over the limit, the rate limit) are rewritten into this envelope.
 
+## Reads (phase 2)
+
+| Route | Versions | Answers |
+| :--- | :--- | :--- |
+| `GET /testprojects` | all | `item`: every project the key's user can see, by name |
+| `GET /testprojects/{id}` | all | `item`: one project. `{id}` is its number or name; on v2 and custom also its prefix (names and prefixes ignore case) |
+| `GET /testprojects/{id}/testplans` | all | `items`: its plans, by name |
+| `GET /testplans/{apikey}/builds` | v2, custom | `items`: the plan's builds (Testify's runs), by name. `{apikey}` is the plan's API key, from the plan list |
+| `GET /testprojects/{id}/testcases` | all | `items`: every case's latest version; v2 and custom add `keywords` and `customfields`. With the query layer |
+| `GET /testsuites/{id}/testcases` | custom | `items`: the suite's cases (`deep=1`: its sub-suites' too); `customfields=1`, `cfName`/`cfValue`/`cfMatch`, `nosteps=1`. With the query layer |
+| `GET /testprojects/{id}/testsuites` | custom | `items`: the suite tree; `includeMeta`, `name` and `match`, `activeOnly`, exclusions |
+| `GET /testprojects/{id}/testspec` | custom | `project` and `items`: the suite tree with every case in full |
+| `GET /testprojects/{id}/keywords` | custom | `items`: the project's keywords |
+| `GET /testprojects/{id}/customfields` | custom | `items`: the project's case custom fields |
+
+**The query layer** (Dave's custom-1.4.0, `packages/core/src/testlink/query.ts`) works as his spec describes:
+- filters: `executionType`, `active`, `status`, `importance`, `keyword`, `cfFilters`, and `excludeSuiteNames`/`excludeSuiteIds` (a whole subtree, never a requested root);
+- shaping: `fields`, `cfCompact`;
+- paging by case id: `limit`/`offset`, with `total`, `returned`, `offset`, `has_more` and the ~1 MB cap;
+- counting: `countOnly` and `groupBy` (an unset field groups as `"unset"`);
+- `suiteIds` on a project's list.
+
+It engages only when one of its parameters has a value. An empty one (Postman sends them all) counts as not given, so the answer is then `items` alone, in tree order.
+
+**Who sees what:**
+- A project is visible when the key's user has `SPEC_VIEW` or `EXECUTE_RUN` there, as in Testify's own project list.
+- Its plans and builds need only that.
+- Its specification (cases, suites, spec, keywords, custom fields) needs `SPEC_VIEW`; without it the answer is `403 {"status":"ko","message":"Insufficient rights"}`.
+- A project the user can't see reads as not found.
+
+**Choices made without TestLink to compare against** (phase 6 checks each against the real server):
+- **Not found:** `404 {"status":"error","message":"No Test Project identified by 'X'!","item":null}` (or `items`), as Dave's spec documents for a suite. TestLink's own code may answer such errors with 200.
+- **Empty lists** are `[]`, never `null`. A client that handles `null` handles `[]`, but not the other way round.
+- **`tc_external_id`** is the number TestLink keeps on the version (`"12"` for MA-12), as TestLink stores it and as the spec says for the spec dump. Every case list also gives `external_id` (`MA-12`).
+- **Extra fields beyond Dave's documented ones** (harmless to clients):
+  - `active` on cases;
+  - `api_key` on projects and plans, which `/testcasemetrics` and the builds list need;
+  - `testproject_id` on plans;
+  - `testplan_id` on builds.
+- **`groupBy`** answers `total` and `groups`, without `items`, largest group first. A `suite` group carries `suite_id` and `suite` (its name).
+- **A case without keywords** has `keywords: {}`.
+- **Custom field values:**
+  - TestLink's strings, with lists and multi-selects joined with `|`;
+  - a checkbox is `"1"` or `"0"`;
+  - a date is `YYYY-MM-DD` (TestLink keeps dates as timestamps);
+  - a value never set reads as the field's default, as Testify shows it.
+- **Custom field types:** TEXT is `string` (0), NUMBER `numeric` (1), CHECKBOX `checkbox` (5), SINGLE_SELECT `list` (6), MULTI_SELECT `multiselection list` (7) and DATE `date` (8).
+- **Order:** suites follow their position, and a suite's cases their numeric id. In tree order a suite's own cases come before its sub-suites'.
+
+**Checking the answers against Dave's spec:** `apps/server/tests/testlink_compat_contract.test.ts` checks each read, on every version, against his `openapi.yaml`. It runs when given the file, which isn't in the repository: it's his company's, and holds its project keys and hosts.
+
+```bash
+TESTLINK_OPENAPI="/path/to/openapi.yaml" npx vitest run apps/server/tests/testlink_compat_contract.test.ts
+```
+
+Every read conforms. Where his spec contradicts itself (the 404 example has `items: null`, but the schema says an array), the answer follows the example.
+
 ## How Testify's model maps (phases 2 to 5)
 
 | TestLink | Testify |
@@ -76,7 +133,8 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
 | importance 1/2/3, execution type 1/2 | LOW/MEDIUM/HIGH (CRITICAL reads as 3), MANUAL/AUTOMATED |
 | workflow status 1-7, `active` | draft, review, rework and future → DRAFT; final → APPROVED; obsolete or inactive → DEPRECATED |
 | custom fields (12 types; pipe-delimited values) | custom fields (6 types; lists) |
-| keywords | a project MULTI_SELECT field "Keywords" |
+| keywords | a project MULTI_SELECT case field named `keywords`, one option per keyword; it isn't listed among the custom fields |
+| `estimated_exec_duration` | a NUMBER case field named `estimated_exec_duration`, when the project has one (otherwise `null`); not listed among the custom fields |
 | platforms | one run per (build, platform) when a plan has platforms |
 | project and plan API keys | kept as identifiers (`compat_api_keys`) |
 

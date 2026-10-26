@@ -16,6 +16,16 @@ export function tlKo(reply: FastifyReply, httpStatus: number, message: string, e
   return reply.code(httpStatus).header('content-type', 'application/json; charset=utf-8').send(JSON.stringify({ status: 'ko', message, ...extra }));
 }
 
+/**
+ * TestLink's other failure answer, `status: "error"`, which its reads use for something not
+ * found ("No Test Project identified by '9'!") and Dave's custom routes for a bad parameter.
+ */
+export function tlError(reply: FastifyReply, httpStatus: number, message: string, extra: Record<string, unknown> = {}) {
+  return reply.code(httpStatus).header('content-type', 'application/json; charset=utf-8').send(JSON.stringify({ status: 'error', message, ...extra }));
+}
+
+export const INSUFFICIENT_RIGHTS = 'Insufficient rights';
+
 export function tlAuthError(reply: FastifyReply) {
   return tlKo(reply, 400, AUTH_ERROR_MESSAGE);
 }

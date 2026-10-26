@@ -250,7 +250,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 
 ### 10. TestLink-compatible API
 
-**Status:** In progress. Phase 1 of 6 done (2026-10-26): the three version paths, TestLink API keys, TestLink's envelope and errors, and the test routes. Next: reads with the query layer.
+**Status:** In progress. Phases 1 and 2 of 6 done (2026-10-26): the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, and every read (projects, plans, builds, the suite tree, the spec dump, keywords, custom fields, and both case lists with Dave's query layer). Next: writes.
 
 **What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Testify as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
 

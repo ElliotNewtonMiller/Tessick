@@ -10,3 +10,4 @@ export * from './case-filter/index.js';
 export * from './execution/results.js';
 export * from './webhooks/index.js';
 export * from './limits/index.js';
+export * from './testlink/index.js';

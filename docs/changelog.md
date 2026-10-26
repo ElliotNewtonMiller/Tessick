@@ -3358,3 +3358,83 @@ It's built in six phases. This is the first: everything the endpoints will stand
   - a wrong key got the 400 envelope;
   - v1 refused the header-only key;
   - `/superman` answered on custom, and got the 404 envelope on v1.
+
+## TestLink-compatible API, phase 2: every read, with Dave's query layer (2026-10-26)
+
+Phase 2 of the TestLink-compatible API (`docs/testlink_compat_api.md`, roadmap step 10): every read in Dave's TestLink REST API, answered in TestLink's shapes with TestLink's numeric ids.
+
+**Routes** (`apps/server/src/testlinkCompat/routes/projects.ts` and `spec.ts`):
+- `GET /testprojects` and `/testprojects/{id}`: `{id}` is the number or name; v2 and custom also take the prefix.
+- `/testprojects/{id}/testplans`, and `/testplans/{apikey}/builds` by the plan's API key (v2, custom).
+- `/testprojects/{id}/testcases`: on v2 and custom with `keywords` and `customfields`.
+- `/testsuites/{id}/testcases`: `deep`, `customfields`, `cfName`/`cfValue`/`cfMatch`, `nosteps`.
+- `/testprojects/{id}/testsuites`: `includeMeta`, `name`/`match`, `activeOnly`, exclusions.
+- `/testprojects/{id}/testspec`, `/keywords` and `/customfields`.
+
+**Dave's query layer** (custom-1.4.0) is a pure module, `packages/core/src/testlink/query.ts`, shared by both case lists (and `/testcasemetrics` in phase 4):
+- filters, ANDed: `executionType`, `active`, `status`, `importance`, `keyword`, `cfFilters` (equals, contains, exists, and regex with the custom-field 50 ms limit, case-insensitive); `excludeSuiteNames`/`excludeSuiteIds` (a whole subtree, never a requested root);
+- shaping: `fields`, `cfCompact`;
+- paging by case id: `limit`/`offset`, with `total`, `returned`, `offset`, `has_more` and the ~1 MB cap;
+- counting: `countOnly`, `groupBy` (with `"unset"`);
+- `suiteIds`.
+
+It engages only when one of its parameters has a value. Postman sends every parameter, most of them empty, and those count as not given, so the answer stays `items` alone, as Dave's notes promise.
+
+**Mapping** (`packages/core/src/testlink/map.ts`):
+- importance (CRITICAL and P1 read as 3), execution type;
+- a version's status and `active` (DRAFT 1, APPROVED 7, DEPRECATED 5 and inactive);
+- plan and build flags (only an ACTIVE plan is open, an ARCHIVED one is inactive; a CLOSED run is a closed build);
+- custom field types and values as TestLink's strings (lists joined with `|`);
+- keywords are a project's MULTI_SELECT case field named `keywords`, and the estimated duration a NUMBER field named `estimated_exec_duration`; neither is listed among the custom fields.
+- `matchesValidationPattern` takes RegExp flags (`'i'` here).
+
+`projectData.ts` loads a project's suites, cases (latest versions, steps), custom fields and keywords in a few queries, and shows them as TestLink rows. Rows not yet numbered get numbers in the order they were made: the first try numbered them in external-id order, so SHOP-1010 came before SHOP-102.
+
+**Who sees what:**
+- A project is visible with `SPEC_VIEW` or `EXECUTE_RUN` there (as Testify's own list).
+- Its specification needs `SPEC_VIEW`; without it the answer is `403 "Insufficient rights"`.
+- Anything else is TestLink's not-found: `404 {"status":"error","message":"No Test Project identified by 'X'!","item":null}`.
+
+**Chosen without the real TestLink to compare against,** each listed in the doc for the phase 6 parity check:
+- 404 for not found;
+- `[]` for empty lists;
+- `tc_external_id` as the number on the version;
+- a few extra fields (`active`, the projects' and plans' `api_key`, `testproject_id`, `testplan_id`);
+- the `groupBy` answer's shape;
+- checkbox and date values.
+
+**Tests:**
+- `packages/core/tests/testlinkQuery.test.ts` (14): each filter, exclusions and overlapping roots, paging, `countOnly`, `fields` and `cfCompact`, `groupBy` with `"unset"` and suites, the 1 MB cap, a suite's legacy parameters, refused parameters, a regex stopped by the time limit, the suite tree with meta, by name and excluded, and the value mapping.
+- `apps/server/tests/testlink_compat_reads.test.ts` (8), on data from the new shared `testlinkFixture.ts`:
+  - each route's shape and ids across versions;
+  - v1 without keywords, custom fields or prefixes;
+  - Dave's documented "automated count";
+  - groups, pages and fields;
+  - empty Postman parameters;
+  - refused parameters;
+  - a suite's `cfName` filter;
+  - the tree with meta and by name;
+  - the spec dump, keywords and custom fields;
+  - visibility and `403` without `SPEC_VIEW`.
+- `apps/server/tests/testlink_compat_contract.test.ts` checks every read, on every version, against Dave's `openapi.yaml`, when `TESTLINK_OPENAPI` names it.
+  - His file isn't committed: it's his company's, with its project keys and hosts.
+  - Run against it, every read conforms.
+  - His 404 example (`items: null`) contradicts his schema (an array); the answer follows the example.
+
+The full suite passes (788, plus the contract test skipped without the file), and the type check is clean.
+
+**Verified live** on the dev server, with the report demo's project, a key made through the API, and `curl`:
+- **Projects:** the project list; v1 by number with Basic auth.
+- **Plans and builds:** plans with their API keys; the plan's 8 builds by that key.
+- **Suites and the spec dump:**
+  - the suite tree with counts, Search 2 direct and 4 deep with Filters under it;
+  - the spec dump.
+- **Case lists:**
+  - the legacy list, `items` only, 12 cases;
+  - `groupBy=executionType,importance`;
+  - `countOnly` of automated cases (10);
+  - a page with `fields` and `has_more`.
+- **Errors:**
+  - an unknown project's 404 `status: "error"`;
+  - a bad `cfFilters`' 400;
+  - `/testspec` on v1, TestLink's route 404.
