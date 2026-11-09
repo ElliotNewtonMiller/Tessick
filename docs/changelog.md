@@ -3786,3 +3786,29 @@ Phase 2 of evidence for test executions: uploading, reading and deleting through
   - the result listed its three files;
   - the token deleted its own upload (204);
   - the getting-started guide's JUnit recipe stored a screenshot with its test's result.
+
+## Evidence, phase 3: S3 storage (2026-11-09)
+
+Phase 3 of evidence for test executions: S3-compatible storage (AWS S3, MinIO, Cloudflare R2), as decided with Elliot, who approved downloading `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` (now dependencies of `apps/server`).
+
+**`S3StorageProvider`** (`apps/server/src/storage/s3.ts`), chosen with `EVIDENCE_STORAGE=s3` and `EVIDENCE_S3_*` (phase 1):
+- Objects go under `EVIDENCE_S3_PREFIX`, each written with its SHA-256 (`x-amz-checksum-sha256`), so the bucket refuses a file changed on the way, and with server-side encryption when `EVIDENCE_S3_SSE` asks for it.
+- Ranged reads serve videos. A missing object reads as "file missing" (410 from the content route).
+- Credentials come from AWS's usual chain (environment, shared files, an IAM role). Startup checks the bucket (`HeadBucket`), with a message naming the settings.
+- **Presigned uploads:** an upload link with S3 is a presigned PUT for one object of an exact length and SHA-256. The checksum is a signed header the client must send, so S3 enforces it. Then `POST /evidence-uploads/{uploadId}/complete` checks the object's size, its type (a ranged read of its start; a log read to its end), and deletes it from the bucket if refused.
+- **Checksums only when required:** recent SDK versions add a CRC32 checksum to every request by default, which is also signed into presigned URLs and then fails for the file sent to them. The client is set to compute checksums only when required (`requestChecksumCalculation: 'WHEN_REQUIRED'`).
+
+**Tests:** `apps/server/tests/evidence_s3.test.ts` (6), against an in-process S3 (`tests/fakeS3.ts`: path-style buckets, PUT, ranged GET, HEAD, DELETE, presigned PUTs, and S3's BadDigest when a checksum doesn't match):
+- **The provider:** store, with the prefix, checksum and encryption; read whole and in part; delete; a missing object.
+- **A presigned PUT:** no CRC32 in the URL; the wrong file refused by the bucket; the right one stored.
+- **A missing bucket** stops startup.
+- **Through the routes:**
+  - an upload stored in the bucket, served back by range, deleted and swept;
+  - a presigned upload completed (409 `NOT_UPLOADED` before the PUT, 201 after, the same evidence on completing again, the content byte-identical);
+  - a presigned SVG refused at completion and removed from the bucket.
+
+The full suite passes, the type check is clean, and the production build keeps the SDK as an external dependency.
+
+**Not verified live:** there's no S3 or MinIO here, and pulling a MinIO image needs Elliot's approval.
+
+`npm audit` lists ten advisories, none from the new packages. They were already there: vite, zod, nodemailer, body-parser, fast-uri, glob, minimatch, qs, ip-address and @fastify/static. They're left for a separate change.

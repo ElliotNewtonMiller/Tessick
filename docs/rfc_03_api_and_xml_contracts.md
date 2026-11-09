@@ -365,7 +365,14 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 - one byte range (206/416), so videos seek.
 
 **Storage** (`apps/server/src/storage/`):
-- **Providers:** a directory (`EVIDENCE_DIR`: files 0600 in 0700 directories) behind one `StorageProvider` interface. S3-compatible storage (`EVIDENCE_STORAGE=s3`, `EVIDENCE_S3_*`: AWS S3, MinIO, R2, with optional server-side encryption) is configured already, but the provider itself comes in the next step.
+- **Providers:** a directory (`EVIDENCE_DIR`: files 0600 in 0700 directories) or S3-compatible storage (`EVIDENCE_STORAGE=s3`, `EVIDENCE_S3_*`: AWS S3, MinIO, R2), behind one `StorageProvider` interface.
+- **S3** (`storage/s3.ts`, the AWS SDK):
+  - every object is written with its SHA-256 (`x-amz-checksum-sha256`), so the bucket refuses a file changed on the way, and with server-side encryption when `EVIDENCE_S3_SSE` asks;
+  - upload links are presigned PUTs for one object of an exact length and SHA-256, the checksum a signed header the client must send. The SDK's default CRC32 is turned off, since it would be signed into the URL for an empty body;
+  - completing such an upload checks the object's size and type (a ranged read; a log to its end) and deletes it if refused;
+  - reads still go through Testify.
+  - Credentials come from AWS's usual chain (environment, an IAM role).
+  - Startup checks the bucket (HeadBucket).
 - **The database keeps** each file's key (generated, never from input), sniffed type, size and SHA-256. A real database needs storage configured (deployment.md); startup checks it.
 - **Deleting a file:** deleting an evidence row, by itself or with its result, run, plan case or project, queues its file (`storage_deletions`, filled by a trigger). The storage sweeper deletes queued files after the delete has committed, retries failures, and removes expired upload links with their files. A delete's warning (409 without `force`) names the evidence it would take.
 

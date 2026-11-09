@@ -16,7 +16,7 @@ Testify is an open-source, self-hosted test case management app meant to replace
 - Results are recorded per case in a run: by people with hotkeys in the web app, or by CI through the batch API (JSON, or a JUnit XML file, optionally into a run named by the build and created on first use).
 
 **Everything else:**
-- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments), stored on disk. S3 storage, MCP tools and the web app's Evidence panel are being built (docs/changelog.md).
+- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments), stored on disk or in S3-compatible storage. MCP tools and the web app's Evidence panel are being built (docs/changelog.md).
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
 - Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
 - Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
