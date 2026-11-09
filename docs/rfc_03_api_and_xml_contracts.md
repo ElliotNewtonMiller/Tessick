@@ -376,6 +376,8 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 - **The database keeps** each file's key (generated, never from input), sniffed type, size and SHA-256. A real database needs storage configured (deployment.md); startup checks it.
 - **Deleting a file:** deleting an evidence row, by itself or with its result, run, plan case or project, queues its file (`storage_deletions`, filled by a trigger). The storage sweeper deletes queued files after the delete has committed, retries failures, and removes expired upload links with their files. A delete's warning (409 without `force`) names the evidence it would take.
 
+**The web app** shows a case's evidence in the Execute pane (thumbnails, a viewer for images, videos, logs and traces), adds files picked, dropped or pasted, and opens a failure's files from the Reports run summary (`evidence_count`). A case's evidence list (`GET /runs/{runId}/cases/{caseId}/evidence`) answers `can_add` (allowed, or the code and reason an upload would be refused with) and each file's `can_delete`, from the upload's and delete's own checks.
+
 **MCP:** `add_evidence`, `create_evidence_upload`, `complete_evidence_upload`, `list_evidence` and `get_evidence` (an image comes back as image content), through these routes as the caller ([reports_api_and_mcp.md](reports_api_and_mcp.md)).
 
 **Not built:** a retention purge of old results and their evidence, and malware scanning of uploads (a file is only ever served as an inert image, video, text or download).

@@ -368,6 +368,17 @@ export class ReportService {
     const series = ReportService.seriesByCase(history, historyIds);
     const runName = new Map(historyRuns.map((r) => [r.id, r.name]));
     const names = await this.actorNames(headRows.map((r) => r.tester_id));
+    const evidenceCounts = new Map(
+      (
+        await this.db
+          .selectFrom('evidence')
+          .innerJoin('test_plan_cases', 'test_plan_cases.id', 'evidence.test_plan_case_id')
+          .select(['test_plan_cases.test_case_id', (eb) => eb.fn.countAll<string>().as('n')])
+          .where('evidence.test_run_id', '=', run.id)
+          .groupBy('test_plan_cases.test_case_id')
+          .execute()
+      ).map((r) => [r.test_case_id, Number(r.n)])
+    );
     const allFailures: ReportFailure[] = headRows
       .filter((r) => isFailing(r.verdict))
       .map((r) => {
@@ -386,6 +397,7 @@ export class ReportService {
           failing_since: since ? { test_run_id: since.test_run_id, run_name: runName.get(since.test_run_id) ?? '', runs: since.runs } : null,
           flaky,
           runner: parseJson(r.runner),
+          evidence_count: evidenceCounts.get(r.test_case_id) ?? 0,
         };
       });
     const rank = (id: string) => ({ new_failure: 0, still_failing: 1 } as Record<string, number>)[diff.bucketByCase.get(id) ?? ''] ?? 2;
@@ -427,13 +439,14 @@ export class ReportService {
           attempts: r.attempts,
           executed_at: r.executed_at ?? '',
           tested_by: r.tester_id ? names.get(r.tester_id) ?? r.tester_id : '',
+          evidence_count: evidenceCounts.get(r.test_case_id) ?? 0,
         };
       })
       .sort(byExternalId);
     return {
       data,
       csv: {
-        columns: ['external_id', 'title', 'suite_path', 'verdict', 'previous_verdict', 'change', 'failure_message', 'notes', 'failing_since', 'flaky', 'attempts', 'executed_at', 'tested_by', 'test_case_id'],
+        columns: ['external_id', 'title', 'suite_path', 'verdict', 'previous_verdict', 'change', 'failure_message', 'notes', 'failing_since', 'flaky', 'attempts', 'executed_at', 'tested_by', 'evidence_count', 'test_case_id'],
         rows: csvRows,
       },
     };

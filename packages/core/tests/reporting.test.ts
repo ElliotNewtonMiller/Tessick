@@ -213,7 +213,7 @@ describe('formats', () => {
       failures: [
         {
           test_case_id: 'c1', external_id: 'T-1', title: 'Login', suite_path: null, verdict: 'FAILED', failure_message: 'Expected 200 | got 500',
-          notes: null, executed_at: null, tested_by: null, source: 'API', attempts: 1, failing_since: { test_run_id: 'r2', run_name: 'v2', runs: 1 }, flaky: true, runner: null,
+          notes: null, executed_at: null, tested_by: null, source: 'API', attempts: 1, failing_since: { test_run_id: 'r2', run_name: 'v2', runs: 1 }, flaky: true, runner: null, evidence_count: 0,
         },
       ],
       failures_truncated: false,

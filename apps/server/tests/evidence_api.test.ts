@@ -204,6 +204,30 @@ describe('Evidence API', () => {
     expect([late.statusCode, body(late).code]).toEqual([422, 'RUN_CLOSED']);
   });
 
+  it("a case's evidence list says whether the caller may add and delete, by the upload's and delete's own checks", async () => {
+    const tester = await user('tess', 'Tester');
+    const viewer = await user('vic', 'Viewer');
+    const canAdd = async (token: string, ext = 'SHOP-101') => (await call(token, 'GET', execUrl(ext))).can_add;
+    expect(await canAdd(tester)).toMatchObject({ allowed: false, code: 'NO_RESULT_TO_ATTACH' });
+    expect(await canAdd(viewer)).toMatchObject({ allowed: false, code: 'FORBIDDEN', reason: expect.stringMatching(/EXECUTE_RUN/) });
+    await record(tester, 'SHOP-101');
+    expect(await canAdd(tester)).toEqual({ allowed: true, code: null, reason: null });
+    await raw(tester, execUrl('SHOP-101'), PNG);
+    const listed = async (token: string) => (await call(token, 'GET', execUrl('SHOP-101'))).evidence.map((e: any) => e.can_delete);
+    expect([await listed(tester), await listed(admin), await listed(viewer)]).toEqual([[true], [true], [false]]);
+    // The run summary report counts each failure's evidence.
+    const summary = await call(admin, 'POST', `/api/v1/projects/${seed.projectId}/reports/run_summary`, { test_run_id: seed.buildId });
+    expect(summary.failures.find((f: any) => f.external_id === 'SHOP-101').evidence_count).toBe(1);
+    expect((await call(tester, 'GET', execUrl('SHOP-101'))).evidence[0].uploaded_by_id).toBe(body(await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: auth(tester) })).user.id);
+
+    await call(admin, 'PATCH', `/api/v1/runs/${seed.buildId}`, { status: 'CLOSED' });
+    expect([await canAdd(tester), await canAdd(admin)].map((c) => [c.allowed, c.code])).toEqual([[true, null], [false, 'RUN_CLOSED']]);
+    expect([await listed(tester), await listed(admin)]).toEqual([[false], [true]]);
+    expect(await canAdd(tester, 'SHOP-102')).toMatchObject({ allowed: false, code: 'RUN_CLOSED', reason: expect.stringMatching(/no result/) });
+    now = new Date(now.getTime() + 25 * 3600_000);
+    expect((await canAdd(tester)).reason).toMatch(/within 24 hours/);
+  });
+
   it('deleting: the uploader while the run is open, or anyone with EXECUTE_OVERWRITE; audited, and the file goes', async () => {
     const tester = await user('tess', 'Tester');
     await record(tester, 'SHOP-101');

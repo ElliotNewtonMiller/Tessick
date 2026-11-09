@@ -16,7 +16,7 @@ Testify is an open-source, self-hosted test case management app meant to replace
 - Results are recorded per case in a run: by people with hotkeys in the web app, or by CI through the batch API (JSON, or a JUnit XML file, optionally into a run named by the build and created on first use).
 
 **Everything else:**
-- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments) and MCP, stored on disk or in S3-compatible storage. The web app's Evidence panel is being built (docs/changelog.md).
+- Evidence: screenshots, videos, logs and Playwright traces per executed case, in the web app (the Execute pane's Evidence section and viewer), the API (including CI batches, upload links and JUnit attachments) and MCP, stored on disk or in S3-compatible storage.
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
 - Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
 - Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
@@ -142,6 +142,8 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - A deleted evidence row queues its file (`storage_deletions`, a trigger), and `services/storageSweeper.ts` deletes it after commit. So any delete path (run, plan, case, project with `force`) cleans up storage by itself.
 - Upload links (`evidence_uploads`) are single-use, 15 minutes, hashed; their token is the PUT's only credential and is kept out of logs (`loggableUrl` in `observability.ts`).
 - `EVIDENCE_ADDED` is audited but only `EVIDENCE_DELETED` shows in the Security Audit Log.
+- A case's evidence list (`GET /runs/:runId/cases/:caseId/evidence`) answers `can_add` and each file's `can_delete` from the same checks as the upload and delete (`canAddEvidence`, `mayDeleteEvidence`); the web app shows those, rather than working out the rules itself.
+- In the web app (`hooks/useEvidence.ts`, `components/execute/EvidencePanel.tsx` and `EvidenceViewer.tsx`), files are added with the button, a drop on the Execute pane, or a pasted screenshot (an image paste anywhere in Execute mode; text pastes are left alone), each a raw upload with progress (XMLHttpRequest). The viewer pauses the hotkeys.
 
 **Custom fields:**
 - A field applies to all projects or to chosen ones (`applies_to_all_projects`, `custom_field_projects`); admins set this with the Projects chips in the Admin Panel (`PUT /admin/custom-fields/:id/projects`). Imports create fields for their project. Which fields a project has always comes from `CustomFieldRepository.listVisibleToProject`.

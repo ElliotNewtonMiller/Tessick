@@ -509,7 +509,7 @@ export const SHARED_SCHEMAS: Schema[] = [
     type: 'object',
     description:
       "A file of evidence for a case's execution in a run: an image, video, log or Playwright trace, recognised by its contents. Its bytes are at `content_url`.",
-    required: ['id', 'test_run_id', 'test_case_id', 'test_result_id', 'kind', 'media_type', 'filename', 'description', 'size_bytes', 'sha256', 'uploaded_by', 'uploaded_via', 'after_close', 'created_at', 'content_url'],
+    required: ['id', 'test_run_id', 'test_case_id', 'test_result_id', 'kind', 'media_type', 'filename', 'description', 'size_bytes', 'sha256', 'uploaded_by', 'uploaded_by_id', 'uploaded_via', 'after_close', 'created_at', 'content_url'],
     properties: {
       id: str(),
       test_run_id: str(),
@@ -522,11 +522,13 @@ export const SHARED_SCHEMAS: Schema[] = [
       size_bytes: { type: 'integer' },
       sha256: str('Hex'),
       uploaded_by: str('The username, or "<name> (API token)"'),
+      uploaded_by_id: str('A user id, or an API token id (as `tester_id` on results)'),
       uploaded_via: oneOf(['UI', 'API', 'MCP']),
       after_close: { type: 'boolean', description: 'Added after its run closed (within the 24 hours allowed to whoever recorded the result)' },
       created_at: timestamp(),
       content_url: str('GET it for the bytes (Range requests work; `?download=1` to save it)'),
       duplicate: { type: 'boolean', description: 'In an upload answer: this file was already there (same SHA-256), so nothing was added' },
+      can_delete: { type: 'boolean', description: "In a case's evidence list: whether the caller may delete it (its uploader while the run is open, or `EXECUTE_OVERWRITE`)" },
     },
   },
 ];

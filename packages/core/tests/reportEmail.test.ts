@@ -62,7 +62,7 @@ describe('renderReportEmail', () => {
     },
     failures: [
       { test_case_id: 'c1', external_id: 'T-1', title: '<script>alert(1)</script>', suite_path: null, verdict: 'FAILED', failure_message: '<img src=x onerror=alert(2)>', notes: null,
-        executed_at: null, tested_by: null, source: 'API', attempts: 1, failing_since: { test_run_id: 'r2', run_name: 'v2', runs: 1 }, flaky: false, runner: null },
+        executed_at: null, tested_by: null, source: 'API', attempts: 1, failing_since: { test_run_id: 'r2', run_name: 'v2', runs: 1 }, flaky: false, runner: null, evidence_count: 0 },
     ],
     failures_truncated: false,
     runners: [],

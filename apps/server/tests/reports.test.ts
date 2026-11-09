@@ -240,6 +240,7 @@ describe('Reports: catalog-driven report API', () => {
         failing_since: { test_run_id: r3, run_name: 'R3', runs: 1 },
         flaky: false,
         runner: { name: 'GitHub Actions', run_id: '42', commit_sha: 'abc123def456789' },
+        evidence_count: 0,
       });
       expect(body.failures[1].failing_since).toMatchObject({ test_run_id: r1, runs: 3 });
       expect(body.runners).toEqual([{ name: 'GitHub Actions', run_id: '42', commit_sha: 'abc123def456789' }]);
@@ -281,7 +282,7 @@ describe('Reports: catalog-driven report API', () => {
       expect(csv.statusCode).toBe(200);
       expect(csv.headers['content-type']).toContain('text/csv');
       const lines = csv.payload.trim().split('\r\n');
-      expect(lines[0]).toBe('external_id,title,suite_path,verdict,previous_verdict,change,failure_message,notes,failing_since,flaky,attempts,executed_at,tested_by,test_case_id');
+      expect(lines[0]).toBe('external_id,title,suite_path,verdict,previous_verdict,change,failure_message,notes,failing_since,flaky,attempts,executed_at,tested_by,evidence_count,test_case_id');
       expect(lines).toHaveLength(11);
       expect(lines.find((l: string) => l.startsWith('SHOP-101,'))).toContain(',FAILED,PASSED,new_failure,boom,');
     });

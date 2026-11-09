@@ -12,10 +12,12 @@ import { resolveCaseRef } from '../caseRefs.js';
 import { newStorageKey } from '../storage/provider.js';
 import { EvidenceRefused, spoolEvidence, type SpooledFile } from '../storage/spool.js';
 import {
+  canAddEvidence,
   checkDescription,
   checkWindow,
   findExecution,
   findResultExecution,
+  mayDeleteEvidence,
   presentEvidence,
   storeEvidence,
   uploaderOf,
@@ -377,7 +379,12 @@ export async function registerEvidenceRoutes(app: FastifyInstance, db: Kysely<Da
       const links = await linksOf(db, run.test_plan_id, caseId);
       if (!links.length) return sendError(reply, 404, "The case isn't in this run's plan.");
       const { rows } = await evidence.listForRun(runId, { testPlanCaseIds: links }, { limit: 1000 });
-      return { evidence: await presentEvidence(db, rows) };
+      const user = request.user!;
+      const status = (await db.selectFrom('test_runs').select('status').where('id', '=', runId).executeTakeFirst())?.status;
+      return {
+        evidence: await presentEvidence(db, rows, (e) => ({ can_delete: mayDeleteEvidence(user, e, status) })),
+        can_add: await canAddEvidence(db, user, { runId, caseId }, ctx().now()),
+      };
     });
 
     scope.get('/api/v1/evidence/:evidenceId', { schema: S.getEvidenceSchema, preHandler: executionRead }, async (request, reply) => {
@@ -439,9 +446,7 @@ export async function registerEvidenceRoutes(app: FastifyInstance, db: Kysely<Da
         if (!found) return sendError(reply, 404, 'Evidence not found');
         const user = request.user!;
         const run = await db.selectFrom('test_runs').select('status').where('id', '=', found.test_run_id).executeTakeFirst();
-        const overwrite = user.permissions.includes('EXECUTE_OVERWRITE') || user.permissions.includes('SYSTEM_ADMIN');
-        const ownWhileOpen = found.uploaded_by === user.id && run?.status === 'OPEN';
-        if (!overwrite && !ownWhileOpen) {
+        if (!mayDeleteEvidence(user, found, run?.status)) {
           return sendError(reply, 403, "Only its uploader (while the run is open) or someone with EXECUTE_OVERWRITE can delete evidence.", {
             code: 'FORBIDDEN',
             required_permission: 'EXECUTE_OVERWRITE',

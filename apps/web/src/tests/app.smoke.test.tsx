@@ -61,6 +61,12 @@ const latestVersion = (n: number) => {
   };
 };
 
+const evidenceItem = (id: string, kind: string, filename: string, media_type: string) => ({
+  id, test_case_id: 'cas-1', test_result_id: 'exe-1', kind, media_type, filename, description: null, size_bytes: 2048, sha256: 'ab'.repeat(32),
+  uploaded_by: 'admin', uploaded_by_id: 'usr-admin', uploaded_via: 'API', after_close: false, created_at: T, content_url: `/api/v1/evidence/${id}/content`, can_delete: true,
+});
+const EVIDENCE = [evidenceItem('evd-1', 'image', 'login-failed.png', 'image/png'), evidenceItem('evd-2', 'log', 'console.log', 'text/plain; charset=utf-8')];
+
 type Call = { method: string; path: string; body: any };
 let calls: Call[] = [];
 
@@ -75,6 +81,9 @@ function installApi(opts: {
   notesStatus?: number;
 }) {
   calls = [];
+  // Evidence: none, and none allowed, until a result is recorded.
+  let recorded = false;
+  let evidence = EVIDENCE;
   const json = (data: unknown, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }));
   const fake = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -95,7 +104,17 @@ function installApi(opts: {
     const latest = p.match(/^\/api\/v1\/cases\/cas-(\d+)\/versions\/latest$/);
     if (latest) return json(latestVersion(Number(latest[1])));
     if (/custom-fields$/.test(p)) return json({ values: [] });
+    if (/^\/api\/v1\/runs\/bld-1\/cases\/cas-\d+\/evidence$/.test(p)) {
+      return recorded
+        ? json({ evidence, can_add: { allowed: true, code: null, reason: null } })
+        : json({ evidence: [], can_add: { allowed: false, code: 'NO_RESULT_TO_ATTACH', reason: 'Record a result for the case in this run first: evidence documents a result.' } });
+    }
+    if (/^\/api\/v1\/evidence\/evd-\d+$/.test(p) && method === 'DELETE') {
+      evidence = evidence.filter((e) => p !== `/api/v1/evidence/${e.id}`);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
     if (p === '/api/v1/runs/bld-1/results' && method === 'POST') {
+      recorded = true;
       if (body.notes && opts.notesStatus === 422) {
         return json({ status: 422, code: 'RUN_CLOSED', detail: "Test run (ID: bld-1) is closed. Results can't be added to a closed run; reopen it first." }, 422);
       }
@@ -271,5 +290,39 @@ describe('App smoke tests', () => {
     expect(within(banner).getByText('Card form never loads')).toBeTruthy();
     fireEvent.click(within(banner).getByRole('button', { name: 'OK' }));
     expect(screen.queryByText(/Notes not saved/)).toBeNull();
+  });
+  it("Execute mode's Evidence section: waits for a result, then shows the files, opens them, and deletes with a warning", async () => {
+    await renderSignedIn();
+    fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }));
+    const panel = await screen.findByTestId('evidence-panel');
+    await waitFor(() => expect(within(panel).getByText(/Record a result for the case in this run first/)).toBeTruthy());
+    expect((within(panel).getByRole('button', { name: /Add files/ }) as HTMLButtonElement).disabled).toBe(true);
+
+    // Fail stays on the case; once the result is recorded, the evidence list reloads.
+    fireEvent.click(screen.getByRole('button', { name: /^Fail$/ }));
+    await within(panel).findByRole('button', { name: 'Open login-failed.png' });
+    expect((within(panel).getByRole('button', { name: /Add files/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect(within(panel).getByText('Evidence (2)')).toBeTruthy();
+
+    // The viewer: the image full size, the next file with →, closed with Esc.
+    fireEvent.click(within(panel).getByRole('button', { name: 'Open login-failed.png' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence: login-failed.png' });
+    expect((within(dialog).getByRole('img') as HTMLImageElement).getAttribute('src')).toBe('/api/v1/evidence/evd-1/content');
+    expect(within(dialog).getByText('Download').getAttribute('href')).toBe('/api/v1/evidence/evd-1/content?download=1');
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await screen.findByRole('dialog', { name: 'Evidence: console.log' });
+    // Keys go to the viewer, not the verdict hotkeys.
+    fireEvent.keyDown(window, { key: 'p' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/runs/bld-1/results')).toHaveLength(1);
+
+    // Deleting asks first.
+    fireEvent.click(within(panel).getByRole('button', { name: 'Delete console.log' }));
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+    fireEvent.click(within(panel).getByRole('button', { name: 'Delete Anyway' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/api/v1/evidence/evd-2')).toBe(true));
+    await waitFor(() => expect(within(panel).queryByRole('button', { name: 'Open console.log' })).toBeNull());
+    expect(within(panel).getByText('Evidence (1)')).toBeTruthy();
   });
 });

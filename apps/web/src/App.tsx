@@ -21,6 +21,8 @@ import { AppProvider, type AppContextValue } from "./app/AppContext";
 import { AppHeader } from "./components/layout/AppHeader";
 import { StatusBanners } from "./components/layout/StatusBanners";
 import { ExecutionPane } from "./components/execute/ExecutionPane";
+import { EvidenceViewer } from "./components/execute/EvidenceViewer";
+import { useEvidence } from "./hooks/useEvidence";
 import { useExecutionWorkspace } from "./hooks/useExecutionWorkspace";
 import { useCaseSearch } from "./hooks/useCaseSearch";
 import { useExecution } from "./hooks/useExecution";
@@ -195,6 +197,17 @@ export default function App() {
     setUserPermissions,
     customFieldDefsVersion,
   });
+
+  // Execute mode: the active case's evidence (screenshots, videos, logs, traces) and its viewer.
+  const evidence = useEvidence({
+    workspaceMode,
+    runId: selectedRunId,
+    runStatus: scope.selectedRun?.status,
+    activeCase: execution.activeCase,
+    resultsRecorded: execution.resultsRecorded,
+    showToast,
+    onAuthExpired: handleAuthExpiry,
+  });
   const {
     selectedIndex,
     setSelectedIndex,
@@ -306,7 +319,7 @@ export default function App() {
   // `mode` option.
   useHotkeyEngine({
     fsm,
-    disabled: appView === "REPORTS",
+    disabled: appView === "REPORTS" || evidence.viewer !== null,
     mode: workspaceMode,
     caseCount:
       workspaceMode === "SPECIFICATION"
@@ -462,6 +475,15 @@ export default function App() {
           backgroundColor: "#090d16",
         }}
       >
+        {evidence.viewer && (
+          <EvidenceViewer
+            items={evidence.viewer.items}
+            index={evidence.viewer.index}
+            onIndex={(index) => evidence.setViewer((v) => (v ? { ...v, index } : v))}
+            onClose={() => evidence.setViewer(null)}
+          />
+        )}
+
         {/* AUTH, ADMIN, & ENTITY MODALS */}
         <AuthModal
           isOpen={authModalOpen}
@@ -655,7 +677,7 @@ export default function App() {
                 </div>
               )
             ) : (
-              <ExecutionPane execution={execution} executionWorkspace={executionWorkspace} />
+              <ExecutionPane execution={execution} executionWorkspace={executionWorkspace} evidence={evidence} />
             )}
           </div>
         </div>

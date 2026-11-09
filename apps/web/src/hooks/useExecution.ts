@@ -89,6 +89,9 @@ export function useExecution({
   // Notes a refused or failed submit didn't save (null = none): a banner shows them with the
   // reason, since the notes box has moved on (Ctrl+Enter advances) or been reset.
   const [unsavedNotes, setUnsavedNotes] = useState<UnsavedNotes | null>(null);
+  // Bumped each time the server records a result, for what depends on it (useEvidence: a case
+  // takes evidence once it has a result).
+  const [resultsRecorded, setResultsRecorded] = useState(0);
   const notesInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Which verdict the notes textarea is currently "for" -- set whenever Fail/Block is
@@ -304,6 +307,7 @@ export function useExecution({
 
         if (response.ok) {
           setExecutionDenied(null);
+          setResultsRecorded((n) => n + 1);
           setSyncStatus(
             `Connected (Recorded ${targetCase.external_id} -> ${verdict})`,
           );
@@ -466,6 +470,7 @@ export function useExecution({
     nextVisibleCaseIndex,
     passedCount,
     failedCount,
+    resultsRecorded,
   };
 }
 

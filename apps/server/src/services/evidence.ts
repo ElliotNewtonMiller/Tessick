@@ -88,6 +88,39 @@ export function checkWindow(target: ExecutionTarget, user: Pick<AuthenticatedUse
   return { afterClose: window.afterClose };
 }
 
+/** Whether `user` may delete the evidence (decided with Elliot): its uploader while the run is open, or anyone with EXECUTE_OVERWRITE. */
+export function mayDeleteEvidence(user: Pick<AuthenticatedUser, 'id' | 'permissions'>, evidence: Pick<Evidence, 'uploaded_by'>, runStatus: string | undefined): boolean {
+  const overwrite = user.permissions.includes('EXECUTE_OVERWRITE') || user.permissions.includes('SYSTEM_ADMIN');
+  return overwrite || (evidence.uploaded_by === user.id && runStatus === 'OPEN');
+}
+
+/**
+ * Whether `user` may add evidence to a case's execution now, and if not why: the same checks an
+ * upload makes, for the web app to show before anyone picks a file.
+ */
+export async function canAddEvidence(
+  db: Kysely<Database>,
+  user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+  input: { runId: string; caseId: string },
+  now: Date
+): Promise<{ allowed: boolean; code: string | null; reason: string | null }> {
+  if (!user.permissions.includes('EXECUTE_RUN') && !user.permissions.includes('SYSTEM_ADMIN')) {
+    return { allowed: false, code: 'FORBIDDEN', reason: "Your role can't add evidence: it needs EXECUTE_RUN." };
+  }
+  try {
+    checkWindow(await findExecution(db, input), user, now);
+    return { allowed: true, code: null, reason: null };
+  } catch (err) {
+    if (!(err instanceof EvidenceRefused)) throw err;
+    // "Record a result first" can't be done on a closed run.
+    if (err.code === 'NO_RESULT_TO_ATTACH') {
+      const run = await db.selectFrom('test_runs').select('status').where('id', '=', input.runId).executeTakeFirst();
+      if (run?.status === 'CLOSED') return { allowed: false, code: 'RUN_CLOSED', reason: 'The run is closed, and this case has no result in it to add evidence to.' };
+    }
+    return { allowed: false, code: err.code, reason: err.message };
+  }
+}
+
 /** How a request came: the web app, MCP, or the API. */
 export function viaOf(request: FastifyRequest): 'UI' | 'MCP' | 'API' {
   if (internalVia(request) === 'mcp') return 'MCP';
@@ -212,6 +245,7 @@ export async function presentEvidence(db: Kysely<Database>, rows: Evidence[], ex
     size_bytes: e.size_bytes,
     sha256: e.sha256,
     uploaded_by: names.get(e.uploaded_by) ?? e.uploaded_by,
+    uploaded_by_id: e.uploaded_by,
     uploaded_via: e.uploaded_via,
     after_close: e.after_close,
     created_at: e.created_at,

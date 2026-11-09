@@ -1,17 +1,23 @@
+import { useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { OVERWRITE_DENIED_MESSAGE, REMOVED_CASE_MESSAGE } from "../../app/messages";
 import type { Execution } from "../../hooks/useExecution";
 import type { ExecutionWorkspace } from "../../hooks/useExecutionWorkspace";
+import type { Evidence } from "../../hooks/useEvidence";
+import { EvidencePanel } from "./EvidencePanel";
 import { CustomFieldEditor } from "../CustomFieldEditor";
 import { FocusIndicatorBadge } from "../FocusIndicatorBadge";
 
 interface ExecutionPaneProps {
   execution: Execution;
   executionWorkspace: ExecutionWorkspace;
+  evidence: Evidence;
 }
 
-/** Pane 3 in Execute mode: the active case, its steps and notes, and the verdict buttons. */
-export function ExecutionPane({ execution, executionWorkspace }: ExecutionPaneProps) {
+/** Pane 3 in Execute mode: the active case, its steps, notes and evidence, and the verdict buttons. */
+export function ExecutionPane({ execution, executionWorkspace, evidence }: ExecutionPaneProps) {
+  // Files dragged over the pane: dropping them adds them as evidence.
+  const [dragging, setDragging] = useState(false);
   const { showToast, can, scope } = useApp();
   const { hasExecuteRunPermission, hasSpecViewPermission } = can;
   const { projectsList } = scope;
@@ -87,7 +93,24 @@ export function ExecutionPane({ execution, executionWorkspace }: ExecutionPanePr
         </div>
 
         {/* CASE DETAILS & STEP VERIFICATION */}
-        <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
+        <div
+          style={{ flex: 1, padding: "20px", overflowY: "auto", outline: dragging ? "2px dashed #3b82f6" : "none", outlineOffset: "-6px" }}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = evidence.canAdd.allowed ? "copy" : "none";
+            setDragging(true);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDragging(false);
+            evidence.addFiles(Array.from(e.dataTransfer.files));
+          }}
+        >
           <div
             style={{
               marginBottom: "16px",
@@ -234,6 +257,8 @@ export function ExecutionPane({ execution, executionWorkspace }: ExecutionPanePr
               }}
             />
           </div>
+
+          <EvidencePanel evidence={evidence} />
         </div>
 
         {/* DOCKED EXECUTION ACTION BAR */}

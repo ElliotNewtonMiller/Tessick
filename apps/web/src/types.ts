@@ -80,3 +80,23 @@ export interface CustomFieldValueEntry {
   definition: CustomFieldDefinition;
   value: unknown;
 }
+
+/** A file of evidence on a case's execution in a run (GET /runs/:runId/cases/:caseId/evidence). */
+export interface EvidenceItem {
+  id: string;
+  test_case_id: string | null;
+  test_result_id: string;
+  kind: "image" | "video" | "log" | "trace";
+  media_type: string;
+  filename: string;
+  description: string | null;
+  size_bytes: number;
+  uploaded_by: string;
+  uploaded_by_id: string;
+  uploaded_via: "UI" | "API" | "MCP";
+  after_close: boolean;
+  created_at: string;
+  content_url: string;
+  /** In a case's evidence list: whether you may delete it. */
+  can_delete?: boolean;
+}

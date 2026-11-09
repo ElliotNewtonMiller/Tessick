@@ -1,4 +1,9 @@
 import React from "react";
+import { api } from "../../api/routes";
+import { errorMessage } from "../../api/errors";
+import { authHeaders } from "../../utils/session";
+import type { EvidenceItem } from "../../types";
+import { EvidenceViewer } from "../execute/EvidenceViewer";
 import {
   CaseCell,
   Empty,
@@ -44,6 +49,8 @@ interface Failure extends CaseRef {
   failing_since: { test_run_id: string; run_name: string; runs: number } | null;
   flaky: boolean;
   runner: Record<string, string> | null;
+  /** Evidence files on the case's execution in this run. */
+  evidence_count: number;
 }
 
 interface RunSummary {
@@ -105,6 +112,21 @@ export function RunTab({
   useEmailContext(onEmailContext, params ? { what: `Run summary${data ? ` of ${runLabel(data.run.name)}` : ""}${filter ? ", limited to your filter" : ""}`, sections: [{ report_id: "run_summary", params }] } : null);
   const [copyState, setCopyState] = React.useState<string | null>(null);
   const [openLists, setOpenLists] = React.useState<Record<string, boolean>>({ fixed: true });
+  // A failure's evidence, open in the viewer.
+  const [viewer, setViewer] = React.useState<{ items: EvidenceItem[]; index: number } | null>(null);
+  const [evidenceError, setEvidenceError] = React.useState<string | null>(null);
+  const openEvidence = async (caseId: string) => {
+    if (!runId) return;
+    setEvidenceError(null);
+    try {
+      const res = await fetch(api.runCaseEvidence(runId, caseId), { headers: authHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return setEvidenceError(errorMessage(body) || "The evidence couldn't be loaded.");
+      if (body.evidence?.length) setViewer({ items: body.evidence, index: 0 });
+    } catch {
+      setEvidenceError("The evidence couldn't be loaded.");
+    }
+  };
 
   if (!runId) return <Empty>Pick a test run in the header (Run) to see its summary. A plan needs at least one run.</Empty>;
   if (error) return <ErrorNote message={error} />;
@@ -255,16 +277,28 @@ export function RunTab({
                   return (
                     <tr key={f.test_case_id}>
                       <td style={{ ...tdStyle, maxWidth: 340 }}>
-                        <CaseCell
-                          c={f}
-                          onOpen={onOpenCase}
-                          badge={
-                            <>
-                              {isNew && <span style={{ fontSize: "10px", fontWeight: 700, color: "#f87171", flexShrink: 0 }}>NEW</span>}
-                              {f.flaky && <FlakyBadge />}
-                            </>
-                          }
-                        />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", minWidth: 0 }}>
+                          <CaseCell
+                            c={f}
+                            onOpen={onOpenCase}
+                            badge={
+                              <>
+                                {isNew && <span style={{ fontSize: "10px", fontWeight: 700, color: "#f87171", flexShrink: 0 }}>NEW</span>}
+                                {f.flaky && <FlakyBadge />}
+                              </>
+                            }
+                          />
+                          {f.evidence_count > 0 && (
+                            <button
+                              onClick={() => openEvidence(f.test_case_id)}
+                              title={`${f.evidence_count} evidence file${f.evidence_count === 1 ? "" : "s"}: screenshots, videos, logs or traces`}
+                              aria-label={`Open the evidence of ${f.external_id}`}
+                              style={{ flexShrink: 0, padding: "0 6px", border: "1px solid #334155", borderRadius: "4px", background: "none", color: "#93c5fd", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}
+                            >
+                              📎 {f.evidence_count}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td style={tdStyle}>
                         <VerdictPill verdict={f.verdict} />
@@ -295,6 +329,15 @@ export function RunTab({
               </tbody>
             </table>
             {data.failures_truncated && <Empty>Showing the first {data.failures.length}; download the CSV for all.</Empty>}
+            {evidenceError && <ErrorNote message={evidenceError} />}
+            {viewer && (
+              <EvidenceViewer
+                items={viewer.items}
+                index={viewer.index}
+                onIndex={(index) => setViewer((v) => (v ? { ...v, index } : v))}
+                onClose={() => setViewer(null)}
+              />
+            )}
           </div>
         )}
       </Section>

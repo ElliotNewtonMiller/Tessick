@@ -218,10 +218,27 @@ export const listRunSchema = {
 export const listExecutionSchema = {
   tags: TAGS,
   summary: "A case's evidence in a run",
-  description: "All the evidence for a case's execution in a run, oldest first, across its results. Needs `SPEC_VIEW` or `EXECUTE_RUN`.",
+  description:
+    "All the evidence for a case's execution in a run, oldest first, across its results, each with `can_delete` for the caller; and `can_add`: whether the caller may add evidence to it now, or why not (the checks an upload makes). Needs `SPEC_VIEW` or `EXECUTE_RUN`.",
   params: idParams('runId', 'caseId'),
   response: {
-    200: { description: 'The evidence', type: 'object', required: ['evidence'], properties: { evidence: { type: 'array', items: { $ref: 'Evidence#' } } } },
+    200: {
+      description: 'The evidence',
+      type: 'object',
+      required: ['evidence', 'can_add'],
+      properties: {
+        evidence: { type: 'array', items: { $ref: 'Evidence#' } },
+        can_add: {
+          type: 'object',
+          required: ['allowed', 'code', 'reason'],
+          properties: {
+            allowed: { type: 'boolean' },
+            code: { type: ['string', 'null'], description: 'The code an upload would be refused with (e.g. `NO_RESULT_TO_ATTACH`, `RUN_CLOSED`)' },
+            reason: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
     ...authedErrors(404),
   },
 };

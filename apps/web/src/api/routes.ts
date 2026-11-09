@@ -39,6 +39,11 @@ export const api = {
   runResults: (runId: string) => `${V1}/runs/${enc(runId)}/results`,
   runAutoClose: (runId: string) => `${V1}/runs/${enc(runId)}/auto-close`,
 
+  // Evidence (screenshots, videos, logs, traces on a case's execution in a run)
+  runCaseEvidence: (runId: string, caseId: string) => `${V1}/runs/${enc(runId)}/cases/${enc(caseId)}/evidence`,
+  evidence: (evidenceId: string) => `${V1}/evidence/${enc(evidenceId)}`,
+  evidenceContent: (evidenceId: string, download?: boolean) => withQuery(`${V1}/evidence/${enc(evidenceId)}/content`, { download: download ? 1 : undefined }),
+
   // Plan membership and the Execute queue
   planCases: (planId: string, params: { test_run_id?: string } = {}) => withQuery(`${V1}/plans/${enc(planId)}/cases`, params),
   planCase: (planId: string, caseId: string, forced?: boolean) => force(`${V1}/plans/${enc(planId)}/cases/${enc(caseId)}`, forced),

@@ -35,6 +35,8 @@ export interface ReportFailure extends ReportCaseRef {
   failing_since: { test_run_id: string; run_name: string; runs: number } | null;
   flaky: boolean;
   runner: Record<string, string> | null;
+  /** Evidence files (screenshots, videos, logs, traces) on the case's execution in the run. */
+  evidence_count: number;
 }
 
 export type ListedDiffBucket = Exclude<DiffBucket, 'unchanged'>;

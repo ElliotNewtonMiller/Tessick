@@ -3843,3 +3843,53 @@ Phase 4 of evidence for test executions: AI agents attach and look at evidence t
 **Verified live** on the dev server, with an MCP-only token over HTTP: `record_results` gave the result id; a 4 MB image was added inline (5.6 MB of JSON, inside the 8 MB limit); a small image came back as image content, byte-identical; the 4 MB one was described as too large to show; a 9 MB WebM was uploaded by running the tool's `curl` command exactly as given (201) and completed as a video; `list_evidence` listed all three.
 
 A note: an SVG or HTML file with no NUL byte is valid UTF-8 text, so it's accepted as a **log**, and is served only as `text/plain` in a sandbox. That's the design from phase 1 (nothing in it can run). The test for a refused type uses an executable.
+
+## Evidence, phase 5: the web app (2026-11-09)
+
+The last phase of evidence for test executions: people see, add and delete evidence in the web app.
+
+**The Execute pane's Evidence section** (`components/execute/EvidencePanel.tsx`, `hooks/useEvidence.ts`), under the notes:
+- **The active case's files in the selected run:** thumbnails for images, tiles for videos, logs and traces, each with its name, kind and size. A tile opens the viewer.
+- **Adding** (raw uploads with `?filename=`, one request per file, sent with XMLHttpRequest so each shows its progress):
+  - the **+ Add files** button (several at once);
+  - **dropping files** on the pane (outlined while dragging);
+  - a **pasted screenshot** (Ctrl+V anywhere in Execute mode): an image on the clipboard is added as `screenshot-<time>.png`, while text pastes still go to the notes or search box as before.
+- **What the server answers is shown:** a refused file names the reason (a toast), and a file that was already there says so.
+- **Disabled, with the reason**, until the case has a result, after the run's 24 hours, or without `EXECUTE_RUN`. The button's tooltip and the empty section show it.
+- **Deleting:** a × on files you may delete, then the amber warning and **Delete Anyway**.
+- The list reloads when the case or run changes, when a result is recorded (`useExecution` now counts them: `resultsRecorded`), and when the run is closed or reopened. Nothing from the previous case shows while it loads.
+
+**The viewer** (`components/execute/EvidenceViewer.tsx`):
+- an image full size; a video with controls (seeking works, by Range);
+- a log as text: its first 1 MB, fetched by Range, with a note and the download for the rest;
+- a trace as a download, with how to open it (`npx playwright show-trace`).
+- It has the name, kind, size, uploader, how it came (API, MCP) and whether it came after the run closed.
+- **Download** on every file; ← and → step through the case's files; Esc or a click outside closes. The verdict hotkeys pause while it's open.
+
+**Reports:** the run summary's failures carry `evidence_count` (JSON and CSV). The Run tab shows **📎 n** beside a failure with files, which opens them in the same viewer.
+
+**What the server answers for this:**
+- A case's evidence list (`GET /runs/:runId/cases/:caseId/evidence`) answers `can_add`: whether the caller may add evidence now, or the code and reason an upload would be refused with. Each file gets `can_delete`.
+  - Both come from the upload's and delete's own checks (`canAddEvidence`, and `mayDeleteEvidence`, which the delete route now uses too), so the app doesn't repeat the rules.
+  - On a closed run, a case with no result says the run is closed, not "record a result first".
+- Every evidence item also has `uploaded_by_id` (a user or API token id, as `tester_id` on results).
+
+**Not changed, against the plan:** the page's CSP needed no `media-src`. It falls back to `default-src 'self'`, which already allows the app's own videos; a video played and sought live with the policy as it was.
+
+**Tests:**
+- `evidence_api.test.ts` (+1): `can_add` with no result, without `EXECUTE_RUN`, with a result, after the close for the recorder and for others, past 24 hours, and on a closed run with no result; `can_delete` for the uploader, an admin and a viewer, and after the close; `uploaded_by_id`; the run summary's `evidence_count`.
+- `reports.test.ts`: the new CSV column and field.
+- `app.smoke.test.tsx` (+1):
+  - the Evidence section waits for a result, then lists the files after Fail;
+  - the viewer shows the image and its Download link, → steps to the log, `p` doesn't record a verdict while it's open, and Esc closes it;
+  - Delete asks first, then sends the DELETE and the list shrinks.
+
+**Verified live** at `127.0.0.1:3000` (a separate tab), against a seeded run:
+- **Before a result:** the section was disabled with the server's reason. After **Fail**, the following were added:
+  - a screenshot pasted while the notes box had focus (a canvas PNG, a real paste event);
+  - a 4-second WebM recorded from a canvas with MediaRecorder, and a 1.7 MB log, both dropped on the pane in one drop.
+- **The thumbnail and the viewer:** the thumbnail showed the image. In the viewer, the video played and sought (it reported its duration; at 2.6 s after seeking to 2 s and playing).
+- **The log** showed its first 1 MB with the note. A layout bug was found here and fixed: the long log covered the viewer's header, since the content was centred. It now fills the viewer and scrolls inside it.
+- **Keys and deleting:** Esc closed the viewer, and `p` was ignored while it was open. Deleting the log warned, then deleted, and the list reloaded.
+- **After Close Run:** the admin, who recorded the result, could still add, and still delete (with `EXECUTE_OVERWRITE`). CHK-2, with no result, said the run is closed (after the fix above; checked through the API after a restart).
+- **Reports → Run:** CHK-1 showed **📎 2**, which opened the screenshot in the viewer.
