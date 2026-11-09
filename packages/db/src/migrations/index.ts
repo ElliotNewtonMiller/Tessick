@@ -17,6 +17,7 @@ import * as m014 from './014_custom_field_numbers_double.js';
 import * as m015 from './015_idempotency_keys.js';
 import * as m016 from './016_testlink_compat.js';
 import * as m017 from './017_testlink_platforms.js';
+import * as m018 from './018_evidence.js';
 
 /**
  * Every schema migration, in the order they run. The keys are permanent names, recorded in
@@ -44,6 +45,7 @@ export const MIGRATIONS: Record<string, Migration> = {
   '015_idempotency_keys': m015,
   '016_testlink_compat': m016,
   '017_testlink_platforms': m017,
+  '018_evidence': m018,
 };
 
 const MIGRATION_TABLE = 'kysely_migration';

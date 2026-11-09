@@ -133,7 +133,7 @@ export const SHARED_SCHEMAS: Schema[] = [
   {
     $id: 'Run',
     type: 'object',
-    required: ['id', 'test_plan_id', 'name', 'description', 'status', 'release_date', 'created_at', 'updated_at'],
+    required: ['id', 'test_plan_id', 'name', 'description', 'status', 'release_date', 'closed_at', 'created_at', 'updated_at'],
     properties: {
       id: str(),
       test_plan_id: str(),
@@ -141,6 +141,7 @@ export const SHARED_SCHEMAS: Schema[] = [
       description: nullableStr(),
       status: oneOf(RUN_STATUSES, 'A CLOSED run takes no results. Runs close themselves the first time every case has a result.'),
       release_date: nullableStr('YYYY-MM-DD'),
+      closed_at: nullableStr('When the run last closed; null while it is open. Evidence can still be added for 24 hours after, by whoever recorded the result.'),
       created_at: timestamp(),
       updated_at: timestamp(),
       summary: {

@@ -45,6 +45,7 @@ jobs:
       DATABASE_URL: postgres://testify:testify@localhost:5432/testify
       JWT_SECRET: ci-only-jwt-secret-not-for-real-use-0123456789
       ADMIN_PASSWORD: CiAdminPassword123!
+      EVIDENCE_DIR: /tmp/testify-evidence
       PORT: 3001
     steps:
       - uses: actions/checkout@v7

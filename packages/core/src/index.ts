@@ -11,3 +11,4 @@ export * from './execution/results.js';
 export * from './webhooks/index.js';
 export * from './limits/index.js';
 export * from './testlink/index.js';
+export * from './evidence/index.js';

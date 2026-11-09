@@ -205,3 +205,76 @@ export function resolveWebhookAllowLocal(env: NodeJS.ProcessEnv = process.env): 
   if (raw === 'true') return true;
   throw new ConfigError(`WEBHOOK_ALLOW_LOCAL must be true or false (got "${env.WEBHOOK_ALLOW_LOCAL}").`);
 }
+
+/**
+ * Where evidence files are stored (storage/; docs/deployment.md), and how big one may be.
+ *
+ * - `EVIDENCE_STORAGE=local` with `EVIDENCE_DIR`: a directory (Docker Compose mounts a volume).
+ * - `EVIDENCE_STORAGE=s3` with `EVIDENCE_S3_BUCKET` (and `EVIDENCE_S3_REGION`, or
+ *   `EVIDENCE_S3_ENDPOINT` for MinIO, R2 and the like): a bucket. Credentials come from AWS's own
+ *   variables or an IAM role. `EVIDENCE_S3_PREFIX` puts the files under a prefix,
+ *   `EVIDENCE_S3_FORCE_PATH_STYLE=true` suits most S3-compatible servers, and `EVIDENCE_S3_SSE`
+ *   (AES256 or aws:kms) asks for server-side encryption.
+ * - `memory`: only with the in-memory database, where it's the default.
+ *
+ * Unset, EVIDENCE_DIR or EVIDENCE_S3_BUCKET picks the kind. A real database needs one of them:
+ * there's no silent default that would lose files (as DATABASE_URL has none).
+ * `EVIDENCE_MAX_FILE_MB` (default 200) caps one file.
+ */
+export type EvidenceStorageConfig =
+  | { kind: 'memory' }
+  | { kind: 'local'; dir: string }
+  | { kind: 's3'; bucket: string; region: string; endpoint?: string; prefix: string; forcePathStyle: boolean; sse?: 'AES256' | 'aws:kms' };
+
+export interface EvidenceConfig {
+  storage: EvidenceStorageConfig;
+  maxFileBytes: number;
+}
+
+export const DEFAULT_EVIDENCE_MAX_FILE_MB = 200;
+
+export function resolveEvidenceConfig({ inMemory }: { inMemory: boolean }, env: NodeJS.ProcessEnv = process.env): EvidenceConfig {
+  const rawMb = env.EVIDENCE_MAX_FILE_MB?.trim();
+  let maxMb = DEFAULT_EVIDENCE_MAX_FILE_MB;
+  if (rawMb) {
+    maxMb = Number(rawMb);
+    if (!Number.isInteger(maxMb) || maxMb < 1 || maxMb > 5120) {
+      throw new ConfigError(`EVIDENCE_MAX_FILE_MB must be a whole number of megabytes from 1 to 5120 (got "${env.EVIDENCE_MAX_FILE_MB}").`);
+    }
+  }
+  const maxFileBytes = maxMb * 1024 * 1024;
+
+  const dir = env.EVIDENCE_DIR?.trim();
+  const bucket = env.EVIDENCE_S3_BUCKET?.trim();
+  const kind = env.EVIDENCE_STORAGE?.trim().toLowerCase() || (dir ? 'local' : bucket ? 's3' : inMemory ? 'memory' : '');
+  const howTo =
+    'Set EVIDENCE_DIR to a directory Testify can write to (EVIDENCE_STORAGE=local), or EVIDENCE_STORAGE=s3 with EVIDENCE_S3_BUCKET and EVIDENCE_S3_REGION (see docs/deployment.md).';
+  switch (kind) {
+    case 'memory':
+      if (!inMemory) throw new ConfigError(`EVIDENCE_STORAGE=memory is only for the in-memory database: evidence files would be lost when the server stops. ${howTo}`);
+      return { storage: { kind: 'memory' }, maxFileBytes };
+    case 'local':
+      if (!dir) throw new ConfigError(`EVIDENCE_STORAGE=local needs EVIDENCE_DIR. ${howTo}`);
+      return { storage: { kind: 'local', dir }, maxFileBytes };
+    case 's3': {
+      if (!bucket) throw new ConfigError(`EVIDENCE_STORAGE=s3 needs EVIDENCE_S3_BUCKET. ${howTo}`);
+      const endpoint = env.EVIDENCE_S3_ENDPOINT?.trim() || undefined;
+      const region = env.EVIDENCE_S3_REGION?.trim() || (endpoint ? 'us-east-1' : '');
+      if (!region) throw new ConfigError('EVIDENCE_STORAGE=s3 needs EVIDENCE_S3_REGION (or EVIDENCE_S3_ENDPOINT for an S3-compatible server).');
+      if (endpoint && !/^https?:\/\//i.test(endpoint)) throw new ConfigError(`EVIDENCE_S3_ENDPOINT must be an http(s) URL (got "${endpoint}").`);
+      const sse = env.EVIDENCE_S3_SSE?.trim();
+      if (sse && sse !== 'AES256' && sse !== 'aws:kms') throw new ConfigError(`EVIDENCE_S3_SSE must be AES256 or aws:kms (got "${sse}").`);
+      const pathStyle = env.EVIDENCE_S3_FORCE_PATH_STYLE?.trim().toLowerCase();
+      if (pathStyle && pathStyle !== 'true' && pathStyle !== 'false') throw new ConfigError(`EVIDENCE_S3_FORCE_PATH_STYLE must be true or false (got "${pathStyle}").`);
+      const prefix = (env.EVIDENCE_S3_PREFIX?.trim() ?? '').replace(/^\/+|\/+$/g, '');
+      return {
+        storage: { kind: 's3', bucket, region, endpoint, prefix, forcePathStyle: pathStyle === 'true', ...(sse ? { sse: sse as 'AES256' | 'aws:kms' } : {}) },
+        maxFileBytes,
+      };
+    }
+    case '':
+      throw new ConfigError(`Evidence storage isn't set. ${howTo}`);
+    default:
+      throw new ConfigError(`EVIDENCE_STORAGE must be local, s3 or memory (got "${env.EVIDENCE_STORAGE}").`);
+  }
+}

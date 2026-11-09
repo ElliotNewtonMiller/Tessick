@@ -51,7 +51,8 @@ npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves
 **Configuration** comes only from environment variables; there's no `.env` loader except Docker Compose's. A bad value stops startup with a `ConfigError` saying what to set. The full table is in `docs/deployment.md`. In short:
 - `DATABASE_URL` is required: a Postgres URL, or `memory` (refused with `NODE_ENV=production`).
 - `JWT_SECRET` (32+ characters) is required with a real database.
-- Also read: `SECRETS_KEY`, `ADMIN_PASSWORD`, `PORT`, `TRUST_PROXY`, `CORS_ORIGINS`, `LOG_LEVEL`, `WEB_DIST_DIR`, `SEED_SAMPLE_DATA`, `SEED_DEV_FIXTURES`, `WEBHOOK_ALLOW_LOCAL`.
+- Evidence storage is required with a real database: `EVIDENCE_DIR` (local) or `EVIDENCE_STORAGE=s3` with `EVIDENCE_S3_*`; the in-memory database uses memory. Startup checks it's writable or reachable.
+- Also read: `SECRETS_KEY`, `ADMIN_PASSWORD`, `PORT`, `TRUST_PROXY`, `CORS_ORIGINS`, `LOG_LEVEL`, `WEB_DIST_DIR`, `SEED_SAMPLE_DATA`, `SEED_DEV_FIXTURES`, `WEBHOOK_ALLOW_LOCAL`, `EVIDENCE_MAX_FILE_MB`.
 - All of it is parsed in `apps/server/src/config.ts`.
 
 **First admin on a real database:** username `admin`. The password is `ADMIN_PASSWORD` if set; otherwise a random one is printed once in the log, and Testify makes the admin change it at first sign-in.
@@ -70,7 +71,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    rateLimits, loginThrottle, resultValidation, resultOverwrite, stepValidation, secrets,
                    batchResults (recording a CI batch, JSON or JUnit), runByName (CI's run per build),
                    webhooks (the delivery worker), webhookEvents (what each event sends), webhookTargets (address rules),
-                   idempotency (Idempotency-Key on the result routes).
+                   idempotency (Idempotency-Key on the result routes), storageSweeper (deletes files whose evidence rows went).
   src/middleware/auth.ts   Authentication and permission checks (see "Auth and permissions").
   src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; writeTools.ts: write tools that call
                    the REST routes as the caller (internalRequests.ts).
@@ -81,6 +82,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    reads use the repositories, writes go through innerRequest with via 'testlink').
   src/testlinkMigration/  The migration from TestLink's database: source.ts (PostgreSQL, or MySQL with mysql2),
                    read.ts (portable SELECTs), migrate.ts (one transaction, TestLink's ids kept; scripts/migrate-testlink.ts).
+  src/storage/     Evidence files: provider.ts (the interface, generated keys), local.ts, memory.ts, s3.ts,
+                   spool.ts (an upload checked on its way in: size, SHA-256, type by contents), index.ts (createStorage).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
@@ -97,7 +100,8 @@ packages/core/     Domain logic with no database, each module unit-tested: inges
                    custom-fields/ (validation, defaults, type inference, regex time limit), case-filter/, execution/
                    (verdict and status lists), security/ (JWT, password policy), webhooks/ (events, signing, Slack messages,
                    blocked addresses), limits/ (what the database can store: name and integer limits, NUL helpers),
-                   testlink/ (the TestLink-compatible API's value mapping and Dave's query layer).
+                   testlink/ (the TestLink-compatible API's value mapping and Dave's query layer),
+                   evidence/ (evidence files: sniffing by contents, file names, ranges, the window after a run closes).
 packages/db/       Kysely, Postgres-compatible SQL only. createDbClient(): no connection string = in-memory PGlite,
                    otherwise pg. migrations/ (tracked), repositories/, seeds/ (rbac registry, sample project, dev fixtures).
 docs/              changelog.md, api_roadmap.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).

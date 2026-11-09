@@ -32,8 +32,23 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-false}
       WEBHOOK_ALLOW_LOCAL: ${WEBHOOK_ALLOW_LOCAL:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Evidence files: on the evidence-data volume, unless EVIDENCE_STORAGE=s3 (see .env.example).
+      EVIDENCE_STORAGE: ${EVIDENCE_STORAGE:-local}
+      EVIDENCE_DIR: /data/evidence
+      EVIDENCE_MAX_FILE_MB: ${EVIDENCE_MAX_FILE_MB:-200}
+      EVIDENCE_S3_BUCKET: ${EVIDENCE_S3_BUCKET:-}
+      EVIDENCE_S3_REGION: ${EVIDENCE_S3_REGION:-}
+      EVIDENCE_S3_ENDPOINT: ${EVIDENCE_S3_ENDPOINT:-}
+      EVIDENCE_S3_PREFIX: ${EVIDENCE_S3_PREFIX:-}
+      EVIDENCE_S3_FORCE_PATH_STYLE: ${EVIDENCE_S3_FORCE_PATH_STYLE:-false}
+      EVIDENCE_S3_SSE: ${EVIDENCE_S3_SSE:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - evidence-data:/data/evidence
     ports:
       - "${TESTIFY_PORT:-3001}:3001"
 
 volumes:
   db-data:
+  evidence-data:

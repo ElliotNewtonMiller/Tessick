@@ -3645,3 +3645,55 @@ The full suite passes (817; the contract tests and the full-schema run pass when
   - its error answers: no `--from`; an in-memory `DATABASE_URL`; a MySQL URL without `mysql2`.
   - It type-checks.
 - **Not run end to end:** that needs two real PostgreSQL databases, and this machine has no PostgreSQL image. Pulling one (or getting a copy of Dave's TestLink) needs Elliot's approval.
+
+## Evidence, phase 1: storage, sniffing and the deletion queue (2026-11-09)
+
+Elliot wants evidence on test executions: screenshots, videos, logs (and Playwright traces), one or more per executed case. It must be secure, automation-friendly, and usable through the REST API and MCP. Testify had no file storage; RFC 03 §5 planned one, and this builds it in five phases (the plan: storage first, then REST, S3, MCP, the web app).
+
+**Decided with Elliot:**
+- **When:** evidence can be added while the run is open, and for 24 hours after it closes, by whoever recorded the result.
+- **Deleting:** the uploader while the run is open, or anyone with `EXECUTE_OVERWRITE`, audited.
+- **Storage:** local disk and S3 (with presigned uploads) now.
+- **Types:** images, videos, text logs and Playwright traces, recognised by their contents.
+
+**This phase:**
+- **Core** (`packages/core/src/evidence/`):
+  - `sniffEvidence` decides a file's kind from its first 64 KB: PNG, JPEG, GIF, WebP; MP4 (by `ftyp` brand, not QuickTime) and WebM (not other Matroska); a ZIP only if it's a Playwright trace; and UTF-8 text without NUL characters. Everything else is refused, SVG, HTML and PDF included.
+  - `TextCheck` keeps checking a log to its end.
+  - `cleanFilename` keeps only the last path segment and drops control characters.
+  - `contentDisposition` writes an RFC 5987 header nothing breaks out of.
+  - `parseRange` handles one byte range.
+  - `evidenceWindow` is the rule above.
+- **Migration 018:**
+  - `evidence` (each file's run, plan case, result, kind, sniffed type, name, size, SHA-256, storage key, uploader, how, and whether after the run closed), cascading from its result, run and plan case;
+  - `storage_deletions`, filled by a trigger whenever an evidence row is deleted. Every path that deletes results (a run, plan, case or project with `force`) then queues its files, with no changes to those repositories.
+  - `evidence_uploads`, for upload links;
+  - `test_runs.closed_at`, kept by a trigger on every path that closes or reopens a run, and shown on runs in the API.
+- **Storage** (`apps/server/src/storage/`):
+  - The `StorageProvider` interface, with keys Testify generates (`evidence/<project>/<yyyy>/<mm>/<uuid>`), checked against their pattern.
+  - `LocalStorageProvider`: files 0600 in 0700 directories, put in place by a rename from the spool.
+  - `MemoryStorageProvider`, for the in-memory database and tests.
+  - The `spool`: an upload is streamed to a private temporary file while it's counted, hashed and sniffed, and refused (415, 413 with `limit_bytes`, or a size or checksum mismatch) before anything is stored, leaving nothing behind.
+  - S3 comes in phase 3; a stub stands in.
+- **The sweeper** (`services/storageSweeper.ts`) deletes queued files after their rows' deletion has committed, keeps failures to retry, and removes expired upload links with their files. It runs at startup and every minute.
+- **Configuration** (`resolveEvidenceConfig`):
+  - the settings: `EVIDENCE_STORAGE`, `EVIDENCE_DIR`, `EVIDENCE_S3_*`, `EVIDENCE_MAX_FILE_MB` (default 200);
+  - **a real database needs storage set**: there's no silent default that would lose files, as with `DATABASE_URL`. Memory storage only goes with the in-memory database.
+  - startup checks the directory is writable.
+- **Deployment:**
+  - Docker Compose mounts the new `evidence-data` volume at `/data/evidence`, which the image creates for its user;
+  - `.env.example` and `deployment.md` describe the settings, and backups now include the evidence files;
+  - the CI job on PostgreSQL sets `EVIDENCE_DIR`.
+- **`createServer`** takes `evidence: { storage, maxFileBytes, now }` for tests. The two tests that start a "real database" server pass memory storage.
+
+**Tests:**
+- `packages/core/tests/evidence.test.ts` (7): each accepted type; refusals (SVG with script, PDF, Windows and Linux executables, a non-trace ZIP, QuickTime, Matroska, broken UTF-8, empty); a log turning binary later; file names; the header; ranges; the window.
+- `apps/server/tests/evidence_storage.test.ts` (8):
+  - the configuration rules, and a server with an unwritable directory refusing to start;
+  - the local provider: store, read whole and in part, delete, no keys outside the pattern, the file modes;
+  - the spool's refusals, leaving nothing;
+  - a run deleted with `force` queueing its file, and the sweeper removing it;
+  - a failed deletion kept and retried, and an expired upload link removed with its file;
+  - `closed_at` set on closing, kept on other changes, cleared on reopening.
+
+The full suite passes (832), and the type check is clean.

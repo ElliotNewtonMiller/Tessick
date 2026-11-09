@@ -32,7 +32,7 @@ import { registerReportEmailRoutes } from './routes/reportEmail.js';
 import { registerEmailAdminRoutes } from './routes/emailAdmin.js';
 import { createRateLimits } from './services/rateLimits.js';
 import { runDueSchedules } from './services/reportEmailService.js';
-import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, ConfigError } from './config.js';
+import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, resolveEvidenceConfig, DEFAULT_EVIDENCE_MAX_FILE_MB, ConfigError } from './config.js';
 import { loggerOptions, registerRequestLogging, registerHttpsOnHttpHint, registerHealthRoute } from './observability.js';
 import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
@@ -45,6 +45,10 @@ import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.
 import { purgeExpiredIdempotencyKeys } from './services/idempotency.js';
 import { encryptStoredSmtpPassword } from './services/mailer.js';
 import { UserRepository } from '@testify/db';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createStorage, type StorageProvider } from './storage/index.js';
+import { runStorageSweep } from './services/storageSweeper.js';
 
 // Testify only targets Postgres-compatible SQL. With no connectionString this routes to an
 // ephemeral, zero-config PGlite (WASM Postgres) instance -- no server, no native bindings,
@@ -60,6 +64,8 @@ export async function createServer(
     checkResponses?: boolean;
     /** Tests: let webhooks reach local receivers, and send deliveries only when told to (runDueWebhookDeliveries). */
     webhooks?: { allowLocal?: boolean; deliverImmediately?: boolean; timeoutMs?: number };
+    /** Tests: the evidence storage (instead of EVIDENCE_* configuration), its size limit, and a clock. */
+    evidence?: { storage?: StorageProvider; maxFileBytes?: number; now?: () => Date };
   } = {}
 ) {
   // TRUST_PROXY=true behind a reverse proxy, so request.ip (used by the sign-in limits) is the
@@ -76,6 +82,20 @@ export async function createServer(
   registerNulGuard(app);
   // Per-process rate limits for API tokens, exports and report emails (services/rateLimits.ts).
   app.decorate('rateLimits', createRateLimits());
+  // Evidence storage (storage/; EVIDENCE_* in config.ts), checked now so a directory Testify
+  // can't write to, or a bucket it can't reach, stops startup rather than the first upload.
+  const evidenceConfig = options.evidence?.storage ? undefined : resolveEvidenceConfig({ inMemory: !connectionString });
+  const evidenceStorage = options.evidence?.storage
+    ? { storage: options.evidence.storage, spoolDir: join(tmpdir(), 'testify-evidence') }
+    : await createStorage(evidenceConfig!.storage);
+  await evidenceStorage.storage.check().catch((err) => {
+    throw new ConfigError(String(err?.message ?? err));
+  });
+  app.decorate('evidence', {
+    ...evidenceStorage,
+    maxFileBytes: options.evidence?.maxFileBytes ?? evidenceConfig?.maxFileBytes ?? DEFAULT_EVIDENCE_MAX_FILE_MB * 1024 * 1024,
+    now: options.evidence?.now ?? (() => new Date()),
+  });
   // Unexpected errors (database errors, bugs) are logged here and answered with a generic
   // message: their details -- SQL, table and constraint names, stack traces -- never reach the
   // client. Fastify's own request errors (bad JSON, body too large, ...) are about the request,
@@ -276,6 +296,12 @@ if (process.env.NODE_ENV !== 'test') {
   setInterval(() => {
     runDueWebhookDeliveries(db).catch((err) => console.error('[webhooks] Delivery failed:', err));
   }, 15_000);
+
+  // Evidence files whose rows are gone, and expired upload links, are removed every minute
+  // (services/storageSweeper.ts), and once now for anything left from before a restart.
+  const sweep = () => runStorageSweep(db, app.evidence.storage).catch((err) => console.error('[evidence] Storage sweep failed:', err));
+  void sweep();
+  setInterval(sweep, 60_000);
 
   // Idempotency keys are kept 24 hours (services/idempotency.ts); expired ones are deleted hourly.
   setInterval(() => {

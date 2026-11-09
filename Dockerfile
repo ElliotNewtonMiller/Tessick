@@ -29,6 +29,10 @@ RUN npm ci --omit=dev --workspace=apps/server && rm -rf ~/.npm
 COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
 
+# Evidence files (screenshots, videos, logs) when they're kept on disk: docker-compose.yml mounts
+# a volume here and sets EVIDENCE_DIR. Owned by the user Testify runs as.
+RUN mkdir -p /data/evidence && chown node:node /data/evidence && chmod 700 /data/evidence
+
 USER node
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

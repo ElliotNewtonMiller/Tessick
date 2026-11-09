@@ -56,6 +56,15 @@ All configuration comes from environment variables; nothing reads a `.env` file 
 | `LOG_LEVEL` | `info` | `info` logs one JSON line per request. `warn` and `error` log only problems; `silent` logs nothing. |
 | `WEB_DIST_DIR` | `apps/web/dist` | Where the built web app is. If there's no build, only the API is served. |
 | `SEED_SAMPLE_DATA` | `false` | `true` creates a small sample project. |
+| `EVIDENCE_STORAGE` | from the settings below | Where evidence files (screenshots, videos, logs, traces uploaded for test executions) are kept: `local` (a directory) or `s3` (a bucket). `memory` only with `DATABASE_URL=memory`. **A real database needs one**: startup stops otherwise. Docker Compose uses `local` on the `evidence-data` volume. |
+| `EVIDENCE_DIR` | none | `local`: the directory. Testify must be able to write to it (checked at startup); it makes its folders 0700 and files 0600. |
+| `EVIDENCE_S3_BUCKET` | none | `s3`: the bucket. Credentials come from AWS's own variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, ...) or the server's IAM role. Startup checks the bucket can be reached. |
+| `EVIDENCE_S3_REGION` | none | `s3`: the bucket's region (`us-east-1` when `EVIDENCE_S3_ENDPOINT` is set and this isn't). |
+| `EVIDENCE_S3_ENDPOINT` | none | `s3`: an S3-compatible server's address (MinIO, Cloudflare R2, ...). |
+| `EVIDENCE_S3_FORCE_PATH_STYLE` | `false` | `s3`: `true` for most S3-compatible servers (`https://host/bucket/key`). |
+| `EVIDENCE_S3_PREFIX` | none | `s3`: a prefix for Testify's files in a shared bucket. |
+| `EVIDENCE_S3_SSE` | none | `s3`: `AES256` or `aws:kms` to ask for server-side encryption. |
+| `EVIDENCE_MAX_FILE_MB` | `200` | The largest evidence file accepted, in MB. |
 
 ## HTTPS and reverse proxies
 
@@ -78,7 +87,11 @@ The session cookie is `SameSite=Strict`, so serve the web app and the API from t
 
 ## Backups and upgrades
 
-- **Backups:** all data is in PostgreSQL. Back it up with `pg_dump`, e.g. `docker compose exec db pg_dump -U testify testify > testify.sql`. Keep `JWT_SECRET` and `SECRETS_KEY` somewhere safe too; they aren't in the database.
+- **Backups:** the data is in PostgreSQL, and evidence files in their directory or bucket. Back up both, at the same time:
+  - the database with `pg_dump`, e.g. `docker compose exec db pg_dump -U testify testify > testify.sql`;
+  - the evidence directory (the `evidence-data` volume), or rely on the bucket's own versioning or replication.
+
+  A database restored without its files lists evidence whose files are missing (reading them fails). Files without rows are harmless, but take space. Keep `JWT_SECRET` and `SECRETS_KEY` somewhere safe too; they aren't in the database.
 - **Upgrades:** stop Testify, back up the database, then start the new version. Pending migrations run at startup, and a failed one stops the server with its name. Migrations only move forward; to go back to an older version, restore the backup.
 
 ## More than one instance

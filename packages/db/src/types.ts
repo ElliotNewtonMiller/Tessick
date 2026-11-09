@@ -77,6 +77,8 @@ export interface TestRunsTable {
   description: string | null;
   status: Generated<string>; // 'OPEN' | 'CLOSED'
   release_date: string | null;
+  /** When the run last closed (a trigger keeps it; migration 018), null while open. */
+  closed_at: Generated<string | null>;
   created_at: string;
   updated_at: string;
 }
@@ -340,6 +342,9 @@ export interface Database {
   compat_platforms: CompatPlatformsTable;
   compat_plan_platforms: CompatPlanPlatformsTable;
   compat_platform_runs: CompatPlatformRunsTable;
+  evidence: EvidenceTable;
+  storage_deletions: StorageDeletionsTable;
+  evidence_uploads: EvidenceUploadsTable;
 }
 
 /** TestLink's numeric id for a Testify row, in its id space (migration 016; testlinkCompat). */
@@ -367,6 +372,56 @@ export interface CompatApiKeysTable {
   entity_type: string;
   entity_id: string;
   api_key: string;
+}
+
+/** A file of evidence for a case's execution in a run (migration 018; routes/evidence.ts). */
+export interface EvidenceTable {
+  id: string;
+  project_id: string;
+  test_run_id: string;
+  test_plan_case_id: string;
+  test_result_id: string;
+  kind: string; // 'image' | 'video' | 'log' | 'trace'
+  media_type: string;
+  filename: string;
+  description: string | null;
+  size_bytes: ColumnType<number, number, number>;
+  sha256: string;
+  storage_key: string;
+  uploaded_by: string;
+  actor_type: string;
+  uploaded_via: string; // 'UI' | 'API' | 'MCP'
+  after_close: Generated<boolean>;
+  created_at: string;
+}
+
+/** A file to delete from storage, queued when its evidence row went (migration 018). */
+export interface StorageDeletionsTable {
+  storage_key: string;
+  attempts: Generated<number>;
+  last_error: string | null;
+  created_at: string;
+}
+
+/** An upload link for one evidence file (migration 018). */
+export interface EvidenceUploadsTable {
+  id: string;
+  token_hash: string;
+  project_id: string;
+  test_run_id: string;
+  test_plan_case_id: string;
+  test_result_id: string;
+  created_by: string;
+  actor_type: string;
+  created_via: string;
+  filename: string;
+  description: string | null;
+  size_bytes: ColumnType<number, number, number>;
+  sha256: string;
+  storage_key: string;
+  status: Generated<string>; // 'pending' | 'receiving' | 'received'
+  expires_at: string;
+  created_at: string;
 }
 
 /** A project's TestLink platform (migration 017; testlinkCompat). */
