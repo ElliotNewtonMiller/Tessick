@@ -419,7 +419,9 @@ export interface EvidenceUploadsTable {
   size_bytes: ColumnType<number, number, number>;
   sha256: string;
   storage_key: string;
-  status: Generated<string>; // 'pending' | 'receiving' | 'received'
+  status: Generated<string>; // 'pending' | 'receiving' | 'done'
+  /** The evidence it became (status done), which owns the stored file. */
+  evidence_id: string | null;
   expires_at: string;
   created_at: string;
 }

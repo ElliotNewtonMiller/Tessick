@@ -16,8 +16,9 @@ export async function runStorageSweep(db: Kysely<Database>, storage: StorageProv
   const uploads = new EvidenceUploadRepository(db);
   let expiredUploads = 0;
   for (const upload of await uploads.expired(now.toISOString())) {
-    // Even a pending one: with S3 the client may have put the file in the bucket directly.
-    await deletions.queue(upload.storage_key);
+    // A finished upload's file belongs to its evidence now. Any other may have a file, even a
+    // pending one: with S3 the client puts the file in the bucket directly.
+    if (upload.status !== 'done') await deletions.queue(upload.storage_key);
     await uploads.delete(upload.id);
     expiredUploads++;
   }

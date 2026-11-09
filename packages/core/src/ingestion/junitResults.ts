@@ -27,7 +27,15 @@ export interface JUnitTestResult {
   details: string | null;
   /** <property name value> inside the <testcase> (e.g. pytest's record_property) */
   properties: Record<string, string>;
+  /**
+   * Files the test attached, as their paths: `[[ATTACHMENT|path]]` in its <system-out> or
+   * <system-err> (the Jenkins and GitLab convention), or `<property name="attachment" value="path">`.
+   * Each once, in order.
+   */
+  attachments: string[];
 }
+
+const ATTACHMENT_MARK = /\[\[ATTACHMENT\|([^\]\r\n]+)\]\]/g;
 
 export class JUnitResultsError extends Error {}
 
@@ -70,6 +78,7 @@ export function parseJUnitResults(xml: string): JUnitTestResult[] {
         message: null,
         details: null,
         properties: {},
+        attachments: [],
       };
     } else if (current && !outcomeTag && (tag === 'failure' || tag === 'error' || tag === 'skipped')) {
       // The first outcome element decides (failure beats a later skipped, as test runners report it).
@@ -82,13 +91,25 @@ export function parseJUnitResults(xml: string): JUnitTestResult[] {
     } else if (current && tag === 'property') {
       const name = attr('name');
       if (name) current.properties[name] = attr('value') ?? '';
+      if (name?.toLowerCase() === 'attachment' && attr('value')?.trim()) attach(attr('value')!.trim());
+    } else if (current && !outcomeTag && (tag === 'system-out' || tag === 'system-err')) {
+      outputTag = tag;
+      output = '';
     }
   };
+  const attach = (path: string) => {
+    if (current && !current.attachments.includes(path)) current.attachments.push(path);
+  };
+  // The <system-out>/<system-err> we're inside, whose text may name attachments.
+  let outputTag: string | null = null;
+  let output = '';
   parser.ontext = (t) => {
     if (outcomeTag) text += t;
+    if (outputTag) output += t;
   };
   parser.oncdata = (t) => {
     if (outcomeTag) text += t;
+    if (outputTag) output += t;
   };
   parser.onclosetag = (name) => {
     const tag = name.toLowerCase();
@@ -99,6 +120,9 @@ export function parseJUnitResults(xml: string): JUnitTestResult[] {
         current.details = body;
       }
       outcomeTag = null;
+    } else if (outputTag && tag === outputTag) {
+      for (const m of output.matchAll(ATTACHMENT_MARK)) attach(m[1].trim());
+      outputTag = null;
     } else if (tag === 'testcase' && current) {
       results.push(current);
       current = null;

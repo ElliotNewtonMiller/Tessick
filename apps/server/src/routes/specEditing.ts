@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { evidenceCount } from '../services/evidence.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
 import type { Database } from '@testify/db';
@@ -197,6 +198,16 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
             cases: result.blockedCaseCount,
             planLinks: result.blockedPlanLinkCount,
             results: result.blockedResultCount,
+            evidence: await evidenceCount(db, {
+              caseIds: (
+                await db
+                  .selectFrom('test_cases')
+                  .innerJoin('test_suites', 'test_suites.id', 'test_cases.test_suite_id')
+                  .select('test_cases.id')
+                  .where((eb) => eb.or([eb('test_suites.id', '=', suiteId), eb('test_suites.path', 'like', `${existing.path}/%`)]))
+                  .execute()
+              ).map((c) => c.id),
+            }),
           },
           request.url,
           existing.name
@@ -444,7 +455,7 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
         return sendCaseInUseError(
           reply,
           caseId,
-          { planLinks: result.blockedPlanLinkCount, results: result.blockedResultCount },
+          { planLinks: result.blockedPlanLinkCount, results: result.blockedResultCount, evidence: await evidenceCount(db, { caseIds: [caseId] }) },
           request.url
         );
       }

@@ -16,13 +16,14 @@ Testify is an open-source, self-hosted test case management app meant to replace
 - Results are recorded per case in a run: by people with hotkeys in the web app, or by CI through the batch API (JSON, or a JUnit XML file, optionally into a run named by the build and created on first use).
 
 **Everything else:**
+- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments), stored on disk. S3 storage, MCP tools and the web app's Evidence panel are being built (docs/changelog.md).
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
 - Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
 - Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
 - Editable roles, per-project roles and permission overrides, and project-scoped API tokens.
 
 Not built:
-- Attachments (no file storage; the planned `IStorageProvider`).
+- A retention purge of old results and evidence, and malware scanning of evidence.
 - Detailed schemas for report outputs in the OpenAPI spec (only their top level is described; every route is in it).
 - Step-level results in the web app; the API accepts them.
 
@@ -66,7 +67,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
   src/routes/      One file per area: auth, admin, projects (projects/plans/runs), specEditing (suites/cases/versions/move),
                    testPlanCases (spec tree, plan membership, Execute queue), customFields, caseSearch, ingestion (import),
                    exports, results (one result), batchExecution (CI results as JSON), junitResults (CI results as JUnit XML),
-                   bulkChanges (many cases in one call), webhooks, reports, reportEmail, emailAdmin, apiTokens.
+                   bulkChanges (many cases in one call), webhooks, reports, reportEmail, emailAdmin, apiTokens, evidence.
   src/services/    Logic shared by routes: adminGuard, caseFilterService, reportService, reportEmailService, mailer,
                    rateLimits, loginThrottle, resultValidation, resultOverwrite, stepValidation, secrets,
                    batchResults (recording a CI batch, JSON or JUnit), runByName (CI's run per build),
@@ -132,6 +133,15 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Fail and Block in the web app send `defer_auto_close`, so a run completed by them waits for their notes. The notes' result closes it, or `POST /runs/:runId/auto-close` does when the person leaves the case without notes (`useExecution`).
 - Manual (UI) results are never timed: duration is null. Only batch/CI results carry durations.
 - The result routes take an optional `Idempotency-Key` (`services/idempotency.ts`, table `idempotency_keys`): a retry of the same request gets the first answer back (`Idempotent-Replayed: true`), a different request with the key is `422 IDEMPOTENCY_KEY_REUSED`, one still running `409 IDEMPOTENCY_KEY_IN_USE`. Keys belong to the caller, project and route; only 2xx answers are kept, for 24 hours. Decided with Elliot over de-duplicating by content.
+
+**Evidence** (screenshots, videos, logs, Playwright traces; `routes/evidence.ts`, RFC 03 §5):
+- It belongs to a case's execution in a run (run + plan link) and names the result it was added with; results read through the API list theirs.
+- Files are recognised by their contents only (`packages/core/src/evidence/sniff.ts`). Everything else is refused, and accepted files are always served by Testify with their sniffed type, `nosniff` and a `sandbox` CSP.
+- It can be added while the run is open, and for 24 hours after it closes only by whoever recorded the result (`test_runs.closed_at`, kept by a trigger). Deleting it is for its uploader while the run is open, or `EXECUTE_OVERWRITE` (decided with Elliot).
+- Uploads stream through the spool (size, SHA-256, type) before anything is stored. The same file again for the same execution is answered, not added. Every upload route answers `{ evidence, refused }` (201/200/207, or the refusal).
+- A deleted evidence row queues its file (`storage_deletions`, a trigger), and `services/storageSweeper.ts` deletes it after commit. So any delete path (run, plan, case, project with `force`) cleans up storage by itself.
+- Upload links (`evidence_uploads`) are single-use, 15 minutes, hashed; their token is the PUT's only credential and is kept out of logs (`loggableUrl` in `observability.ts`).
+- `EVIDENCE_ADDED` is audited but only `EVIDENCE_DELETED` shows in the Security Audit Log.
 
 **Custom fields:**
 - A field applies to all projects or to chosen ones (`applies_to_all_projects`, `custom_field_projects`); admins set this with the Projects chips in the Admin Panel (`PUT /admin/custom-fields/:id/projects`). Imports create fields for their project. Which fields a project has always comes from `CustomFieldRepository.listVisibleToProject`.

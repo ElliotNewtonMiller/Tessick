@@ -50,9 +50,9 @@ export class EvidenceRepository {
   }
 
   /** A run's evidence, oldest first, a page at a time (keyset on created_at, id). */
-  async listForRun(testRunId: string, filter: { testPlanCaseId?: string; kind?: string }, page: { limit: number; cursor?: string | null }): Promise<Page<Evidence>> {
+  async listForRun(testRunId: string, filter: { testPlanCaseIds?: string[]; kind?: string }, page: { limit: number; cursor?: string | null }): Promise<Page<Evidence>> {
     let query = this.db.selectFrom('evidence').selectAll().where('test_run_id', '=', testRunId);
-    if (filter.testPlanCaseId) query = query.where('test_plan_case_id', '=', filter.testPlanCaseId);
+    if (filter.testPlanCaseIds) query = filter.testPlanCaseIds.length ? query.where('test_plan_case_id', 'in', filter.testPlanCaseIds) : query.where('id', '=', '');
     if (filter.kind) query = query.where('kind', '=', filter.kind);
     const cursor = decodeCursor(page.cursor);
     if (cursor) {
@@ -109,8 +109,14 @@ export class EvidenceUploadRepository {
     return Number(result.numUpdatedRows) === 1;
   }
 
-  async setStatus(id: string, status: 'pending' | 'received'): Promise<void> {
-    await this.db.updateTable('evidence_uploads').set({ status }).where('id', '=', id).execute();
+  /** Back to pending, so the client can try the upload again (it was refused). */
+  async release(id: string): Promise<void> {
+    await this.db.updateTable('evidence_uploads').set({ status: 'pending' }).where('id', '=', id).where('status', '=', 'receiving').execute();
+  }
+
+  /** The upload became this evidence, whose row now owns the stored file. */
+  async done(id: string, evidenceId: string): Promise<void> {
+    await this.db.updateTable('evidence_uploads').set({ status: 'done', evidence_id: evidenceId }).where('id', '=', id).execute();
   }
 
   async delete(id: string): Promise<void> {

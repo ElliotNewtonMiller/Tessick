@@ -34,6 +34,7 @@ export const OPENAPI_TAGS = [
   { name: 'Search', description: 'Finding cases by text and by property; the same filters work in reports.' },
   { name: 'Plans', description: 'Test plans: a set of cases, each pinned at a version.' },
   { name: 'Runs and results', description: 'Test runs of a plan, and the results recorded in them (one at a time, or in CI batches).' },
+  { name: 'Evidence', description: "Screenshots, videos, logs and Playwright traces for a case's execution in a run: uploaded one by one, by run for CI, or by upload link; always served through Testify." },
   { name: 'Reports', description: 'Run summaries, trends, test health, case history, breakdowns. The catalog says what each report answers and takes.' },
   { name: 'Report email', description: 'Emailing reports to anyone, now or on a schedule.' },
   { name: 'Import', description: 'Importing suites and cases: TestLink XML, JUnit XML, Testify JSON, CSV, TestRail CSV. Preview first, then import.' },

@@ -288,6 +288,57 @@ curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/batch?run_name=CI%20buil
 - **`runner_info`:** links each result back to your CI run. Its `run_id` is your CI system's id, not Testify's.
 - The response, refusals and `all_or_nothing` work as for JUnit files; refused results are identified by their `index` in `results`.
 
+### Attach screenshots, videos and logs
+
+Each executed case can carry **evidence**: PNG, JPEG, GIF or WebP images, MP4 or WebM videos, UTF-8 text logs, and Playwright trace `.zip` files, up to 200 MB each (the server's `EVIDENCE_MAX_FILE_MB`). Testify recognises a file by its contents, not its name, and refuses anything else (415). Evidence goes on a case's result, so **record the result first**. Your token needs `EXECUTE_RUN`.
+
+**With the JUnit file, in one request.** Send the report as the `file` part and the files as other parts. Each file goes to the test that attaches it: `[[ATTACHMENT|path/to/file]]` in its `<system-out>` (many runners and plugins write this), or an `attachment` property. Files are matched by name:
+
+```bash
+curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
+  -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  -F file=@report.xml -F shot1=@screenshots/login.png -F trace1=@traces/checkout.zip
+```
+
+The answer's `evidence` lists what was stored, and what was refused and why (`NOT_ATTACHED`: no test attaches that file).
+
+**For a whole run, by case.** Name each file part after its case:
+
+```bash
+curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/evidence" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  -F "SHOP-101=@screenshots/login.png" -F "SHOP-102=@logs/checkout.log" -F "SHOP-102=@videos/checkout.webm"
+```
+
+**One file for one case,** as the raw body (with its SHA-256, checked):
+
+```bash
+curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence?filename=login.png" \
+  -H "Authorization: Bearer $TESTIFY_TOKEN" -H "X-Checksum-SHA256: $(sha256sum login.png | cut -d' ' -f1)" \
+  --data-binary @login.png
+```
+
+**Several files at once:** use `-F file=@a.png -F file=@b.log` (a `-F description=...` before them describes them).
+
+Each upload answers `{ "evidence": [...], "refused": [...] }`:
+- **201:** every file was stored.
+- **200:** every file was already there. The same file sent again for the same case adds nothing, so retrying a failed upload is safe.
+- **207:** some files were refused.
+- **The refusal itself** when all were, for example 415 for a type that isn't accepted, or 413 for a file over the limit.
+
+**A very large file, or from an AI agent:** make an upload link, then PUT the file to it. No token is needed for the PUT: the link is used once, within 15 minutes, for that exact file.
+
+```bash
+UPLOAD=$(curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence/uploads" \
+  -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/json' \
+  -d "{\"filename\": \"run.webm\", \"size_bytes\": $(stat -c %s run.webm), \"sha256\": \"$(sha256sum run.webm | cut -d' ' -f1)\"}")
+curl -s -X PUT "$(echo "$UPLOAD" | jq -r .upload.url)" -H 'content-type: application/octet-stream' --data-binary @run.webm
+curl -s -X POST "$TESTIFY$(echo "$UPLOAD" | jq -r .upload.complete_url)" -H "Authorization: Bearer $TESTIFY_TOKEN"
+```
+
+The last call is needed when the server keeps files in S3. Otherwise it repeats what the PUT answered.
+
+**When:** while the run is open. After it closes, whoever recorded a result (your token, for CI's results) can still add evidence to it for 24 hours. So a job that closes its run (`close_run=true`) can upload its files right after.
+
 ## 6. Read results back
 
 ```bash

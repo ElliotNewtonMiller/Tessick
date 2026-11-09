@@ -111,7 +111,8 @@ The suite tree is live and editable; it's never snapshotted per plan. Moving or 
 
 - **Results are kept forever.** The planned 365-day purge isn't built.
 - **Audit logs** are append-only with no automatic deletion, enforced by database triggers (RFC 04 §5).
-- **Logs and attachments:** failure messages and stack traces are stored as text on the result row. Attachments (screenshots, files) and out-of-band storage aren't built (RFC 03 §5).
+- **Logs:** failure messages and stack traces are stored as text on the result row.
+- **Evidence** (screenshots, videos, logs, Playwright traces) is stored out of band, in a directory or an S3 bucket, with a row per file (`evidence`). It belongs to a case's execution in a run, names the result it was added with, and goes with its result, run, plan case or project (RFC 03 §5). There's no retention purge.
 
 ---
 
@@ -175,10 +176,13 @@ erDiagram
 | Table | Key columns | Notes |
 | :--- | :--- | :--- |
 | `test_plans` | `project_id`, `name`, `description`, `status` | Status is `ACTIVE`, `LOCKED` or `ARCHIVED`. |
-| `test_runs` | `test_plan_id`, `name`, `description`, `status`, `release_date` | `UNIQUE (test_plan_id, name)`. Status is `OPEN` or `CLOSED`. |
+| `test_runs` | `test_plan_id`, `name`, `description`, `status`, `release_date`, `closed_at` (kept by a trigger) | `UNIQUE (test_plan_id, name)`. Status is `OPEN` or `CLOSED`. |
 | `test_plan_cases` | `test_plan_id`, `test_case_id`, `test_case_version_id`, `position`, `removed_at`, `removed_by` | Partial unique index `(test_plan_id, test_case_id) WHERE removed_at IS NULL`: one active link per case per plan, any number of retired ones. |
 | `test_results` | `test_run_id`, `test_plan_case_id`, `tester_id`, `status`, `verdict`, `duration_ms`, `notes`, `failure_message`, `stack_trace`, `environment` (JSON), `runner` (JSON: name, run id, job, commit SHA, URL), `source` (`UI`/`API`), `execution_timestamp` | Verdicts: `PASSED`, `FAILED`, `BLOCKED`, `SKIPPED`, `RETEST_REQUIRED`, `KNOWN_ISSUE`. Status: `COMPLETED` (default), `IN_PROGRESS`, `ABORTED`. Duration is null for manual results. `tester_id` is the user or API token that recorded it. |
 | `test_step_results` | `test_result_id`, `test_step_id`, `step_number`, `verdict`, `actual_result` | Step verdicts: `PASSED`, `FAILED`, `BLOCKED`, `SKIPPED`, `UNTESTED`. `test_step_id` is RESTRICT, so steps with results are kept. |
+| `evidence` | `project_id`, `test_run_id`, `test_plan_case_id`, `test_result_id`, `kind`, `media_type`, `filename`, `description`, `size_bytes`, `sha256`, `storage_key` (unique), `uploaded_by`, `actor_type`, `uploaded_via`, `after_close` | A file of evidence for a case's execution; the file itself is in storage under `storage_key`. Cascades from its result, run and plan case. Deleting a row queues its file (`storage_deletions`, by trigger) for the storage sweeper. |
+| `evidence_uploads` | `token_hash` (unique), the target (project, run, plan case, result), `created_by`, `filename`, `size_bytes`, `sha256`, `storage_key`, `status`, `evidence_id`, `expires_at` | Upload links: single-use, 15 minutes. |
+| `storage_deletions` | `storage_key`, `attempts`, `last_error` | Files to delete from storage once their rows are gone. |
 
 #### Custom fields
 

@@ -212,7 +212,8 @@ describe('Evidence storage: files go with their rows', () => {
       size_bytes: 10,
       sha256: 'a'.repeat(64),
       storage_key: key,
-      status: 'received',
+      status: 'receiving',
+      evidence_id: null,
       expires_at: new Date(now.getTime() - 1000).toISOString(),
       created_at: now.toISOString(),
     });

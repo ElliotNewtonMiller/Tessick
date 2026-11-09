@@ -328,6 +328,26 @@ function batchResponse(options: { run?: boolean; junit?: boolean } = {}) {
         },
       },
     },
+    ...(options.junit
+      ? {
+          evidence: {
+            type: 'object',
+            description: 'A multipart upload: the evidence files stored on the results of the tests that attached them, and those refused (e.g. `NOT_ATTACHED`: no test attaches it)',
+            required: ['evidence', 'refused'],
+            properties: {
+              evidence: { type: 'array', items: { $ref: 'Evidence#' } },
+              refused: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['filename', 'status', 'code', 'detail'],
+                  properties: { filename: { type: 'string' }, status: { type: 'integer' }, code: { type: 'string' }, detail: { type: 'string' } },
+                },
+              },
+            },
+          },
+        }
+      : {}),
     run_status: oneOf(RUN_STATUSES, 'CLOSED when `close_run=true` closed it; otherwise OPEN.'),
     ...(options.run
       ? {
@@ -483,9 +503,22 @@ const JUNIT_DESCRIPTION =
   'The body is a JUnit XML report, as most test runners write it (pytest `--junitxml`, Maven Surefire, Gradle, Jest and Vitest junit reporters, go-junit-report, ...), sent as is: `curl --data-binary @report.xml`. Up to 20,000 tests and 50 MB. ' +
   'Each `<testcase>` is matched to a case of the project: by readable id (a `testify_id` property, or an id such as SHOP-101 in the test name), otherwise by suite and title, which is how a JUnit import of the same file names cases. ' +
   'failure and error are FAILED, skipped is SKIPPED, everything else PASSED; `time` (seconds) becomes the duration, unless it is not a number, negative or over about 24 days (likely milliseconds), and then the result has none; the failure message and text become the error and stack trace. NUL characters in the file are removed. ' +
-  'A matched case not yet in the plan is added if it is approved. Tests that match no case are listed as refused (`CASE_NOT_FOUND`, 207) and not recorded. Needs `EXECUTE_RUN`.';
+  'A matched case not yet in the plan is added if it is approved. Tests that match no case are listed as refused (`CASE_NOT_FOUND`, 207) and not recorded. Needs `EXECUTE_RUN`.\n\n' +
+  'With evidence: send multipart/form-data, the report as the `file` part and screenshots, videos, logs or traces as other file parts. Each goes to the result of the test that attaches it, `[[ATTACHMENT|path]]` in its `system-out`/`system-err` or an `attachment` property, matched by file name (`curl -F file=@report.xml -F shot=@screenshots/login.png`). The answer\'s `evidence` says what was stored and refused; see the Evidence endpoints for the types and limits.';
 
-const junitBody = { type: 'string', description: 'The JUnit XML file' };
+const junitBody = {
+  content: {
+    'application/xml': { schema: { type: 'string', description: 'The JUnit XML file (any Content-Type but JSON and multipart)' } },
+    'multipart/form-data': {
+      schema: handlerValidated({
+        type: 'object',
+        required: ['file'],
+        properties: { file: { type: 'string', format: 'binary', description: 'The JUnit XML file' } },
+        additionalProperties: { type: 'string', format: 'binary', description: 'Evidence files the tests attach, by name' },
+      }),
+    },
+  },
+};
 
 const junitErrors = (more: Array<number | [number, string]>) =>
   authedErrors(
@@ -501,7 +534,7 @@ export const junitResultsSchema = {
   tags: ['Runs and results'],
   summary: 'Record results from a JUnit XML file',
   description: JUNIT_DESCRIPTION,
-  consumes: ['application/xml'],
+  consumes: ['application/xml', 'multipart/form-data'],
   params: idParams('runId'),
   querystring: { type: 'object', properties: JUNIT_QUERY },
   headers: IDEMPOTENCY_HEADERS,
@@ -517,7 +550,7 @@ export const planJunitResultsSchema = {
   tags: ['Runs and results'],
   summary: 'Record results from a JUnit XML file into a run by name',
   description: `Into the plan's run named \`run_name\`, created if there is none yet (needs \`RUN_MANAGE\` then). ${JUNIT_DESCRIPTION}`,
-  consumes: ['application/xml'],
+  consumes: ['application/xml', 'multipart/form-data'],
   params: idParams('planId'),
   querystring: { type: 'object', required: ['run_name'], properties: { ...RUN_NAME_QUERY, ...JUNIT_QUERY } },
   headers: IDEMPOTENCY_HEADERS,

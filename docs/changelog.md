@@ -3697,3 +3697,92 @@ Elliot wants evidence on test executions: screenshots, videos, logs (and Playwri
   - `closed_at` set on closing, kept on other changes, cleared on reopening.
 
 The full suite passes (832), and the type check is clean.
+
+## Evidence, phase 2: the REST API (2026-11-09)
+
+Phase 2 of evidence for test executions: uploading, reading and deleting through the REST API (`apps/server/src/routes/evidence.ts`, `services/evidence.ts`; RFC 03 §5).
+
+**Uploading** (every route needs `EXECUTE_RUN`; API tokens with it qualify):
+- `POST /api/v1/runs/{runId}/cases/{caseId}/evidence`:
+  - adds to the case's latest result in the run, or `?test_result_id=`;
+  - takes multipart/form-data file parts (a `description` field applies to the files after it, a `sha256` field to the next file), or the file as a raw body (`?filename=`, `X-Checksum-SHA256`).
+- `POST /api/v1/results/{resultId}/evidence`: the same, for a given result.
+- `POST /api/v1/runs/{runId}/evidence`, for CI: one request, file parts named by case (`-F "SHOP-12=@login.png"`).
+- JUnit uploads (`/runs/{runId}/results/junit` and `/plans/{planId}/results/junit`) also take multipart: the report as `file`, and other file parts as evidence.
+  - Each file goes to the new result of the test that attaches it, matched by file name: `[[ATTACHMENT|path]]` in its `system-out`/`system-err` (the Jenkins and GitLab convention), or an `attachment` property.
+  - `parseJUnitResults` now collects `attachments` per test.
+  - The route keeps the multipart parser; the raw form is unchanged.
+- **Upload links,** for large files and AI agents:
+  - `POST .../evidence/uploads` with `filename`, `size_bytes` and `sha256` answers a single-use URL, valid 15 minutes.
+  - `PUT /api/v1/evidence-uploads/{token}` needs no sign-in (the link is the credential); it checks the size and SHA-256, and stores the file at once.
+  - `POST /api/v1/evidence-uploads/{uploadId}/complete` answers it, or, with S3 (phase 3), checks and records a file put in the bucket directly.
+  - Tokens are kept out of the logs (`loggableUrl`), both in request lines and server-error lines.
+- **One answer for all:** `{ evidence, refused }`.
+  - 201 when all were stored; 200 when all were already there (the same SHA-256 on the same execution, so retries add nothing);
+  - 207 when some were refused, each with its status, code and detail;
+  - the refusal itself when all were (e.g. 415 `EVIDENCE_TYPE_REFUSED`, 413 `EVIDENCE_TOO_LARGE` with `limit_bytes`).
+- **Before any bytes are read,** a closed run (`422 RUN_CLOSED`, except whoever recorded the result within 24 hours), a case with no result (`409 NO_RESULT_TO_ATTACH`), or one that left the plan (`CASE_RETIRED`) is refused. An execution holds at most 50 files.
+
+**Reading** (`SPEC_VIEW` or `EXECUTE_RUN`):
+- `GET /runs/{runId}/evidence` (paged; `test_case_id`, `kind`), `GET /runs/{runId}/cases/{caseId}/evidence`, `GET /evidence/{evidenceId}`.
+- `GET /evidence/{evidenceId}/content`, with these headers:
+  - the sniffed `Content-Type` and `nosniff`;
+  - `Content-Security-Policy: default-src 'none'; sandbox`;
+  - `Cross-Origin-Resource-Policy: same-origin`;
+  - an RFC 5987 `Content-Disposition` (inline; attachment for traces and `?download=1`);
+  - the SHA-256 as `ETag` (304 on `If-None-Match`);
+  - `Cache-Control: private, immutable`;
+  - one Range (206/416);
+  - `410 EVIDENCE_FILE_MISSING` when the row's file is gone.
+- Results through the API (`GET /runs/{runId}/results`, `/results/{resultId}`) list their `evidence`. Runs show `closed_at`.
+
+**Deleting:** `DELETE /evidence/{evidenceId}`:
+- **Who:** the uploader while the run is open, or anyone with `EXECUTE_OVERWRITE` (decided with Elliot).
+- **Audit:** `EVIDENCE_DELETED`, with the name, size, SHA-256 and uploader.
+- **The file:** queued by the phase 1 trigger and removed by the sweeper.
+- **Warnings:** the force-delete warnings for runs, plans, suites, cases and projects now count the evidence a delete would take.
+
+**Audit:** every addition writes `EVIDENCE_ADDED` (name, kind, size, SHA-256, how, `after_close`). Only `EVIDENCE_DELETED` is in the Security Audit Log's list, a change from the plan: CI adds files by the thousand and would bury the log's other entries. Additions remain readable through `GET /admin/audit-logs?action=EVIDENCE_ADDED`.
+
+**Smaller changes:**
+- `resolveRequestProject` resolves `:evidenceId` and `:uploadId`, and token routes accept them.
+- The OpenAPI spec has an Evidence tag, the shared `Evidence` schema, RunResult's `evidence`, the JUnit multipart body and its `evidence` answer, and Run's `closed_at`: 129 endpoints (`openapi.test.ts`).
+- Migration 018 (not shipped yet) gains `evidence_uploads.evidence_id`. A finished link's file belongs to its evidence, so the sweeper no longer removes it with the expired link.
+
+**Docs:**
+- RFC 03 (§2 route map, §3.3 JUnit with evidence, §4.2 codes, §5 rewritten as built, the summary);
+- RFC 04 (`EXECUTE_RUN`, the audit events, threat 9: malicious evidence files);
+- RFC 01 (the tables, §2.5);
+- `api_getting_started.md` (a section with the CI recipes);
+- CLAUDE.md/AGENTS.md (a domain rule for evidence);
+- the roadmap (129 endpoints).
+
+**Tests:** `apps/server/tests/evidence_api.test.ts` (10):
+- a screenshot added and served back with every header, ranges, 304, download, and on its result and in the lists;
+- raw bodies with checksums, a duplicate, and refusals (checksum, SVG, too large), only the right file stored;
+- several files in a request (207);
+- the CI batch by case, including a case without a result and an unknown one;
+- permissions: a viewer reads but can't add, a token adds, another project's token sees 404;
+- the closed-run window: the recorder within 24 hours, others refused, and after 25 hours refused;
+- deletes: who may, both audit rows, the sweep;
+- upload links: a wrong size, then success, single use, completion by the maker only, expiry, too large, the token kept out of logs;
+- JUnit with attachments (stored and not attached), and the raw form unchanged;
+- a run's delete warning naming its evidence, and force removing it with its file.
+
+`packages/core/tests/junitResults.test.ts` gains the attachments. The full suite passes (843), and the type check is clean.
+
+**Verified live** on the dev server, with a CI token and `curl`. The dev server running in Elliot's terminal was three days old and lacked the new routes; it was stopped, and a current one started.
+- **Uploads:**
+  - a real 6.3 MB PNG (multipart, with a description);
+  - a log as a raw body with its checksum, and the same log again as a duplicate (200);
+  - a real WebM video in the CI batch, with a case without a result refused (207);
+  - an SVG refused (415).
+- **Reading back:**
+  - the video's headers were as above;
+  - a range read answered 206 with WebM's magic bytes;
+  - the whole file came back byte-identical (SHA-256).
+- **Upload link:** the 600 KB video was PUT once (201) and the reuse refused (404).
+- **Elsewhere:**
+  - the result listed its three files;
+  - the token deleted its own upload (204);
+  - the getting-started guide's JUnit recipe stored a screenshot with its test's result.

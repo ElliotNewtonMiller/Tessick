@@ -401,6 +401,8 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
   // GET /api/v1/admin/audit-logs - Filtered Security Audit Log Viewer (Gated by USER_MANAGE or SYSTEM_ADMIN)
   app.get('/api/v1/admin/audit-logs', { schema: A.auditLogSchema, preHandler: requirePermission('USER_MANAGE', db, jwtSecret) }, async (request, reply) => {
     const securityActions = [
+      // Evidence additions are audited too, but only deletions show here: CI adds files by the thousand.
+      'EVIDENCE_DELETED',
       'USER_CREATED',
       'USER_DISABLED',
       'USER_ACTIVATED',

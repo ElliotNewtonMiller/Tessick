@@ -120,6 +120,8 @@ export async function resolveRequestProject(request: FastifyRequest, db: Kysely<
         .executeTakeFirst()
     );
   }
+  if (params.evidenceId) add(await db.selectFrom('evidence').select('project_id').where('id', '=', params.evidenceId).executeTakeFirst());
+  if (params.uploadId) add(await db.selectFrom('evidence_uploads').select('project_id').where('id', '=', params.uploadId).executeTakeFirst());
   if (params.resultId) {
     add(
       await db
@@ -188,7 +190,7 @@ export async function apiTokenIssuerAccess(
 }
 
 /** A route address names a project item when it has one of these parameters. */
-const PROJECT_ROUTE_PARAM = /:(projectId|planId|runId|resultId|caseId|suiteId|versionId|scheduleId|tokenId|webhookId|deliveryId)\b/;
+const PROJECT_ROUTE_PARAM = /:(projectId|planId|runId|resultId|caseId|suiteId|versionId|scheduleId|tokenId|webhookId|deliveryId|evidenceId|uploadId)\b/;
 /** The routes outside any project that a token may still use: each stays within the token's project. */
 /**
  * For a caller using an API token: which token it is, and that it sees only its own project. Added

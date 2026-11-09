@@ -29,6 +29,14 @@ export function loggerOptions(level: string, stream?: NodeJS.WritableStream) {
  * load balancer probes them every few seconds. Every reply carries its request id in
  * X-Request-Id, the same id an unexpected-error reply and its log line show.
  */
+/**
+ * A URL as it may be logged: an evidence upload link's token is its only credential, so it's
+ * replaced (routes/evidence.ts; the link is single-use and expires in 15 minutes anyway).
+ */
+export function loggableUrl(url: string): string {
+  return url.replace(/^(\/api\/v1\/evidence-uploads\/)(?!.*\/complete)[A-Za-z0-9_-]+/, '$1[token]');
+}
+
 export function registerRequestLogging(app: FastifyInstance): void {
   app.addHook('onRequest', async (request, reply) => {
     reply.header('X-Request-Id', request.id);
@@ -37,7 +45,7 @@ export function registerRequestLogging(app: FastifyInstance): void {
     const user = request.user;
     const line = {
       method: request.method,
-      url: request.url,
+      url: loggableUrl(request.url),
       status_code: reply.statusCode,
       response_time_ms: Math.round(reply.elapsedTime * 10) / 10,
       ...(user?.api_token ? { api_token_id: user.api_token.id } : user ? { user_id: user.id } : {}),

@@ -44,7 +44,7 @@ Permissions are string constants named `<DOMAIN>_<ACTION>`, e.g. `SPEC_APPROVE`,
 | `SPEC_AUTO_APPROVE` | Specifications | New cases this user creates start approved instead of as a draft. | **MEDIUM** |
 | `PLAN_MANAGE` | Planning | Create, edit and delete test plans; manage which cases are in one; edit custom field values. | **HIGH** |
 | `RUN_MANAGE` | Planning | Create, edit, close, reopen and delete test runs (including CI creating a run by name with `run_name`). | **MEDIUM** |
-| `EXECUTE_RUN` | Execution | Record results (verdicts and notes) for test cases. | **MEDIUM** |
+| `EXECUTE_RUN` | Execution | Record results (verdicts and notes) for test cases, and add evidence to them (screenshots, videos, logs, traces; while the run is open, or within 24 hours of its closing for one's own results). | **MEDIUM** |
 | `EXECUTE_OVERWRITE` | Execution | Record a new result for a case that already has one in the run. Results are never edited; the new result becomes the latest. | **HIGH** |
 | `IMPORT_DATA` | Data | Import suites and cases (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON), including creating custom fields for that project while mapping. | **HIGH** |
 | `EXPORT_DATA` | Data | Export suites, cases and run results (JSON, CSV). | **HIGH** |
@@ -295,6 +295,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Projects | `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_DELETED` |
 | Specifications | `SUITE_CREATED`, `SUITE_UPDATED`, `SUITE_DELETED`, `CASE_CREATED`, `CASE_UPDATED`, `CASE_DELETED`, `CASE_DRAFT_CREATED`, `CASE_VERSION_UPDATED`, `CASE_VERSION_APPROVED`, `CASE_VERSION_DEPRECATED`, `CASE_VERSION_RESTORED`, `SPEC_ITEMS_MOVED` |
 | Plan membership | `PLAN_CASE_ADDED`, `PLAN_CASE_REMOVED`, `PLAN_CASE_RETIRED`, `PLAN_CASE_CASCADE_ADD`, `PLAN_CASE_CASCADE_REMOVE` |
+| Evidence | `EVIDENCE_ADDED` (every file, with its SHA-256; not shown in the Security Audit Log, since CI adds files by the thousand), `EVIDENCE_DELETED` (shown) |
 | Results | `RESULT_RECORDED`, `RESULTS_BATCH_RECORDED`, `RUN_AUTO_CLOSED` (rows written before 2026-10-12 say `EXECUTION_RECORDED`, `BATCH_EXECUTION_RECORDED`, `BUILD_AUTO_CLOSED`; audit rows can't be changed) |
 | Custom fields | `CUSTOM_FIELD_DEFINITION_CREATED`, `CUSTOM_FIELD_DEFINITION_UPDATED`, `CUSTOM_FIELD_DEFINITION_DELETED` |
 | Data and email | `IMPORT_EXECUTED`, `DATA_EXPORTED`, `REPORT_EMAILED`, `REPORT_SCHEDULE_CREATED`, `REPORT_SCHEDULE_UPDATED`, `REPORT_SCHEDULE_DELETED`, `EMAIL_SETTINGS_UPDATED` |
@@ -419,6 +420,22 @@ Mitigations:
     - `Strict-Transport-Security: max-age=31536000` on replies served over HTTPS (through a proxy with `TRUST_PROXY=true`), so browsers then refuse plain HTTP. Subdomains aren't included, since they may be other services.
   - The session cookie is `HttpOnly` (scripts can't read it) and `SameSite=Strict`, and every change needs the `X-Testify-Client` header (CSRF).
 - **Gaps:** the development web server (Vite, port 3000) doesn't send these headers; only the production server does.
+
+#### 9. Malicious Evidence Files
+- **Risk:** Evidence (RFC 03 §5) is files uploaded by users, CI and agents. Several things could go wrong:
+  - a file disguised as an image (an SVG or HTML page with script, renamed `.png`) could run in a viewer's browser;
+  - a huge or endless upload could fill the disk;
+  - an upload link could leak;
+  - evidence could be added to a closed run after the fact;
+  - a file could be swapped under its record.
+- **Mitigation:**
+  - **Files are recognised by their contents,** never their name or declared type. Only PNG, JPEG, GIF and WebP images, MP4 and WebM videos, UTF-8 text logs (checked to the end) and Playwright trace archives are accepted; SVG, HTML, PDF and executables are refused.
+  - **Files are always served by Testify** with their sniffed type and a policy that makes them inert: `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`, and a download disposition for archives. Permissions are checked on every read.
+  - **Uploads are streamed through a spool** that counts, hashes and sniffs them. A file over `EVIDENCE_MAX_FILE_MB` is cut off mid-stream (413) and nothing is kept. An execution holds at most 50 files, and requests count against the per-user and per-token rate limits.
+  - **Storage keys are generated,** never taken from input, and checked against their pattern: no path traversal. Local files are 0600 in 0700 directories. S3 can encrypt at rest (`EVIDENCE_S3_SSE`).
+  - **Upload links** are 256-bit random tokens, stored as SHA-256 digests, used once, for one file of a stated size and SHA-256, and valid 15 minutes. Testify never writes them to its logs (`loggableUrl`). A proxy's own access log may still record one, as with any presigned URL.
+  - **After a run closes,** only whoever recorded a result may add evidence to it, for 24 hours. Late additions are marked `after_close`, and every addition and deletion is audited with the file's SHA-256, which also ties a record to its file.
+- **Gaps:** no malware scanning. Accepted files are inert in the browser, but a downloaded trace or video is opened by other software at the viewer's own risk.
 
 ---
 

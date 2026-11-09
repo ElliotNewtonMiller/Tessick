@@ -48,6 +48,7 @@ import { UserRepository } from '@testify/db';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStorage, type StorageProvider } from './storage/index.js';
+import { registerEvidenceRoutes } from './routes/evidence.js';
 import { runStorageSweep } from './services/storageSweeper.js';
 
 // Testify only targets Postgres-compatible SQL. With no connectionString this routes to an
@@ -226,6 +227,7 @@ export async function createServer(
   await registerReportEmailRoutes(app, db, jwtSecret);
   await registerEmailAdminRoutes(app, db, jwtSecret);
   await registerResultRoutes(app, db, jwtSecret);
+  await registerEvidenceRoutes(app, db, jwtSecret);
 
 
   // GET /api/v1/health, for load balancers and uptime monitors (observability.ts).

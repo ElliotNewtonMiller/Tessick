@@ -89,6 +89,7 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 | Search | `POST /projects/{projectId}/case-search`, `GET /projects/{projectId}/case-search/fields` |
 | Plans | `GET`/`POST /projects/{projectId}/plans`, `GET`/`PATCH`/`DELETE /plans/{planId}`, `GET /plans/{planId}/cases?test_run_id=` (the plan's cases with each one's latest result in the run: Execute mode's queue), `POST /plans/{planId}/cases` (`test_case_id`), `POST /plans/{planId}/cases/bulk` (`add`/`remove` up to 500), `DELETE /plans/{planId}/cases/{caseId}`, `POST`/`DELETE /plans/{planId}/suites/{suiteId}/cases` (every case in the suite's subtree) |
 | Runs and results | `GET /plans/{planId}/runs` (paged, newest first; each run with its `summary` counts, as the run summary report counts them), `POST /plans/{planId}/runs`, `GET`/`PATCH`/`DELETE /runs/{runId}`, `GET /runs/{runId}/results` (paged, newest first; filters `verdict`, `test_case_id`, `source`, `latest_only`), `GET /results/{resultId}`, `POST /runs/{runId}/results` (one result), `POST /runs/{runId}/auto-close` (finish an auto-close a result deferred, §2.2), `POST /runs/{runId}/results/batch` (CI, §3), `POST /runs/{runId}/results/junit` (a JUnit XML file, §3.3), and the same two into a run by name: `POST /plans/{planId}/results/batch?run_name=`, `POST /plans/{planId}/results/junit?run_name=` |
+| Evidence | `POST /runs/{runId}/cases/{caseId}/evidence` (to the case's latest result; multipart or a raw body), `POST /results/{resultId}/evidence`, `POST /runs/{runId}/evidence` (CI: file parts named by case), `POST /runs/{runId}/cases/{caseId}/evidence/uploads` (an upload link), `PUT /evidence-uploads/{token}` (no sign-in: the link is the credential), `POST /evidence-uploads/{uploadId}/complete`, `GET /runs/{runId}/evidence` (paged; filters `test_case_id`, `kind`), `GET /runs/{runId}/cases/{caseId}/evidence`, `GET`/`DELETE /evidence/{evidenceId}`, `GET /evidence/{evidenceId}/content` (Range; `?download=1`) (§5) |
 | Reports | `GET /projects/{projectId}/reports` (the catalog), `POST /projects/{projectId}/reports/{reportId}[?format=json\|markdown\|csv]` |
 | Report email | `POST /projects/{projectId}/report-emails`, `GET`/`POST /projects/{projectId}/report-schedules`, `PUT`/`DELETE /report-schedules/{scheduleId}`, `POST /report-schedules/{scheduleId}/recipients` (`email`), `DELETE /report-schedules/{scheduleId}/recipients/{email}`, `POST /report-schedules/{scheduleId}/send-now` |
 | Import | `POST /projects/{projectId}/imports/dry-run`, `POST /projects/{projectId}/imports/execute`, `GET /projects/{projectId}/imports/custom-field-options` (§6) |
@@ -229,6 +230,7 @@ The body is a JUnit XML report as test runners write it, sent as is with any con
 - **Matching a test to a case:** `external_id` from a `testify_id` property on the test, else a readable id in its name (`SHOP-101 …`, `[SHOP-101] …`); plus `by_path_title` with the suite a JUnit import would have created (the last part of `classname`, or the `<testsuite>` name) and the test's name as title. The batch tries the readable id first, then suite and title within the plan, then the project's cases (preferring the one in the named suite).
 - **Query parameters:** `environment`; `ci_name`, `ci_run_id`, `ci_job_name`, `ci_url`, `commit_sha` (stored as `runner_info`); `all_or_nothing`.
 - **Errors:** `400 INVALID_JUNIT` for an empty body, a file that isn't JUnit XML (no `<testsuite>`/`<testsuites>`), one without tests, or over 20,000 tests; `413` over 50 MB. Tests that match no case are refused per item (`CASE_NOT_FOUND`, 207).
+- **With evidence:** sent as multipart/form-data, the report is the `file` part and other file parts are evidence (§5). A test attaches a file with `[[ATTACHMENT|path]]` in its `<system-out>`/`<system-err>` (the Jenkins and GitLab convention) or an `attachment` property; each file goes to its test's new result, matched by file name. The answer's `evidence` lists what was stored and what was refused (`NOT_ATTACHED`, or the file's own refusal).
 
 ### 3.4 Runs by Name (`POST /plans/{planId}/results/batch|junit?run_name=`)
 
@@ -295,13 +297,16 @@ The codes a client is most likely to handle (the code is always in `code`; `deta
 
 | Status | Codes |
 | :--- | :--- |
-| `400` | `INVALID_REQUEST` (default), `INVALID_PARAMS` (reports, schedules), `INVALID_RESULT`, `INVALID_STEPS`, `INVALID_NAME`, `INVALID_FILTER`, `INVALID_FIELD_VALUE`, `INVALID_VALIDATION_PATTERN`, `PROJECTS_DIFFER`, `AMBIGUOUS_CASE_ID`, `INVALID_CURSOR`, `INVALID_JUNIT`, `INVALID_WEBHOOK_URL`, `SECRETS_KEY_REQUIRED`, `UNKNOWN_FIELD` (a bulk change naming a custom field that doesn't exist), `CAPABILITY_NOT_GRANTABLE`, `PASSWORD_POLICY_VIOLATION`, `CURRENT_PASSWORD_REQUIRED`, `PASSWORD_UNCHANGED` |
+| `400` | `CHECKSUM_MISMATCH`, `SIZE_MISMATCH`, `NOT_ATTACHED` (evidence, §5), `INVALID_REQUEST` (default), `INVALID_PARAMS` (reports, schedules), `INVALID_RESULT`, `INVALID_STEPS`, `INVALID_NAME`, `INVALID_FILTER`, `INVALID_FIELD_VALUE`, `INVALID_VALIDATION_PATTERN`, `PROJECTS_DIFFER`, `AMBIGUOUS_CASE_ID`, `INVALID_CURSOR`, `INVALID_JUNIT`, `INVALID_WEBHOOK_URL`, `SECRETS_KEY_REQUIRED`, `UNKNOWN_FIELD` (a bulk change naming a custom field that doesn't exist), `CAPABILITY_NOT_GRANTABLE`, `PASSWORD_POLICY_VIOLATION`, `CURRENT_PASSWORD_REQUIRED`, `PASSWORD_UNCHANGED` |
 | `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN` (not a Testify token at all, or an API token that doesn't exist), `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE`. Every 401 carries `WWW-Authenticate: Bearer realm="Testify"`, with `error="invalid_token"` when a credential was sent and doesn't work. |
 | `405` | `METHOD_NOT_ALLOWED`: an API address that exists, under another method; `Allow` lists the methods it takes |
 | `403` | `FORBIDDEN` (with `required_permission`), `TOKEN_NOT_ALLOWED` (an API token on a route outside any project), `TOKEN_INTERFACE_NOT_ALLOWED` (an MCP-only token on the REST API, or a REST-only one on `/mcp`; with `token_interfaces`), `RESULT_OVERWRITE_NOT_PERMITTED`, `AUTO_CLOSE_NOT_YOURS`, `CAPABILITY_CEILING_EXCEEDED`, `PASSWORD_CHANGE_REQUIRED`, `CSRF_HEADER_MISSING`, `CURRENT_PASSWORD_INCORRECT`, and the Admin Panel guards `PERMISSION_CEILING`, `TARGET_OUTRANKS_ACTOR`, `ROLE_OUTRANKS_ACTOR` |
 | `404` | `NOT_FOUND` (also what an API token gets for anything in another project), and in reports `PROJECT_NOT_FOUND`, `PLAN_NOT_FOUND`, `RUN_NOT_FOUND`, `CASE_NOT_FOUND`, `REPORT_NOT_FOUND` |
-| `409` | "Still contains" on delete without `force`: `PROJECT_IN_USE`, `SUITE_IN_USE`, `CASE_IN_USE`, `PLAN_IN_USE`, `RUN_IN_USE`, `CUSTOM_FIELD_IN_USE`, `ROLE_IN_USE`, `CASE_HAS_RESULTS` (removing a case with results from a plan); also `LAST_ADMIN`, `LAST_RECIPIENT` (a report schedule's only recipient), `USER_EXISTS`, `ROLE_NAME_TAKEN`, `FIELD_NAME_TAKEN`, `WEBHOOK_LIMIT` (20 per project), `IDEMPOTENCY_KEY_IN_USE` (§3.5), a taken project prefix or run name |
-| `413` | `IMPORT_TOO_LARGE`, `PAYLOAD_TOO_LARGE` |
+| `409` | "Still contains" on delete without `force`: `PROJECT_IN_USE`, `SUITE_IN_USE`, `CASE_IN_USE`, `PLAN_IN_USE`, `RUN_IN_USE`, `CUSTOM_FIELD_IN_USE`, `ROLE_IN_USE`, `CASE_HAS_RESULTS` (removing a case with results from a plan); also `LAST_ADMIN`, `LAST_RECIPIENT` (a report schedule's only recipient), `USER_EXISTS`, `ROLE_NAME_TAKEN`, `FIELD_NAME_TAKEN`, `WEBHOOK_LIMIT` (20 per project), `IDEMPOTENCY_KEY_IN_USE` (§3.5), a taken project prefix or run name; for evidence `NO_RESULT_TO_ATTACH`, `CASE_RETIRED`, `EVIDENCE_LIMIT`, `NOT_UPLOADED`, `UPLOAD_IN_PROGRESS` (§5) |
+| `410` | `EVIDENCE_FILE_MISSING`: an evidence row whose file is gone from storage (e.g. a database restored without its files) |
+| `413` | `IMPORT_TOO_LARGE`, `PAYLOAD_TOO_LARGE`, `EVIDENCE_TOO_LARGE` (with `limit_bytes`) |
+| `415` | `EVIDENCE_TYPE_REFUSED`: a file that isn't an accepted image, video, log or trace (§5) |
+| `416` | `RANGE_NOT_SATISFIABLE` (evidence content) |
 | `422` | `RUN_CLOSED`, `PLAN_LOCKED`, `CASE_VERSION_LOCKED` (editing an approved version), `CASE_VERSION_NOT_APPROVED` (adding a draft to a plan), `CASE_REMOVED_FROM_PLAN`, `VERSION_NOT_DRAFT`, `VERSION_NOT_APPROVED`, `VERSION_NOT_DEPRECATED`, `VERSION_NOT_LATEST`, `REQUIRED_CUSTOM_FIELDS_MISSING`, `REQUIRED_FIELD_NEEDS_DEFAULT`, `WEBHOOK_DISABLED` (pinging or redelivering to a webhook that's turned off), `IDEMPOTENCY_KEY_REUSED` (§3.5) |
 | `429` | `RATE_LIMITED`, `ACCOUNT_LOCKED`, `TOO_MANY_ATTEMPTS`, `IMPORT_BUSY` (with `Retry-After`) |
 | `500` | `INTERNAL_ERROR` (with `request_id`) |
@@ -318,20 +323,55 @@ Anything the database still refuses as data (too long, out of range, a bad chara
 
 ---
 
-## 5. Attachments, Logs & Retention
+## 5. Evidence (Attachments), Logs & Retention
 
-> **Not built.** There are no attachments (screenshots, videos, trace files), no `IStorageProvider`, no pre-signed uploads and no retention purge. The design below stays as the plan for when attachments are added.
+**Evidence** is files for a case's execution in a run (decided with Elliot, 2026-11-09): screenshots, videos, logs and Playwright traces, one or more per executed case. It belongs to the case's execution (run + plan link) and records the result it was added with, so re-sent notes or a retry (new result rows) keep the case's evidence together. Results read through the API list theirs (`evidence` on RunResult).
 
-What's built today:
-- **Results and logs** are stored in the database: verdict, notes, `failure_message` and `stack_trace` (text), environment tags and runner details, per result. Nothing is purged automatically.
-- **Audit logs** are append-only forever: database triggers reject UPDATE and DELETE (see RFC 04 §5).
+**What's accepted,** recognised by contents alone (`packages/core/src/evidence/sniff.ts`), never by name or declared type:
+- images: PNG, JPEG, GIF, WebP;
+- videos: MP4 (by `ftyp` brand; not QuickTime) and WebM;
+- logs: UTF-8 text without NUL characters, checked to the end of the file;
+- Playwright trace `.zip` files.
 
-The plan:
-- **Attachments and large logs** go to out-of-band storage behind an `IStorageProvider` interface (`putObject`, `getObject`, `deleteObject`, `getPresignedUrl`). The database keeps only a storage key, SHA-256 checksum, size and MIME type.
-- **Two providers,** chosen by configuration, independent of the database:
-  - `LocalStorageProvider` stores files on disk (`./data/attachments/{project_id}/{year}/{month}/{id}.bin`) and streams them.
-  - `S3StorageProvider` works with AWS S3, MinIO, Cloudflare R2 or Google Cloud Storage. Large uploads go straight to the bucket through pre-signed URLs (e.g. `POST /api/v1/results/{resultId}/attachments/presign`, then registering the key and checksum).
-- **Retention:** an admin-configurable purge of old results and their attachments (planned default: 365 days), never touching audit logs.
+Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, executables, other archives. A file is at most `EVIDENCE_MAX_FILE_MB` (200 MB by default; `413 EVIDENCE_TOO_LARGE` with `limit_bytes`), and an execution holds at most 50.
+
+**Uploading** (`routes/evidence.ts`, `services/evidence.ts`):
+- To a case's latest result in a run (`POST /runs/{runId}/cases/{caseId}/evidence`, or `?test_result_id=`), or to a given result (`POST /results/{resultId}/evidence`).
+  - Send multipart/form-data file parts (a `description` field applies to the files after it; a `sha256` field to the next file), or the file as a raw body (`?filename=`, `X-Checksum-SHA256`).
+- **CI, a whole run in one request:** `POST /runs/{runId}/evidence` with file parts named by case (`curl -F "SHOP-12=@login.png"`), or a JUnit report with the files its tests attach (§3.3).
+- **Upload links,** for large files and AI agents: `POST /runs/{runId}/cases/{caseId}/evidence/uploads` with `filename`, `size_bytes` and `sha256` gives a single-use URL, valid 15 minutes, for that file only.
+  - **With local storage,** it's `PUT /evidence-uploads/{token}` on Testify (no sign-in: the link is the credential; its token never appears in logs), which stores the file and answers the evidence.
+  - **With S3,** it's a presigned PUT to the bucket (S3 enforces the length and SHA-256), then `POST /evidence-uploads/{uploadId}/complete`, which checks the size and type and records it.
+- **One answer for every upload:** `{ evidence: [...], refused: [...] }`.
+  - 201 when all were stored; 200 when all were already there (the same SHA-256 on the same execution, so retries add nothing);
+  - 207 when some were refused;
+  - the refusal itself when all were.
+- **Every upload is streamed through a spool** (`storage/spool.ts`): counted, hashed and sniffed before anything is stored, so a refused or cut-off upload leaves nothing.
+
+**When and who** (decided with Elliot):
+- **Adding** needs `EXECUTE_RUN` (API tokens with it qualify).
+  - Allowed while the run is open, and for 24 hours after it closes (`test_runs.closed_at`) only by whoever recorded the result (`422 RUN_CLOSED` otherwise). A late addition is marked `after_close`.
+  - Refused for a case with no result in the run (`409 NO_RESULT_TO_ATTACH`), or one that left the plan (`CASE_RETIRED`).
+- **Reading** needs `SPEC_VIEW` or `EXECUTE_RUN`.
+- **Deleting** (`DELETE /evidence/{evidenceId}`, for good) is for its uploader while the run is open, or anyone with `EXECUTE_OVERWRITE`.
+- **Audit:** every addition writes an `EVIDENCE_ADDED` audit row and every deletion an `EVIDENCE_DELETED` one, with the file's name, size and SHA-256. Only deletions show in the Security Audit Log, since CI adds files by the thousand.
+
+**Serving:** always through Testify (`GET /evidence/{evidenceId}/content`), permissions checked on every read, so the web app shows images and videos with its sign-in cookie. The headers:
+- `Content-Type` is the sniffed type, with `nosniff`;
+- `Content-Security-Policy: default-src 'none'; sandbox`, so nothing in a file can run;
+- `Cross-Origin-Resource-Policy: same-origin`;
+- `Content-Disposition`: inline, or attachment for traces and `?download=1`, with an RFC 5987 name;
+- `ETag` (the SHA-256) and `Cache-Control: private, immutable`;
+- one byte range (206/416), so videos seek.
+
+**Storage** (`apps/server/src/storage/`):
+- **Providers:** a directory (`EVIDENCE_DIR`: files 0600 in 0700 directories) behind one `StorageProvider` interface. S3-compatible storage (`EVIDENCE_STORAGE=s3`, `EVIDENCE_S3_*`: AWS S3, MinIO, R2, with optional server-side encryption) is configured already, but the provider itself comes in the next step.
+- **The database keeps** each file's key (generated, never from input), sniffed type, size and SHA-256. A real database needs storage configured (deployment.md); startup checks it.
+- **Deleting a file:** deleting an evidence row, by itself or with its result, run, plan case or project, queues its file (`storage_deletions`, filled by a trigger). The storage sweeper deletes queued files after the delete has committed, retries failures, and removes expired upload links with their files. A delete's warning (409 without `force`) names the evidence it would take.
+
+**Not built:** a retention purge of old results and their evidence, and malware scanning of uploads (a file is only ever served as an inert image, video, text or download).
+
+**Logs** (`notes`, `failure_message`, `stack_trace`) are stored in the database with each result, as before. **Audit logs** are append-only forever: database triggers reject UPDATE and DELETE (see RFC 04 §5).
 
 ---
 
@@ -628,7 +668,7 @@ sequenceDiagram
 | **Errors** | Problem details for every error, with a code registry (§4) | Built. |
 | **TestLink-compatible API** | Dave's TestLink REST API, answered as TestLink does (§7.4) | Phases 1 to 5 of 6 built: every route of Dave's API, with the query layer, metrics and the SWAG file, and the migration from TestLink's database ([testlink_compat_api.md](testlink_compat_api.md)). Still to come: the parity check. |
 | **Closed runs, locked plans** | Writes rejected with HTTP 422 `RUN_CLOSED` / `PLAN_LOCKED` (§4.1) | Built. |
-| **Attachments and retention** | `IStorageProvider`, pre-signed uploads, 365-day purge (§5) | Not built. Audit logs append-only forever: built. |
+| **Evidence (attachments)** | Images, videos, logs and traces per case execution; local or S3 storage; upload links (§5) | Built. Retention purge: not built. Audit logs append-only forever: built. |
 | **Import formats** | Parser interface; TestLink XML, JSON, CSV (§6.1-6.2) | Built, plus JUnit XML and TestRail CSV. |
 | **Large files** | Streaming 100 MB+ in bounded memory (§6.3) | Not built: 50 MB cap, held in memory. |
 | **Field mapping and duplicates** | Drop / auto-create / map; create / overwrite / version up / skip (§6.4) | Built; per-case duplicate choices are API-only. |

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { evidenceCount } from '../services/evidence.js';
 import type { Kysely } from 'kysely';
 import type { Database } from '@testify/db';
 import { ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
@@ -156,7 +157,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         return sendProjectInUseError(
           reply,
           projectId,
-          { suites: c.suiteCount, cases: c.caseCount, plans: c.planCount, runs: c.runCount, results: c.resultCount },
+          { suites: c.suiteCount, cases: c.caseCount, plans: c.planCount, runs: c.runCount, results: c.resultCount, evidence: await evidenceCount(db, { projectId }) },
           request.url,
           existing.name
         );
@@ -310,7 +311,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
         return sendPlanInUseError(
           reply,
           planId,
-          { runs: result.blockedRunCount, caseLinks: result.blockedCaseLinkCount, results: result.blockedResultCount },
+          { runs: result.blockedRunCount, caseLinks: result.blockedCaseLinkCount, results: result.blockedResultCount, evidence: await evidenceCount(db, { runIds }) },
           request.url,
           existing.name
         );
@@ -453,7 +454,7 @@ export async function registerProjectRoutes(app: FastifyInstance, db: Kysely<Dat
       );
       const result = await runRepo.deleteWithForce(runId, { force: force === 'true' });
       if (!result.deleted) {
-        return sendRunInUseError(reply, runId, { results: result.blockedResultCount }, request.url, existing.name);
+        return sendRunInUseError(reply, runId, { results: result.blockedResultCount, evidence: await evidenceCount(db, { runIds: [runId] }) }, request.url, existing.name);
       }
 
       await writeAudit(db, request, {

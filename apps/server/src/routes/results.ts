@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import { TestResultRepository, type Database, type RunResultRow } from '@testify/db';
+import { EvidenceRepository, TestResultRepository, type Database, type RunResultRow } from '@testify/db';
+import { presentEvidence } from '../services/evidence.js';
 import { sendCaseRemovedFromPlanError, sendProblemDetails, sendError, sendRunClosedError } from '../errors.js';
 import { validateManualResult } from '../services/resultValidation.js';
 import { RESULT_OVERWRITE_MESSAGE, canOverwriteResults, isOverwrite, latestResultsInRun } from '../services/resultOverwrite.js';
@@ -287,6 +288,9 @@ function parseJson(text: string | null): unknown {
 /** Result rows as the API answers them (the RunResult schema). */
 async function presentResults(db: Kysely<Database>, rows: RunResultRow[]) {
   const names = await actorNames(db, rows.map((r) => r.tester_id));
+  const evidence = await new EvidenceRepository(db).listForResults(rows.map((r) => r.test_result_id));
+  const evidenceOut = new Map<string, Awaited<ReturnType<typeof presentEvidence>>>();
+  for (const [resultId, files] of evidence) evidenceOut.set(resultId, await presentEvidence(db, files));
   return rows.map(({ test_result_id, steps, environment, runner, ...r }) => ({
     id: test_result_id,
     ...r,
@@ -294,5 +298,6 @@ async function presentResults(db: Kysely<Database>, rows: RunResultRow[]) {
     runner: parseJson(runner),
     tested_by: names.get(r.tester_id) ?? r.tester_id,
     step_results: steps.map((st) => ({ test_step_id: st.test_step_id, step_number: st.step_number, verdict: st.verdict, actual_result: st.actual_result })),
+    evidence: evidenceOut.get(test_result_id) ?? [],
   }));
 }

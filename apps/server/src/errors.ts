@@ -1,4 +1,5 @@
 import { STATUS_CODES } from 'node:http';
+import { loggableUrl } from './observability.js';
 import type { FastifyReply } from 'fastify';
 
 /**
@@ -211,7 +212,7 @@ export function sendCaseRemovedFromPlanError(reply: FastifyReply, label: string,
 export function sendSuiteInUseError(
   reply: FastifyReply,
   suiteId: string,
-  counts: { subSuites: number; cases: number; planLinks: number; results: number },
+  counts: { subSuites: number; cases: number; planLinks: number; results: number; evidence?: number },
   instance?: string,
   suiteName?: string
 ) {
@@ -220,6 +221,7 @@ export function sendSuiteInUseError(
   if (counts.cases > 0) parts.push(`${counts.cases} case${counts.cases === 1 ? '' : 's'}`);
   if (counts.planLinks > 0) parts.push(`${counts.planLinks} plan link${counts.planLinks === 1 ? '' : 's'}`);
   if (counts.results > 0) parts.push(`${counts.results} recorded result${counts.results === 1 ? '' : 's'}`);
+  if (counts.evidence) parts.push(`${counts.evidence} evidence file${counts.evidence === 1 ? '' : 's'}`);
 
   const suiteRef = suiteName ? suiteName : `(ID: ${suiteId})`;
 
@@ -236,7 +238,7 @@ export function sendSuiteInUseError(
 export function sendPlanInUseError(
   reply: FastifyReply,
   planId: string,
-  counts: { runs: number; caseLinks: number; results: number },
+  counts: { runs: number; caseLinks: number; results: number; evidence?: number },
   instance?: string,
   planName?: string
 ) {
@@ -245,6 +247,7 @@ export function sendPlanInUseError(
   if (counts.runs > 0) parts.push(`${counts.runs} test run${counts.runs === 1 ? '' : 's'}`);
   if (counts.caseLinks > 0) parts.push(`${counts.caseLinks} plan-linked case${counts.caseLinks === 1 ? '' : 's'}`);
   if (counts.results > 0) parts.push(`${counts.results} recorded result${counts.results === 1 ? '' : 's'}`);
+  if (counts.evidence) parts.push(`${counts.evidence} evidence file${counts.evidence === 1 ? '' : 's'}`);
 
   return sendProblemDetails(reply, {
     code: 'PLAN_IN_USE',
@@ -259,7 +262,7 @@ export function sendPlanInUseError(
 export function sendRunInUseError(
   reply: FastifyReply,
   runId: string,
-  counts: { results: number },
+  counts: { results: number; evidence?: number },
   instance?: string,
   runName?: string
 ) {
@@ -269,7 +272,7 @@ export function sendRunInUseError(
     code: 'RUN_IN_USE',
     status: 409,
     title: 'Conflict',
-    detail: `Test Run ${runRef} still contains ${n} recorded result${n === 1 ? '' : 's'}. Are you sure you want to delete the test run with its results?`,
+    detail: `Test Run ${runRef} still contains ${n} recorded result${n === 1 ? '' : 's'}${counts.evidence ? ` and ${counts.evidence} evidence file${counts.evidence === 1 ? '' : 's'}` : ''}. Are you sure you want to delete the test run with its results?`,
     instance,
     invalid_params: [{ name: 'test_run_id', reason: `has ${n} recorded result${n === 1 ? '' : 's'}` }],
   });
@@ -278,12 +281,13 @@ export function sendRunInUseError(
 export function sendCaseInUseError(
   reply: FastifyReply,
   caseId: string,
-  counts: { planLinks: number; results: number },
+  counts: { planLinks: number; results: number; evidence?: number },
   instance?: string
 ) {
   const parts: string[] = [];
   if (counts.planLinks > 0) parts.push(`${counts.planLinks} plan link${counts.planLinks === 1 ? '' : 's'}`);
   if (counts.results > 0) parts.push(`${counts.results} recorded result${counts.results === 1 ? '' : 's'}`);
+  if (counts.evidence) parts.push(`${counts.evidence} evidence file${counts.evidence === 1 ? '' : 's'}`);
 
   return sendProblemDetails(reply, {
     code: 'CASE_IN_USE',
@@ -439,7 +443,7 @@ export function sendCapabilityCeilingExceededError(
 export function sendProjectInUseError(
   reply: FastifyReply,
   projectId: string,
-  counts: { suites: number; cases: number; plans: number; runs: number; results: number },
+  counts: { suites: number; cases: number; plans: number; runs: number; results: number; evidence?: number },
   instance?: string,
   projectName?: string
 ) {
@@ -451,6 +455,7 @@ export function sendProjectInUseError(
   if (counts.plans > 0) parts.push(plural(counts.plans, 'test plan'));
   if (counts.runs > 0) parts.push(plural(counts.runs, 'test run'));
   if (counts.results > 0) parts.push(plural(counts.results, 'recorded result'));
+  if (counts.evidence) parts.push(plural(counts.evidence, 'evidence file'));
 
   return sendProblemDetails(reply, {
     code: 'PROJECT_IN_USE',
@@ -492,7 +497,7 @@ export function logServerError(
     return;
   }
   if (process.env.NODE_ENV === 'test') return;
-  const where = request ? ` ${request.method ?? ''} ${request.url ?? ''} (request ${request.id ?? '?'})` : '';
+  const where = request ? ` ${request.method ?? ''} ${loggableUrl(request.url ?? '')} (request ${request.id ?? '?'})` : '';
   console.error(`[testify] Unexpected error${where}:`, err);
 }
 

@@ -72,3 +72,18 @@ describe('matching a JUnit test to a case', () => {
     expect(junitSuiteName(test('a'))).toBe('S');
   });
 });
+
+describe('JUnit attachments', () => {
+  it("collects the files each test attaches: [[ATTACHMENT|path]] in its output, or an attachment property", () => {
+    const [a, b, c] = parseJUnitResults(`<testsuite name="S">
+  <testcase name="a"><failure message="x"/><system-out><![CDATA[log line
+[[ATTACHMENT|/ci/shots/a.png]] and [[ATTACHMENT|/ci/a.log]]
+[[ATTACHMENT|/ci/shots/a.png]]]]></system-out><system-err>[[ATTACHMENT|trace.zip]]</system-err></testcase>
+  <testcase name="b"><properties><property name="attachment" value="videos/b.webm"/><property name="attachment" value="b.log"/></properties></testcase>
+  <testcase name="c"><system-out>no attachments here</system-out></testcase>
+</testsuite>`);
+    expect(a.attachments).toEqual(['/ci/shots/a.png', '/ci/a.log', 'trace.zip']);
+    expect(b.attachments).toEqual(['videos/b.webm', 'b.log']);
+    expect(c.attachments).toEqual([]);
+  });
+});
