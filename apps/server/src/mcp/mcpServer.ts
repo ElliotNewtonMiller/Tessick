@@ -11,6 +11,7 @@ import { authenticateRequest, canViewProject, apiTokenScope, type AuthenticatedU
 import { ReportError, ReportService } from '../services/reportService.js';
 import { CaseFilterService } from '../services/caseFilterService.js';
 import { mcpSchema } from '../openapi/areas/other.js';
+import { evidenceTools, MCP_BODY_LIMIT_BYTES } from './evidenceTools.js';
 import { requestOrigin } from '../audit.js';
 import { ToolError, json, type JsonSchema, type ToolDef } from './toolTypes.js';
 import { writeTools } from './writeTools.js';
@@ -22,7 +23,8 @@ const INSTRUCTIONS = `Testify is a test case management system: projects contain
 Reading: list_projects -> list_plans_and_runs -> report_run_summary (what broke in a run, compared with the previous run, with error messages and how long each failure has been failing) -> report_case_history for a specific case -> report_test_health for flaky/slow/always-failing/stale cases.
 Use search_cases / list_report_fields to find cases, and list_suites for the suite tree; most reports take the same "filter" to limit them to matching cases. report_run_summary accepts format "markdown" for a ready-to-post summary.
 Rates are fractions between 0 and 1. ${REPORT_DEFINITIONS.flaky}
-Changing (the tools with readOnlyHint false, offered when the caller may use them): create_suite, create_case, update_case, update_cases, create_run, record_results, update_plan_cases. They act as the caller, with the caller's permissions, and every change is audit-logged as made through MCP. Cases you create start as DRAFT, and editing an approved case's summary, preconditions or steps makes a new DRAFT version: a person reviews and approves them in Testify, so tell the user what you created or changed (readable ids). There are no tools to approve, deprecate or delete. Prefer update_cases and update_plan_cases over one call per case.`;
+Evidence: a case's execution in a run can carry screenshots, videos, logs and Playwright traces. list_evidence lists them and get_evidence shows one (an image you can look at, or a log's text); add_evidence adds a small file (base64, or a log as text) to a case that has a result, and create_evidence_upload + complete_evidence_upload upload a large file from disk with curl.
+Changing (the tools with readOnlyHint false, offered when the caller may use them): create_suite, create_case, update_case, update_cases, create_run, record_results, update_plan_cases, add_evidence, create_evidence_upload, complete_evidence_upload. They act as the caller, with the caller's permissions, and every change is audit-logged as made through MCP. Cases you create start as DRAFT, and editing an approved case's summary, preconditions or steps makes a new DRAFT version: a person reviews and approves them in Testify, so tell the user what you created or changed (readable ids). There are no tools to approve, deprecate or delete. Prefer update_cases and update_plan_cases over one call per case.`;
 
 /** Every tool's project argument: an id or, as people and agents know a project, its prefix. */
 const PROJECT_ARG: JsonSchema = { type: 'string', description: 'The project: its id or its prefix (e.g. SHOP), from list_projects.' };
@@ -261,6 +263,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
     ...baseTools,
     ...reportTools,
     ...writeTools({ db, requireProject, findCase: (projectId, ref) => reports.findCase(projectId, ref) }),
+    ...evidenceTools({ db, requireProject, findCase: (projectId, ref) => reports.findCase(projectId, ref) }),
   ];
   const toolByName = new Map(tools.map((t) => [t.name, t]));
 
@@ -320,9 +323,9 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
         };
       }
       try {
-        const text = await tool.run(args, user, request);
+        const answer = await tool.run(args, user, request);
         if (tool.write) await auditWrite(request, user, tool, args, { ok: true });
-        return { content: [{ type: 'text', text }] };
+        return typeof answer === 'string' ? { content: [{ type: 'text', text: answer }] } : { ...answer };
       } catch (err) {
         if (err instanceof ToolError || err instanceof ReportError) {
           if (tool.write) await auditWrite(request, user, tool, args, { ok: false, error: err.message });
@@ -334,7 +337,8 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
     return server;
   }
 
-  app.post('/mcp', { schema: mcpSchema, config: { stripNul: true } }, async (request, reply) => {
+  // 8 MB: add_evidence takes a file of up to 5 MB as base64.
+  app.post('/mcp', { schema: mcpSchema, config: { stripNul: true }, bodyLimit: MCP_BODY_LIMIT_BYTES }, async (request, reply) => {
     const user = await authenticateRequest(request, reply, db, jwtSecret);
     if (!user) return; // 401 already sent
 

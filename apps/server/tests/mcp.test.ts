@@ -77,9 +77,9 @@ describe('MCP endpoint (POST /mcp)', () => {
     expect(runSummary.inputSchema.required).toEqual(['project_id', 'test_run_id']);
     expect(runSummary.inputSchema.properties.compare_to.type).toEqual(['string', 'null']);
     expect(runSummary.inputSchema.properties.format.enum).toEqual(['json', 'markdown']);
-    const WRITES = ['create_suite', 'create_case', 'update_case', 'update_cases', 'create_run', 'record_results', 'update_plan_cases'];
+    const WRITES = ['create_suite', 'create_case', 'update_case', 'update_cases', 'create_run', 'record_results', 'update_plan_cases', 'add_evidence', 'create_evidence_upload', 'complete_evidence_upload'];
     for (const t of list.result.tools) expect([t.name, t.annotations?.readOnlyHint]).toEqual([t.name, !WRITES.includes(t.name)]);
-    expect(names).toEqual(expect.arrayContaining([...WRITES, 'list_suites']));
+    expect(names).toEqual(expect.arrayContaining([...WRITES, 'list_evidence', 'get_evidence', 'list_suites']));
   });
 
   it('an API token sees and reads only its own project; reports match the REST API', async () => {

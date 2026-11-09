@@ -16,7 +16,7 @@ Testify is an open-source, self-hosted test case management app meant to replace
 - Results are recorded per case in a run: by people with hotkeys in the web app, or by CI through the batch API (JSON, or a JUnit XML file, optionally into a run named by the build and created on first use).
 
 **Everything else:**
-- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments), stored on disk or in S3-compatible storage. MCP tools and the web app's Evidence panel are being built (docs/changelog.md).
+- Evidence: screenshots, videos, logs and Playwright traces per executed case, through the API (including CI batches, upload links and JUnit attachments) and MCP, stored on disk or in S3-compatible storage. The web app's Evidence panel is being built (docs/changelog.md).
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
 - Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
 - Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
@@ -74,7 +74,7 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    webhooks (the delivery worker), webhookEvents (what each event sends), webhookTargets (address rules),
                    idempotency (Idempotency-Key on the result routes), storageSweeper (deletes files whose evidence rows went).
   src/middleware/auth.ts   Authentication and permission checks (see "Auth and permissions").
-  src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; writeTools.ts: write tools that call
+  src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; evidenceTools.ts: evidence (an image returned as image content); writeTools.ts: write tools that call
                    the REST routes as the caller (internalRequests.ts).
   src/testlinkCompat/  The TestLink-compatible API (/lib/api/rest/{v1,v2,custom}, docs/testlink_compat_api.md):
                    index.ts (mounting per version), auth.ts (TestLink API keys), envelope.ts (TestLink's answers),
@@ -249,7 +249,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Logs are JSON lines to stdout (`observability.ts`). Never log headers or bodies.
   - `GET /api/v1/health` is the health check.
   - Rate limits live in `services/rateLimits.ts`, per process: 120 exports per hour and 60 report emails per hour per caller.
-  - Request bodies: 1 MB by default; CI uploads (JSON batches and JUnit files) 50 MB; imports 50 MB per file, 2 at a time. A 413 says the route's limit (`limit_bytes`).
+  - Request bodies: 1 MB by default; `/mcp` 8 MB (a 5 MB evidence file as base64); CI uploads (JSON batches and JUnit files) 50 MB; imports 50 MB per file, 2 at a time. A 413 says the route's limit (`limit_bytes`).
   - CSV exports neutralize spreadsheet formulas.
 - **Browser security headers** (`securityHeaders.ts`) go on every reply: a Content-Security-Policy (the web app's page: its own scripts and API plus Google Fonts; everything else: nothing; a reply that sets its own, like `/docs`, keeps it), no framing, `nosniff`, `no-referrer`, and HSTS over HTTPS. Anything new the web app loads from elsewhere (a CDN, an image host) must be added to its policy there, or browsers block it.
 - **Sending responses:** only set `Content-Type: application/json` when there's a body. Fastify answers 400 to an empty JSON body.

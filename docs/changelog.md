@@ -3812,3 +3812,34 @@ The full suite passes, the type check is clean, and the production build keeps t
 **Not verified live:** there's no S3 or MinIO here, and pulling a MinIO image needs Elliot's approval.
 
 `npm audit` lists ten advisories, none from the new packages. They were already there: vite, zod, nodemailer, body-parser, fast-uri, glob, minimatch, qs, ip-address and @fastify/static. They're left for a separate change.
+
+## Evidence, phase 4: MCP tools (2026-11-09)
+
+Phase 4 of evidence for test executions: AI agents attach and look at evidence through MCP. Like the other write tools, these call the REST routes as the caller (`innerRequest`, via `mcp`), so the REST rules apply unchanged: what's accepted, the 24-hour window after a run closes, de-duplication, and the audit rows (marked "(via Testify MCP)").
+
+**Tools** (`apps/server/src/mcp/evidenceTools.ts`):
+- **`add_evidence`** (`EXECUTE_RUN`): a file on a case's latest result in a run, as `content_base64` (up to 5 MB decoded) or a log as `text`. It's sent to `POST /runs/{runId}/cases/{caseId}/evidence` as a raw body.
+- **`create_evidence_upload`** (`EXECUTE_RUN`): for a large file on disk, a single-use upload link and a ready `curl` command, with the file name quoted for the shell. The link is its own credential, so this works for an MCP-only token too.
+- **`complete_evidence_upload`** (`EXECUTE_RUN`): records a file uploaded by link. With local storage the PUT has already recorded it, and this answers the same evidence.
+- **`list_evidence`** (read): a run's evidence, or one case's, optionally one kind.
+- **`get_evidence`** (read): an image of up to 2 MB comes back as MCP image content, so an agent can look at a failure screenshot. A log comes back as text: its first 100 KB, fetched by Range, with a broken last character dropped and the cut marked. A video, a trace or a larger image is described, with a note to open it in Testify.
+- There's no delete tool: an agent's mistake is deleted by a person.
+- The tools answer evidence without internal details such as the storage key.
+
+**Elsewhere:**
+- `record_results` answers each recorded result's `test_result_id`, and its description mentions `add_evidence`.
+- The server's MCP instructions describe evidence.
+- `/mcp` takes requests of up to 8 MB (`MCP_BODY_LIMIT_BYTES`), for a 5 MB file as base64; other routes keep 1 MB.
+- `ToolDef.run` (`mcp/toolTypes.ts`) may answer content blocks (text and images) as well as text.
+- `innerRequest` (`internalRequests.ts`) sends a Buffer as a raw body, takes extra headers (a Range), answers the raw bytes and headers, and passes on the outer request's host and forwarding headers, so the upload links it gets point where the agent's client called.
+
+**Tests:** `apps/server/tests/mcp_evidence.test.ts` (3):
+- record a result and get its id; a screenshot and a 130 KB log inline; the same file again (a duplicate); list them, all and by case and kind; the image back as image content, byte-identical; the log's first 100 KB with no broken character; the audit User-Agents;
+- the REST rules: no result yet (`NO_RESULT_TO_ATTACH`), an executable refused (`EVIDENCE_TYPE_REFUSED`), over 5 MB inline, neither or both of `content_base64` and `text`, a run or evidence outside the project, a token without `EXECUTE_RUN` not offered the write tools;
+- an upload link: the `curl` command exactly as expected (a name with a quote in it), the PUT with only the link, completion answering the same evidence twice, a video described rather than shown.
+
+`mcp.test.ts` lists the new tools with their read-only hints. The full suite passes (856 tests), and the type check is clean.
+
+**Verified live** on the dev server, with an MCP-only token over HTTP: `record_results` gave the result id; a 4 MB image was added inline (5.6 MB of JSON, inside the 8 MB limit); a small image came back as image content, byte-identical; the 4 MB one was described as too large to show; a 9 MB WebM was uploaded by running the tool's `curl` command exactly as given (201) and completed as a video; `list_evidence` listed all three.
+
+A note: an SVG or HTML file with no NUL byte is valid UTF-8 text, so it's accepted as a **log**, and is served only as `text/plain` in a sandbox. That's the design from phase 1 (nothing in it can run). The test for a refused type uses an executable.

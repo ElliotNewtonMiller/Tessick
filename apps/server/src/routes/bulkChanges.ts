@@ -59,7 +59,7 @@ function refuseRepeats(reply: FastifyReply, ids: string[]): boolean {
 }
 
 /** An item's outcome from its inner response. */
-function itemOutcome(index: number, testCaseId: string, externalId: string | null, res: InnerResponse, extra: Partial<BulkItemResult> = {}): BulkItemResult {
+function itemOutcome(index: number, testCaseId: string, externalId: string | null, res: Pick<InnerResponse, 'status' | 'body'>, extra: Partial<BulkItemResult> = {}): BulkItemResult {
   if (res.status < 400) return { index, test_case_id: testCaseId, external_id: externalId, status: res.status, ...extra };
   return {
     index,
@@ -127,7 +127,7 @@ export async function registerBulkChangeRoutes(app: FastifyInstance, db: Kysely<
       }
       if (body.action === 'update') {
         const { custom_fields: _cf, ...fields } = body.changes ?? {};
-        let res: InnerResponse = { status: 200, body: null };
+        let res: Pick<InnerResponse, 'status' | 'body'> = { status: 200, body: null };
         if (Object.keys(fields).length) res = await innerRequest(request, via, 'PATCH', `/api/v1/cases/${id}`, fields);
         for (const [definitionId, value] of fieldIds) {
           if (res.status >= 400) break;

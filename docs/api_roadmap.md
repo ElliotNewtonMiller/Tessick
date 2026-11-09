@@ -196,7 +196,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 ### 6. Write tools for MCP agents
 
 **Status:** Done (2026-10-12, with step 9).
-- **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading.
+- **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading. Later: `add_evidence`, `create_evidence_upload` and `complete_evidence_upload`, with `list_evidence` and `get_evidence` for reading (evidence, 2026-11-09).
 - **As the caller:** each calls the REST routes with the caller's credential, so the token's capabilities decide, and a token is offered only the tools it may use.
 - **People approve:** agent-made cases are always DRAFT, and editing an approved case makes a new DRAFT. There are no approve, deprecate or delete tools.
 - **Audit:** changes are marked "via Testify MCP" in their audit rows, and every call writes an `MCP_WRITE` row to the Security Audit Log.

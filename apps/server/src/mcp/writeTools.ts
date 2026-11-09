@@ -263,7 +263,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
     {
       name: 'record_results',
       description:
-        "Record results for cases in a test run (up to 500). A case already tested in the run gets a new result, which becomes its verdict; changing someone else's result needs EXECUTE_OVERWRITE. A case not yet in the run's plan is added if it is approved. Each result succeeds or fails on its own.",
+        "Record results for cases in a test run (up to 500). A case already tested in the run gets a new result, which becomes its verdict; changing someone else's result needs EXECUTE_OVERWRITE. A case not yet in the run's plan is added if it is approved. Each result succeeds or fails on its own; each recorded one answers its test_result_id. Add screenshots or logs to them with add_evidence.",
       write: { permissions: ['EXECUTE_RUN'] },
       inputSchema: {
         type: 'object',
@@ -311,7 +311,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
           results: out.results.map((r: any) => ({
             test_case_id: args.results[r.index]?.test_case_id,
             status: r.status,
-            ...(r.status >= 400 ? { code: r.code, detail: r.detail } : { verdict: r.verdict }),
+            ...(r.status >= 400 ? { code: r.code, detail: r.detail } : { verdict: r.verdict, test_result_id: r.test_result_id }),
           })),
           run_status: out.run_status,
         });

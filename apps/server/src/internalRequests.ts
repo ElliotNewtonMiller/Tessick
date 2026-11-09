@@ -58,6 +58,9 @@ export function startsAsDraft(request: FastifyRequest): boolean {
 export interface InnerResponse {
   status: number;
   body: any;
+  /** The bytes as sent (a file's content). */
+  raw: Buffer;
+  headers: Record<string, string | string[] | number | undefined>;
 }
 
 /** Calls one of the server's own routes as the caller of `outer`. */
@@ -67,7 +70,14 @@ export async function innerRequest(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
   payload?: unknown,
-  options: { asUserId?: string; startDraft?: boolean } = {}
+  options: {
+    asUserId?: string;
+    startDraft?: boolean;
+    /** A Buffer payload is sent as is, with this type (default application/octet-stream). */
+    contentType?: string;
+    /** Extra request headers (e.g. a Range). */
+    headers?: Record<string, string>;
+  } = {}
 ): Promise<InnerResponse> {
   const headers: Record<string, string> = { [SECRET_HEADER]: INTERNAL_SECRET, [VIA_HEADER]: via };
   if (options.startDraft) headers[DRAFT_HEADER] = '1';
@@ -82,13 +92,20 @@ export async function innerRequest(
   const agent = typeof outer.headers['user-agent'] === 'string' ? outer.headers['user-agent'] : '';
   const MARK = via === 'mcp' ? '(via Testify MCP)' : via === 'testlink' ? '(via TestLink API)' : '';
   headers['user-agent'] = MARK && !agent.includes(MARK) ? `${agent} ${MARK}`.trim() : agent;
-  if (payload !== undefined) headers['content-type'] = 'application/json';
+  // The outer request's address, so links an answer makes (an upload link) point back at this server.
+  for (const name of ['host', 'x-forwarded-host', 'x-forwarded-proto'] as const) {
+    const value = outer.headers[name];
+    if (typeof value === 'string') headers[name] = value;
+  }
+  const raw = Buffer.isBuffer(payload);
+  if (payload !== undefined) headers['content-type'] = raw ? (options.contentType ?? 'application/octet-stream') : 'application/json';
+  Object.assign(headers, options.headers ?? {});
   const res = await outer.server.inject({
     method,
     url,
     headers,
     remoteAddress: outer.ip,
-    ...(payload !== undefined ? { payload: JSON.stringify(payload) } : {}),
+    ...(payload !== undefined ? { payload: raw ? (payload as Buffer) : JSON.stringify(payload) } : {}),
   });
   let body: any = null;
   try {
@@ -96,5 +113,5 @@ export async function innerRequest(
   } catch {
     body = res.payload;
   }
-  return { status: res.statusCode, body };
+  return { status: res.statusCode, body, raw: res.rawPayload, headers: res.headers };
 }

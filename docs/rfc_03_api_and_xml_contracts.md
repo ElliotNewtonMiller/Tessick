@@ -376,6 +376,8 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 - **The database keeps** each file's key (generated, never from input), sniffed type, size and SHA-256. A real database needs storage configured (deployment.md); startup checks it.
 - **Deleting a file:** deleting an evidence row, by itself or with its result, run, plan case or project, queues its file (`storage_deletions`, filled by a trigger). The storage sweeper deletes queued files after the delete has committed, retries failures, and removes expired upload links with their files. A delete's warning (409 without `force`) names the evidence it would take.
 
+**MCP:** `add_evidence`, `create_evidence_upload`, `complete_evidence_upload`, `list_evidence` and `get_evidence` (an image comes back as image content), through these routes as the caller ([reports_api_and_mcp.md](reports_api_and_mcp.md)).
+
 **Not built:** a retention purge of old results and their evidence, and malware scanning of uploads (a file is only ever served as an inert image, video, text or download).
 
 **Logs** (`notes`, `failure_message`, `stack_trace`) are stored in the database with each result, as before. **Audit logs** are append-only forever: database triggers reject UPDATE and DELETE (see RFC 04 §5).
@@ -536,7 +538,7 @@ There are no personal access tokens or separate runner-token types; a token's ca
 Limits are generous on purpose -- CI runners, scripts and MCP agents make many more calls than people -- and exist to stop runaway loops and abuse. Each is a **token bucket** per caller: the whole allowance can be used at once, and it refills evenly over the window. The counts are kept in memory per server process (`apps/server/src/services/rateLimits.ts`).
 
 - **Rate Limits:**
-  - Every request made with a machine API token (REST, `/runs/{id}/results/batch`, `/mcp`): **1,200 requests per minute per token**; every request made with a sign-in (the web app, a script's login token): **1,200 per minute per user**. Requests a bulk change or MCP tool makes for its caller don't count again. A batch request can carry up to 5,000 results and a JUnit file up to 20,000 tests, each up to 50 MB (other requests 1 MB; a `413 PAYLOAD_TOO_LARGE` gives `limit_bytes`).
+  - Every request made with a machine API token (REST, `/runs/{id}/results/batch`, `/mcp`): **1,200 requests per minute per token**; every request made with a sign-in (the web app, a script's login token): **1,200 per minute per user**. Requests a bulk change or MCP tool makes for its caller don't count again. A batch request can carry up to 5,000 results and a JUnit file up to 20,000 tests, each up to 50 MB (`/mcp` 8 MB, other requests 1 MB; a `413 PAYLOAD_TOO_LARGE` gives `limit_bytes`).
   - Exports (`.../exports/definitions`, `.../exports/results`): **120 per hour per user or token**.
   - Sending report emails (`.../report-emails` without `preview`, `/report-schedules/{id}/send-now`, `/admin/email-settings/test`): **60 per hour per user or token**.
 - **HTTP 429 Too Many Requests Payload:**
