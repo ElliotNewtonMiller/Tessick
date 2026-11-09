@@ -3893,3 +3893,28 @@ The last phase of evidence for test executions: people see, add and delete evide
 - **Keys and deleting:** Esc closed the viewer, and `p` was ignored while it was open. Deleting the log warned, then deleted, and the list reloaded.
 - **After Close Run:** the admin, who recorded the result, could still add, and still delete (with `EXECUTE_OVERWRITE`). CHK-2, with no result, said the run is closed (after the fix above; checked through the API after a restart).
 - **Reports → Run:** CHK-1 showed **📎 2**, which opened the screenshot in the viewer.
+
+## Dependency security upgrades (2026-11-09)
+
+`npm audit` reported ten advisories from before the evidence work (3 high, 7 moderate). Each was traced to what pulls it in and whether Testify is actually exposed, then fixed with the smallest upgrade. Only two `package.json` ranges changed (`apps/web` vite, `apps/server` nodemailer); the rest is the lockfile. There are no `overrides`. `npm audit` now finds 0 vulnerabilities.
+
+| Package | Pulled in by | Exposed? | From → to |
+|---|---|---|---|
+| vite (high) | `apps/web` devDependency; vitest at the root | Dev only: the advisories are in the dev server (`fs.deny` bypass, cross-origin script, launch-editor), which binds to localhost. Production ships built files. | 6.4.4 → 6.4.5 (`^6.4.5`); vitest's 7.3.6 → 7.3.7 |
+| zod (high) | `@modelcontextprotocol/sdk` | Yes, to signed-in callers: the SDK validates every `/mcp` message with zod, so an oversized body (up to 8 MB) could exhaust memory. | 4.6.5 → 4.6.7 |
+| nodemailer | `apps/server`, direct | Low: `parseRecipients` allows `(`/`)`, so a crafted address could split into extra recipients, but whoever can do that can already add any recipient. | 10.0.15 → 10.1.4 (`^10.1.4`) |
+| body-parser (high), qs, ip-address | the MCP SDK's express and express-rate-limit | No: Testify loads the SDK's `server/index.js`, `streamableHttp.js` (Hono) and `types.js`; only its `express.js` and `auth/router.js` import express. | 2.3.0 → 2.4.0; 6.16.0 → 6.17.1; 10.7.3 → 10.7.6 |
+| fast-uri (3 copies) | ajv, fastify's ajv-compiler and fast-json-stringify, @fastify/swagger's json-schema-resolver | Low: it resolves `$ref`s in Testify's own schemas; no schema uses `format: 'uri'`, and webhook addresses are checked with WHATWG `URL`. | 3.1.8 → 3.1.9 (×2), 4.2.2 → 4.2.3 |
+| @fastify/static, glob, minimatch | `@fastify/swagger-ui` (the `/docs` page's files) | No: glob's patterns are fixed, never user input. | 10.1.6 → 10.1.10; 13.0.6 → 14.0.3; 10.2.6 → 11.0.4 |
+
+**How:** `npm install vite@6.4.5 -D -w apps/web`, `npm install nodemailer@10.1.4 -w apps/server`, then `npm update` of the transitive packages, all with `--before=2026-11-05` so nothing published in the last few days was taken (vite 7.3.8 and 6.4.6 came out today). glob 14 and minimatch 11 are majors, but only @fastify/static uses them and its fixed release asks for `glob ^14` itself. They bring in `path-scurry` 3.0.0 and `@isaacs/nonrecursive-glob-match` 1.0.3; `@fastify/send` went 4.1.2 → 4.2.1.
+
+**Decided with Elliot:** the exact minimum for the two direct dependencies, the newest fix within range for the transitive ones, but with the date cutoff.
+
+**Tests:** none added (no code changed).
+
+**Verified:**
+- `npm audit` (0 vulnerabilities), `npm run typecheck`, `npm run build` (vite 6.4.5), and the full suite (`npx vitest run --maxWorkers=3`: 854 passed, 4 skipped).
+- Live, on the production bundle (`dist/server.js`, in-memory database, port 3101):
+  - `/docs` and its static files (`swagger-ui-bundle.js`, `swagger-ui.css`) were served, so the @fastify/static/glob upgrade works; so was `/docs/json` and the web app at `/`.
+  - On `/mcp` with a bearer token, `initialize`, `tools/list` (24 tools) and `tools/call list_projects` answered, and a call with non-object `arguments` was still refused by zod's validation.
