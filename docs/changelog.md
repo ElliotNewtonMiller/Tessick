@@ -3918,3 +3918,18 @@ The last phase of evidence for test executions: people see, add and delete evide
 - Live, on the production bundle (`dist/server.js`, in-memory database, port 3101):
   - `/docs` and its static files (`swagger-ui-bundle.js`, `swagger-ui.css`) were served, so the @fastify/static/glob upgrade works; so was `/docs/json` and the web app at `/`.
   - On `/mcp` with a bearer token, `initialize`, `tools/list` (24 tools) and `tools/call list_projects` answered, and a call with non-object `arguments` was still refused by zod's validation.
+
+## "Email not sent" warnings (2026-11-09)
+
+An email captured because no mail server is set up used to be reported as a short green note with a check mark ("✓ Captured, not sent -- ..."), which read as success. On the schedules' **Send now** it also vanished after 4 seconds. Elliot asked for it to look like the app's amber warnings, persist, and drop the check mark.
+
+**Now:** one shared amber warning, `EmailNotSentWarning` in `EmailSettingsPanel.tsx` (the colours of the banners under the header, `role="alert"`, "⚠️ <title>", an OK button where there's nothing else to close it). It stays until dismissed and is used wherever an email went nowhere:
+- **Email this report** (`EmailReportDialog`): "⚠️ Email not sent" replaces the form until Close, for a captured email and for a failed one (which was red before). "✓ Sent to n recipients." stays green.
+- **Scheduled emails → Send now** (`SchedulesTab`): "⚠️ "<schedule>" not sent" above the list, until OK or the next Send now. Sent and Skipped keep the short note; so do request errors.
+- **Admin Panel → Email → Send test email:** "⚠️ Test email not sent", for captured and failed.
+- The captured text says why and where to fix it, for people who aren't admins too (`CAPTURED_NOT_SENT`): no mail server is set up, so nothing was sent; Admin Panel → Email shows the last one, and an admin can set up the mail server there.
+- The "captured" status in the schedule list and in Last email is amber instead of light blue.
+
+**Tests:** `apps/web/src/tests/email_not_sent.test.tsx` (new, 3): the dialog's captured and failed warnings (no check mark), and Send now's warning still showing 10 seconds later (fake timers) until OK.
+
+**Verified live** on this worktree's production bundle (`127.0.0.1:3101`, in-memory database, the report demo and a weekly schedule, no mail server): Email this report showed the amber "Email not sent"; Send now showed "⚠️ "Weekly health" not sent", still there after 7 seconds, gone after OK, with "captured" in amber in the list; the Admin Panel's test email showed "⚠️ Test email not sent".

@@ -50,9 +50,33 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
 };
-const STATUS_COLORS: Record<string, string> = { SENT: "#4ade80", CAPTURED: "#7dd3fc", FAILED: "#f87171" };
+const STATUS_COLORS: Record<string, string> = { SENT: "#4ade80", CAPTURED: "#fbbf24", FAILED: "#f87171" };
 const lastEmailLabel: React.CSSProperties = { color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", paddingTop: "2px" };
 const lastEmailValue: React.CSSProperties = { color: "#e2e8f0", minWidth: 0, overflowWrap: "anywhere" };
+
+/** Why a CAPTURED email wasn't sent, for anyone who sent one (not only admins). */
+export const CAPTURED_NOT_SENT = "No mail server is set up, so nothing was sent. The email was only captured: Admin Panel → Email shows the last one, and an admin can set up the mail server there.";
+
+/**
+ * The amber warning for an email that went nowhere (captured with no mail server, or failed).
+ * It stays until dismissed: a short-lived green note with a check mark read as success.
+ */
+export function EmailNotSentWarning({ title = "Email not sent", onDismiss, children }: { title?: string; onDismiss?: () => void; children: React.ReactNode }) {
+  return (
+    <div role="alert" style={{ display: "flex", alignItems: "flex-start", gap: "12px", fontSize: "12px", color: "#fde68a", backgroundColor: "#78350f", border: "1px solid #92400e", borderRadius: "6px", padding: "10px 12px" }}>
+      {/* A long server error wraps and scrolls instead of widening the dialog. */}
+      <div style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap", maxHeight: "200px", overflowY: "auto" }}>
+        <div style={{ color: "#fbbf24", fontWeight: 700, marginBottom: "4px" }}>⚠️ {title}</div>
+        {children}
+      </div>
+      {onDismiss && (
+        <button onClick={onDismiss} style={{ padding: "5px 12px", backgroundColor: "#334155", border: "none", borderRadius: "4px", color: "#fff", fontSize: "11px", fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+          OK
+        </button>
+      )}
+    </div>
+  );
+}
 
 /** Admin Panel "Email" tab: outgoing mail server settings and the last email sent. */
 export function EmailSettingsPanel() {
@@ -61,7 +85,7 @@ export function EmailSettingsPanel() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [testTo, setTestTo] = useState("");
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string; notSent?: boolean } | null>(null);
   const [lastEmail, setLastEmail] = useState<LastEmail | null>(null);
   const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
 
@@ -120,8 +144,10 @@ export function EmailSettingsPanel() {
       const res = await fetch(api.admin.emailSettingsTest, { method: "POST", headers: jsonHeaders(), body: JSON.stringify({ to: testTo }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errorMessage(d) || "Couldn't send");
-      if (d.email.status === "FAILED") flash(false, "Sending the test email failed -- see Last email below.");
-      else flash(true, d.email.status === "SENT" ? `✓ Test email sent to ${testTo}.` : "✓ Test email captured (no SMTP server set, so nothing was sent).");
+      if (d.email.status === "SENT") flash(true, `✓ Test email sent to ${testTo}.`);
+      // Not sent: the warning stays until dismissed.
+      else if (d.email.status === "FAILED") setNotice({ ok: false, notSent: true, text: "Sending the test email failed -- see Last email below." });
+      else setNotice({ ok: false, notSent: true, text: "No mail server is set up, so nothing was sent. The test email was only captured -- see Last email below." });
       loadLastEmail();
     } catch (e) {
       flash(false, e instanceof Error ? e.message : String(e));
@@ -147,7 +173,12 @@ export function EmailSettingsPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {notice && (
+      {notice?.notSent && (
+        <EmailNotSentWarning title="Test email not sent" onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </EmailNotSentWarning>
+      )}
+      {notice && !notice.notSent && (
         <div
           style={{
             backgroundColor: notice.ok ? "#052e16" : "#450a0a",

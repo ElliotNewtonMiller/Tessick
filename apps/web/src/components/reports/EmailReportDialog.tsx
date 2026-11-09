@@ -1,5 +1,5 @@
 import React from "react";
-import { EmailPreviewModal } from "../EmailSettingsPanel";
+import { CAPTURED_NOT_SENT, EmailNotSentWarning, EmailPreviewModal } from "../EmailSettingsPanel";
 import { buttonStyle } from "./shared";
 import { jsonHeaders } from "../../utils/session";
 
@@ -92,25 +92,13 @@ export function EmailReportDialog({ projectId, what, sections, onClose }: { proj
 
         {done ? (
           <>
-            <div
-              style={{
-                fontSize: "12px",
-                padding: "10px 12px",
-                borderRadius: "6px",
-                color: done.status === "FAILED" ? "#fca5a5" : "#86efac",
-                backgroundColor: done.status === "FAILED" ? "#450a0a" : "#052e16",
-                border: `1px solid ${done.status === "FAILED" ? "#991b1b" : "#16a34a"}`,
-                // A long server error wraps and scrolls instead of widening the dialog.
-                overflowWrap: "anywhere",
-                whiteSpace: "pre-wrap",
-                maxHeight: "200px",
-                overflowY: "auto",
-              }}
-            >
-              {done.status === "SENT" && `✓ Sent to ${done.count} recipient${done.count === 1 ? "" : "s"}.`}
-              {done.status === "CAPTURED" && "✓ Captured, not sent -- no mail server is set up yet (Admin Panel → Email)."}
-              {done.status === "FAILED" && `Sending failed: ${done.error}`}
-            </div>
+            {done.status === "SENT" ? (
+              <div style={{ fontSize: "12px", padding: "10px 12px", borderRadius: "6px", color: "#86efac", backgroundColor: "#052e16", border: "1px solid #16a34a" }}>
+                ✓ Sent to {done.count} recipient{done.count === 1 ? "" : "s"}.
+              </div>
+            ) : (
+              <EmailNotSentWarning>{done.status === "CAPTURED" ? CAPTURED_NOT_SENT : `Sending failed: ${done.error}`}</EmailNotSentWarning>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button onClick={onClose} style={buttonStyle}>
                 Close

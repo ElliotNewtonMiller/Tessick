@@ -1,6 +1,7 @@
 import React from "react";
 import { Empty, ErrorNote, InfoTip, Loading, Section, buttonStyle, fmtWhen, selectStyle } from "./shared";
 import { authHeaders, jsonHeaders } from "../../utils/session";
+import { CAPTURED_NOT_SENT, EmailNotSentWarning } from "../EmailSettingsPanel";
 
 import { errorMessage } from "../../api/errors";
 import { api } from "../../api/routes";
@@ -42,7 +43,7 @@ const KIND_HINTS: Record<SectionKind, string> = {
   plan_trend: "Pass rate and new failures for each of the plan's last 10 runs.",
 };
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const STATUS_COLORS: Record<string, string> = { SENT: "#4ade80", CAPTURED: "#7dd3fc", FAILED: "#f87171", SKIPPED: "#94a3b8" };
+const STATUS_COLORS: Record<string, string> = { SENT: "#4ade80", CAPTURED: "#fbbf24", FAILED: "#f87171", SKIPPED: "#94a3b8" };
 
 async function request(method: string, url: string, body?: unknown) {
   // Content-Type only with a body: Fastify rejects an empty body declared as JSON.
@@ -129,6 +130,8 @@ export function SchedulesTab({ projectId, plans, defaultPlanId }: { projectId: s
   const [formError, setFormError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  // "Send now" that went nowhere (captured or failed): stays until dismissed, unlike notice.
+  const [notSent, setNotSent] = React.useState<{ name: string; text: string } | null>(null);
   const base = api.reportSchedules(projectId);
 
   const load = React.useCallback(async () => {
@@ -185,16 +188,11 @@ export function SchedulesTab({ projectId, plans, defaultPlanId }: { projectId: s
       } else if (action === "toggle") {
         await request("PUT", api.reportSchedule(s.id), toBody({ ...draftFrom(s, defaultPlanId), enabled: !s.enabled }));
       } else {
+        setNotSent(null);
         const r = await request("POST", api.reportScheduleSendNow(s.id));
-        flash(
-          r.status === "SENT"
-            ? `✓ "${s.name}" sent.`
-            : r.status === "CAPTURED"
-              ? `✓ "${s.name}" captured, not sent -- no mail server is set up yet (Admin Panel → Email).`
-              : r.status === "SKIPPED"
-                ? `Skipped: ${r.error}`
-                : `Sending failed: ${r.error}`
-        );
+        if (r.status === "SENT") flash(`✓ "${s.name}" sent.`);
+        else if (r.status === "SKIPPED") flash(`Skipped: ${r.error}`);
+        else setNotSent({ name: s.name, text: r.status === "CAPTURED" ? CAPTURED_NOT_SENT : `Sending failed: ${r.error}` });
       }
       load();
     } catch (e) {
@@ -240,7 +238,14 @@ export function SchedulesTab({ projectId, plans, defaultPlanId }: { projectId: s
           )
         }
       >
-        {notice && <div style={{ fontSize: "12px", color: notice.startsWith("⚠️") || notice.startsWith("Sending failed") ? "#f87171" : "#86efac", marginBottom: 8, overflowWrap: "anywhere" }}>{notice}</div>}
+        {notSent && (
+          <div style={{ marginBottom: 8 }}>
+            <EmailNotSentWarning title={`"${notSent.name}" not sent`} onDismiss={() => setNotSent(null)}>
+              {notSent.text}
+            </EmailNotSentWarning>
+          </div>
+        )}
+        {notice && <div style={{ fontSize: "12px", color: notice.startsWith("⚠️") ? "#f87171" : "#86efac", marginBottom: 8, overflowWrap: "anywhere" }}>{notice}</div>}
 
         {draft && (
           <div style={{ border: "1px solid #334155", borderRadius: "6px", padding: "12px", marginBottom: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
