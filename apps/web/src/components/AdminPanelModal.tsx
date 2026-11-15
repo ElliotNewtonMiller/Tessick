@@ -5,7 +5,7 @@ import { UserProfile } from "./AuthModal";
 import { authHeaders, jsonHeaders } from "../utils/session";
 
 import { errorMessage as apiErrorMessage } from "../api/errors";
-import { api } from "../api/routes";
+import { api, withQuery } from "../api/routes";
 /** The built-in role that grants nothing (see packages/core's DEFAULT_ROLE_PERMISSIONS). */
 const NO_ACCESS_ROLE = "No Access";
 
@@ -38,6 +38,25 @@ interface AuditItem {
   /** Where the action came from (null for scheduled jobs). */
   ip_address: string | null;
   user_agent: string | null;
+  /** Evidence additions grouped by uploader, run and hour: how many, and since when. */
+  grouped_count?: number;
+  first_created_at?: string;
+}
+
+/** A grouped entry's summary, readable: "3 files (2 images, 1 log), 1.2 MB · a.png, b.png, …". */
+function evidenceGroupSummary(log: AuditItem): string {
+  try {
+    const d = JSON.parse(log.diff);
+    const kinds = Object.entries(d.kinds ?? {})
+      .map(([k, n]) => `${n} ${k}${n === 1 ? "" : "s"}`)
+      .join(", ");
+    const mb = d.total_bytes >= 1024 * 1024 ? `${(d.total_bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.ceil(d.total_bytes / 1024)} KB`;
+    const late = d.after_close ? `, ${d.after_close} after the run closed` : "";
+    const more = d.files > (d.first_files?.length ?? 0) ? ", …" : "";
+    return `${d.files} files (${kinds}), ${mb}${late}${d.via ? ` via ${d.via}` : ""} · ${(d.first_files ?? []).join(", ")}${more}`;
+  } catch {
+    return log.diff;
+  }
 }
 
 interface ProjectItem {
@@ -174,6 +193,8 @@ export function AdminPanelModal({
   ];
   const [users, setUsers] = useState<UserItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditItem[]>([]);
+  // A grouped evidence entry opened to its additions, one by one (null = none).
+  const [openGroup, setOpenGroup] = useState<{ id: string; rows: AuditItem[] | null } | null>(null);
   const [roles, setRoles] = useState<RoleTemplate[]>([]);
   const [permissionRegistry, setPermissionRegistry] = useState<PermissionDefinition[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -380,6 +401,30 @@ export function AdminPanelModal({
       }
     } catch {
       // Ignore audit log error
+    }
+  };
+
+  // The additions a grouped entry stands for: that uploader's, in that run, from its first to its last.
+  const toggleGroup = async (log: AuditItem) => {
+    if (openGroup?.id === log.id) return setOpenGroup(null);
+    setOpenGroup({ id: log.id, rows: null });
+    try {
+      const res = await fetch(
+        withQuery(api.admin.auditLogs, { action: "EVIDENCE_ADDED", actor_id: log.actor_id, since: log.first_created_at, limit: 500 }),
+        { headers: authHeaders() },
+      );
+      const data = await res.json();
+      const rows = ((data.audit_logs ?? []) as AuditItem[]).filter((r) => {
+        if (r.created_at > log.created_at) return false;
+        try {
+          return JSON.parse(r.diff).test_run_id === log.resource_id;
+        } catch {
+          return false;
+        }
+      });
+      setOpenGroup((g) => (g?.id === log.id ? { id: log.id, rows } : g));
+    } catch {
+      setOpenGroup((g) => (g?.id === log.id ? { id: log.id, rows: [] } : g));
     }
   };
 
@@ -3476,8 +3521,8 @@ export function AdminPanelModal({
               </thead>
               <tbody>
                 {auditLogs.map((log) => (
+                  <React.Fragment key={log.id}>
                   <tr
-                    key={log.id}
                     style={{ borderBottom: "1px solid #0f172a" }}
                   >
                     <td
@@ -3487,7 +3532,14 @@ export function AdminPanelModal({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {new Date(log.created_at).toLocaleString()}
+                      {log.first_created_at ? (
+                        <>
+                          {new Date(log.first_created_at).toLocaleString()}
+                          <div>to {new Date(log.created_at).toLocaleTimeString()}</div>
+                        </>
+                      ) : (
+                        new Date(log.created_at).toLocaleString()
+                      )}
                     </td>
                     <td style={{ padding: "6px" }}>
                       <span
@@ -3501,6 +3553,15 @@ export function AdminPanelModal({
                       >
                         {log.action}
                       </span>
+                      {log.grouped_count && (
+                        <button
+                          onClick={() => toggleGroup(log)}
+                          title="Evidence additions by one uploader to one run within the hour. Click to list each."
+                          style={{ marginLeft: "6px", padding: "1px 6px", border: "1px solid #334155", borderRadius: "4px", background: "none", color: "#93c5fd", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}
+                        >
+                          ×{log.grouped_count} {openGroup?.id === log.id ? "▾" : "▸"}
+                        </button>
+                      )}
                     </td>
                     <td
                       title={log.user_agent ?? undefined}
@@ -3531,9 +3592,41 @@ export function AdminPanelModal({
                         minWidth: "160px",
                       }}
                     >
-                      {log.diff}
+                      {log.grouped_count ? evidenceGroupSummary(log) : log.diff}
                     </td>
                   </tr>
+                  {openGroup?.id === log.id && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "4px 6px 10px 24px", backgroundColor: "#0f172a" }}>
+                        {openGroup.rows === null ? (
+                          <span style={{ color: "#64748b" }}>Loading…</span>
+                        ) : openGroup.rows.length === 0 ? (
+                          <span style={{ color: "#64748b" }}>The additions couldn't be listed.</span>
+                        ) : (
+                          openGroup.rows.map((r) => {
+                            let d: any = {};
+                            try {
+                              d = JSON.parse(r.diff);
+                            } catch {
+                              // Shown without details.
+                            }
+                            return (
+                              <div key={r.id} style={{ display: "flex", gap: "10px", padding: "2px 0", color: "#94a3b8", fontFamily: "monospace", fontSize: "10px" }}>
+                                <span style={{ color: "#64748b", whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleTimeString()}</span>
+                                <span style={{ color: "#cbd5e1" }}>{d.filename}</span>
+                                <span>{d.kind}</span>
+                                <span>{d.size_bytes} B</span>
+                                <span title="Its SHA-256">{String(d.sha256 ?? "").slice(0, 12)}</span>
+                                <span style={{ userSelect: "all" }}>{r.resource_id}</span>
+                                {d.after_close && <span style={{ color: "#fbbf24" }}>after close</span>}
+                              </div>
+                            );
+                          })
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

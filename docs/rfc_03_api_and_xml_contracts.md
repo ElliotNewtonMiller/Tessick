@@ -354,7 +354,7 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
   - Refused for a case with no result in the run (`409 NO_RESULT_TO_ATTACH`), or one that left the plan (`CASE_RETIRED`).
 - **Reading** needs `SPEC_VIEW` or `EXECUTE_RUN`.
 - **Deleting** (`DELETE /evidence/{evidenceId}`, for good) is for its uploader while the run is open, or anyone with `EXECUTE_OVERWRITE`.
-- **Audit:** every addition writes an `EVIDENCE_ADDED` audit row and every deletion an `EVIDENCE_DELETED` one, with the file's name, size and SHA-256. Only deletions show in the Security Audit Log, since CI adds files by the thousand.
+- **Audit:** every addition writes an `EVIDENCE_ADDED` audit row and every deletion an `EVIDENCE_DELETED` one, with the file's name, size and SHA-256. The Security Audit Log (`GET /admin/audit-logs`) shows additions grouped by uploader, run and clock hour, so a CI build's hundreds of files are one entry (`grouped_count`, `first_created_at`, a summary as its `diff`); `?action=EVIDENCE_ADDED` lists each one. Deletions show one by one.
 
 **Serving:** always through Testify (`GET /evidence/{evidenceId}/content`), permissions checked on every read, so the web app shows images and videos with its sign-in cookie. The headers:
 - `Content-Type` is the sniffed type, with `nosniff`;

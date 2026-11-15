@@ -215,7 +215,8 @@ export const auditLogSchema = {
   summary: 'Security audit log',
   description:
     'Security entries (sign-in locks, users, roles, tokens, imports, exports, report emails, ...), newest first, a page at a time (`limit`, then `cursor` = the previous `next_cursor` until it is null). ' +
-    'With `action`, entries with those actions instead (any action, security or not). Every entry is permanent. Needs `USER_MANAGE`.' +
+    'Evidence additions are grouped here: one entry per uploader, run and clock hour, with `grouped_count`, `first_created_at`, the run as its resource and a summary as its `diff` (a single addition is shown as itself). ' +
+    'With `action`, entries with those actions instead (any action, security or not), every one on its own: `action=EVIDENCE_ADDED` lists each addition. Every entry is permanent. Needs `USER_MANAGE`.' +
     NO_TOKENS,
   querystring: {
     type: 'object',
@@ -249,6 +250,8 @@ export const auditLogSchema = {
               ip_address: { type: ['string', 'null'] },
               user_agent: { type: ['string', 'null'] },
               created_at: { type: 'string' },
+              grouped_count: { type: 'integer', description: 'A group of evidence additions: how many (this entry is the latest of them)' },
+              first_created_at: { type: 'string', description: 'A group of evidence additions: when the first was made' },
             },
           },
         },

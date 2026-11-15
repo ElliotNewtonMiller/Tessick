@@ -141,7 +141,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - Uploads stream through the spool (size, SHA-256, type) before anything is stored. The same file again for the same execution is answered, not added. Every upload route answers `{ evidence, refused }` (201/200/207, or the refusal).
 - A deleted evidence row queues its file (`storage_deletions`, a trigger), and `services/storageSweeper.ts` deletes it after commit. So any delete path (run, plan, case, project with `force`) cleans up storage by itself.
 - Upload links (`evidence_uploads`) are single-use, 15 minutes, hashed; their token is the PUT's only credential and is kept out of logs (`loggableUrl` in `observability.ts`).
-- `EVIDENCE_ADDED` is audited but only `EVIDENCE_DELETED` shows in the Security Audit Log.
+- Every addition writes an `EVIDENCE_ADDED` audit row. The Security Audit Log shows them grouped by uploader, run and clock hour (`services/auditGroups.ts`: one line for a CI build's hundreds of files, expandable in the Admin Panel); `?action=EVIDENCE_ADDED` lists each one. Deletions (`EVIDENCE_DELETED`) show one by one.
 - A case's evidence list (`GET /runs/:runId/cases/:caseId/evidence`) answers `can_add` and each file's `can_delete` from the same checks as the upload and delete (`canAddEvidence`, `mayDeleteEvidence`); the web app shows those, rather than working out the rules itself.
 - In the web app (`hooks/useEvidence.ts`, `components/execute/EvidencePanel.tsx` and `EvidenceViewer.tsx`), files are added with the button, a drop on the Execute pane, or a pasted screenshot (an image paste anywhere in Execute mode; text pastes are left alone), each a raw upload with progress (XMLHttpRequest). The viewer pauses the hotkeys.
 
@@ -329,7 +329,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - **`AGENTS.md` is an identical copy** of this file for other agents. Update both together.
 - **Commits:** Elliot has authorized committing directly to the local repo, in logical commits with clear messages. The repo is on GitHub (`origin`, `ElliotNewtonMiller/Testify`), where every push runs CI, including the production build on real PostgreSQL. Don't push unless asked.
 - **Ask before downloading** packages or images.
-- **After a change,** give Elliot a short checklist of what to test.
+- **After a change,** give Elliot a short checklist of what to test, and add it to `docs/manual_test_backlog.md` with what you checked yourself and how. Verify UI changes yourself rather than waiting for him; he catches up on the backlog later (decided with Elliot, 2026-11-09).
 - **API work:** `docs/api_roadmap.md` tracks the planned API and MCP steps. Update a step's status and the Decisions table as the work happens.
 - **Design docs:** when a change makes an RFC, the blueprint or the roadmap wrong, fix that doc in the same change.
 
@@ -338,7 +338,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 1. `README.md`: overview and quick start. `docs/deployment.md`: running Testify for real.
 2. `docs/changelog.md`: the history and reasoning behind everything.
 3. `docs/api_getting_started.md`: the API for scripts and CI, step by step. `docs/reports_api_and_mcp.md`: reports, the results API, MCP. The reference itself is `/docs` on a running server.
-4. `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.
+4. `docs/manual_test_backlog.md`: the checks Elliot will do himself in the web app, and what the agent already checked. `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.
 5. Design documents, updated 2026-10-11 (RFC 03 §1-4 on 2026-10-12) to match the code (each says plainly what isn't built):
    - `docs/MASTER_ARCHITECTURE_BLUEPRINT.md`: the overview, linking to the RFCs.
    - `docs/rfc_01_domain_model.md` (domain, schema, state machines), `rfc_02` (layout, hotkeys), `rfc_03` (the API: conventions, route map, CI results, errors, import), `rfc_04` (permissions, tokens, audit, threat model).

@@ -295,7 +295,7 @@ Actions written today, by area. The Admin Panel's Security Audit Log shows those
 | Projects | `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_DELETED` |
 | Specifications | `SUITE_CREATED`, `SUITE_UPDATED`, `SUITE_DELETED`, `CASE_CREATED`, `CASE_UPDATED`, `CASE_DELETED`, `CASE_DRAFT_CREATED`, `CASE_VERSION_UPDATED`, `CASE_VERSION_APPROVED`, `CASE_VERSION_DEPRECATED`, `CASE_VERSION_RESTORED`, `SPEC_ITEMS_MOVED` |
 | Plan membership | `PLAN_CASE_ADDED`, `PLAN_CASE_REMOVED`, `PLAN_CASE_RETIRED`, `PLAN_CASE_CASCADE_ADD`, `PLAN_CASE_CASCADE_REMOVE` |
-| Evidence | `EVIDENCE_ADDED` (every file, with its SHA-256; not shown in the Security Audit Log, since CI adds files by the thousand), `EVIDENCE_DELETED` (shown) |
+| Evidence | `EVIDENCE_ADDED` (every file, with its SHA-256; shown in the Security Audit Log grouped by uploader, run and hour, each one listed by `?action=EVIDENCE_ADDED`), `EVIDENCE_DELETED` (shown one by one) |
 | Results | `RESULT_RECORDED`, `RESULTS_BATCH_RECORDED`, `RUN_AUTO_CLOSED` (rows written before 2026-10-12 say `EXECUTION_RECORDED`, `BATCH_EXECUTION_RECORDED`, `BUILD_AUTO_CLOSED`; audit rows can't be changed) |
 | Custom fields | `CUSTOM_FIELD_DEFINITION_CREATED`, `CUSTOM_FIELD_DEFINITION_UPDATED`, `CUSTOM_FIELD_DEFINITION_DELETED` |
 | Data and email | `IMPORT_EXECUTED`, `DATA_EXPORTED`, `REPORT_EMAILED`, `REPORT_SCHEDULE_CREATED`, `REPORT_SCHEDULE_UPDATED`, `REPORT_SCHEDULE_DELETED`, `EMAIL_SETTINGS_UPDATED` |

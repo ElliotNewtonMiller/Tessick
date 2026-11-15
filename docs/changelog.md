@@ -3933,3 +3933,33 @@ An email captured because no mail server is set up used to be reported as a shor
 **Tests:** `apps/web/src/tests/email_not_sent.test.tsx` (new, 3): the dialog's captured and failed warnings (no check mark), and Send now's warning still showing 10 seconds later (fake timers) until OK.
 
 **Verified live** on this worktree's production bundle (`127.0.0.1:3101`, in-memory database, the report demo and a weekly schedule, no mail server): Email this report showed the amber "Email not sent"; Send now showed "⚠️ "Weekly health" not sent", still there after 7 seconds, gone after OK, with "captured" in amber in the list; the Admin Panel's test email showed "⚠️ Test email not sent".
+
+## Evidence additions in the Security Audit Log, grouped; the manual test backlog (2026-11-09)
+
+**Evidence additions now show in the Security Audit Log, grouped by time.** In phase 2 they were kept out of it (only deletions showed), because CI adds files in bulk. Elliot asked whether CI would really flood it more than a tester, and suggested organising the entries by time so they can all be kept without showing every one.
+
+The answer: per file, both write one row. But a Playwright suite with screenshots on failure, or traces on every test, sends hundreds of files per build, several builds a day. A tester adds a handful.
+
+**How the grouping works:**
+- **One entry per uploader, run and clock hour.** The default view of `GET /admin/audit-logs` (no `action`) merges these in by time (`services/auditGroups.ts`, one SQL query).
+- **A group of several** is answered as its latest row, with the run as its resource, plus `grouped_count`, `first_created_at`, and a summary as its `diff`. The summary gives the number of files, the total bytes, the count of each kind, how many came after the run closed, how they came, and the first five names.
+- **A single addition** is shown as itself.
+- **Paging is unchanged.** Each group pages by its latest row's time and id, so walking the pages meets every entry once.
+- **Every row stays in `audit_logs`.** `?action=EVIDENCE_ADDED` still lists each addition.
+- **The grouping runs on the server** because the Admin Panel shows only the newest page (100 entries). Grouping in the browser would still let one CI build fill that page.
+
+**In the Admin Panel**, a grouped line shows `EVIDENCE_ADDED ×n`, its time span and a readable summary: "5 files (5 images), 143 KB via API · ci-shot-0.png, …". **×n ▸** lists each addition, with its time, file, kind, size, SHA-256 prefix and evidence id. It does this by fetching `?action=EVIDENCE_ADDED` for that uploader since the first, kept to that run and time span.
+
+**The manual test backlog** (`docs/manual_test_backlog.md`, decided with Elliot): for the sake of progress, the agent verifies UI changes itself and records the checks Elliot wants to do himself, to catch up on later. Each entry says what the agent checked and how, and what only a person's run adds (the real clipboard, file picker and desktop drag, other browsers, the look). It starts with the evidence work. CLAUDE.md's workflow says to add to it after each change.
+
+**Tests:** `evidence_api.test.ts` (+1):
+- three additions by one person and one by another become a group of 3 (resource, summary, `first_created_at`) and a single row, newest first, after a later deletion;
+- `?action=EVIDENCE_ADDED` lists all 4;
+- paging with `limit=1` meets each entry exactly once, the group included.
+
+**Verified live** at `127.0.0.1:3000` (a separate tab), after five CI-style API uploads by the admin and one log by `tester`:
+- the Security Audit Log showed the tester's addition as its own line, and the admin's as one `EVIDENCE_ADDED ×5` line with its summary;
+- **×5 ▸** listed the five files;
+- the run id appeared twice in the grouped line (its resource column and the summary), so it was dropped from the summary.
+
+Also checked live, from the backlog: a PDF and an executable renamed `setup.png`, dropped on the Execute pane, were both refused. The message named each file.

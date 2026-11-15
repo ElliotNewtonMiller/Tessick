@@ -8,6 +8,7 @@ import { authenticateRequest, requirePermission } from '../middleware/auth.js';
 import { sendRoleInUseError, sendError } from '../errors.js';
 import { AdminGuard, AdminGuardError } from '../services/adminGuard.js';
 import { requestOrigin } from '../audit.js';
+import { groupedEvidenceAdditions } from '../services/auditGroups.js';
 import * as A from '../openapi/areas/admin.js';
 
 /** Replies for a guard violation (see services/adminGuard.ts); returns false for any other error. */
@@ -401,7 +402,7 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
   // GET /api/v1/admin/audit-logs - Filtered Security Audit Log Viewer (Gated by USER_MANAGE or SYSTEM_ADMIN)
   app.get('/api/v1/admin/audit-logs', { schema: A.auditLogSchema, preHandler: requirePermission('USER_MANAGE', db, jwtSecret) }, async (request, reply) => {
     const securityActions = [
-      // Evidence additions are audited too, but only deletions show here: CI adds files by the thousand.
+      // Evidence additions show too, grouped by uploader, run and hour (groupedEvidenceAdditions below).
       'EVIDENCE_DELETED',
       'USER_CREATED',
       'USER_DISABLED',
@@ -456,7 +457,14 @@ export async function registerAdminRoutes(app: FastifyInstance, db: Kysely<Datab
     if (cursor) {
       logsQuery = logsQuery.where((eb) => eb.or([eb('created_at', '<', cursor.ts), eb.and([eb('created_at', '=', cursor.ts), eb('id', '<', cursor.id)])]));
     }
-    const rows = await logsQuery.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(page.limit + 1).execute();
+    let rows: Array<Awaited<ReturnType<typeof groupedEvidenceAdditions>>[number]> = await logsQuery.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(page.limit + 1).execute();
+    if (!query.action) {
+      // The default view also has evidence additions, grouped: merged in by time, and paged with the rest.
+      const groups = await groupedEvidenceAdditions(db, { actorId: query.actor_id, since: since?.toISOString(), cursor, limit: page.limit + 1 });
+      const newestFirst = (a: { created_at: string; id: string }, b: { created_at: string; id: string }) =>
+        a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : a.created_at < b.created_at ? 1 : -1;
+      rows = [...rows, ...groups].sort(newestFirst).slice(0, page.limit + 1);
+    }
     const { rows: audit_logs, next_cursor } = toPage(rows, page.limit, (r) => ({ ts: String(r.created_at), id: r.id }));
     return { audit_logs, next_cursor };
   });

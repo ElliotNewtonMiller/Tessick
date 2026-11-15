@@ -318,4 +318,36 @@ describe('Evidence API', () => {
     await runStorageSweep(db, storage);
     expect(storage.files.size).toBe(0);
   });
+
+  it('the Security Audit Log groups evidence additions by uploader, run and hour; each stays listed by action', async () => {
+    const tester = await user('tess', 'Tester');
+    await record(admin, 'SHOP-101');
+    await record(tester, 'SHOP-102');
+    for (const [name, file] of [['a.png', PNG], ['b.png', PNG2], ['run.log', LOG]] as const) await raw(admin, `${execUrl('SHOP-101')}?filename=${name}`, file);
+    await raw(tester, `${execUrl('SHOP-102')}?filename=mine.png`, PNG);
+    // Later, a deletion: an ordinary entry, newer than both.
+    now = new Date(now.getTime() + 2 * 3600_000);
+    const one = (await call(admin, 'GET', execUrl('SHOP-101'))).evidence[2];
+    await call(admin, 'DELETE', `/api/v1/evidence/${one.id}`);
+
+    const log = (await call(admin, 'GET', '/api/v1/admin/audit-logs')).audit_logs.filter((r: any) => r.action.startsWith('EVIDENCE'));
+    expect(log.map((r: any) => [r.action, r.grouped_count ?? 1])).toEqual([['EVIDENCE_DELETED', 1], ['EVIDENCE_ADDED', 1], ['EVIDENCE_ADDED', 3]]);
+    const group = log[2];
+    expect(group).toMatchObject({ resource_type: 'test_run', resource_id: seed.buildId, first_created_at: expect.any(String) });
+    expect(JSON.parse(group.diff)).toEqual({ files: 3, total_bytes: PNG.length + PNG2.length + LOG.length, kinds: { image: 2, log: 1 }, after_close: 0, via: 'API', first_files: ['a.png', 'b.png', 'run.log'] });
+    expect(JSON.parse(log[1].diff).filename).toBe('mine.png');
+    // Each addition is still there, by action.
+    expect((await call(admin, 'GET', '/api/v1/admin/audit-logs?action=EVIDENCE_ADDED')).audit_logs).toHaveLength(4);
+    // Paging one entry at a time meets each entry once, groups included.
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const pageOut: any = await call(admin, 'GET', `/api/v1/admin/audit-logs?limit=1${cursor ? `&cursor=${cursor}` : ''}`);
+      seen.push(...pageOut.audit_logs.map((r: any) => r.id));
+      cursor = pageOut.next_cursor;
+    } while (cursor);
+    const all = (await call(admin, 'GET', '/api/v1/admin/audit-logs?limit=500')).audit_logs.map((r: any) => r.id);
+    expect(seen).toEqual(all);
+    expect(all).toContain(group.id);
+  });
 });
