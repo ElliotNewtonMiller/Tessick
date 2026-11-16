@@ -83,7 +83,7 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 | :--- | :--- |
 | Sign-in | `POST /auth/login` (`session: "cookie"` for the web app), `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me` (`username`, `email`, `password`, `current_password`) |
 | Projects | `GET`/`POST /projects`, `GET`/`PATCH`/`DELETE /projects/{projectId}` |
-| Specification | `GET /projects/{projectId}/spec-tree?test_plan_id=&include_deprecated=`, `POST /projects/{projectId}/move`, `POST /projects/{projectId}/suites`, `GET`/`PATCH`/`DELETE /suites/{suiteId}`, `GET /projects/{projectId}/cases` (paged; filters `external_id`, `test_suite_id` + `include_sub_suites`, `version_status`, `priority`), `POST /projects/{projectId}/cases`, `POST /projects/{projectId}/cases/bulk` (§1.1 Bulk changes), `GET`/`PATCH`/`DELETE /cases/{caseId}` (the case with its latest version) |
+| Specification | `GET /projects/{projectId}/spec-tree?test_plan_id=&include_deprecated=`, `POST /projects/{projectId}/move`, `POST /projects/{projectId}/suites`, `GET`/`PATCH`/`DELETE /suites/{suiteId}`, `GET /projects/{projectId}/cases` (paged; filters `external_id`, `test_suite_id` + `include_sub_suites`, `version_status`, `priority`), `POST /projects/{projectId}/cases`, `POST /projects/{projectId}/cases/bulk` (§1.1 Bulk changes), `GET`/`PATCH`/`DELETE /cases/{caseId}` (the case with its latest version), `POST /cases/{caseId}/duplicate` (a DRAFT copy, with changes) |
 | Versions | `GET /cases/{caseId}/versions` (every version, newest first), `GET /cases/{caseId}/versions/latest`, `POST /cases/{caseId}/versions` (a new draft from the latest version), `GET`/`PATCH /versions/{versionId}`, `POST /versions/{versionId}/approve`, `/deprecate`, `/restore` |
 | Custom field values | `GET /cases/{caseId}/custom-fields`, `PUT`/`DELETE /cases/{caseId}/custom-fields/{definitionId}`; the same under `/suites/{suiteId}` |
 | Search | `POST /projects/{projectId}/case-search`, `GET /projects/{projectId}/case-search/fields` |
@@ -106,6 +106,8 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 ### 2.1 Example: creating a test case
 
 `POST /api/v1/projects/{projectId}/cases` creates a case and its first version. The external id is assigned by the server (`PREFIX-n`). The version starts as `DRAFT`, or `APPROVED` when the caller holds `SPEC_AUTO_APPROVE` and no required custom field is left unsatisfied.
+
+`POST /api/v1/cases/{caseId}/duplicate` makes a new case from an existing one (decided with Elliot, 2026-11-15): its title ("<title> (copy)"), suite, priority and execution type, its latest version's summary, preconditions and steps as version 1, and its custom-field values; not its plan membership, results or evidence. Any of `title`, `test_suite_id`, `priority`, `execution_type`, `summary`, `preconditions` and `steps` sent in the body replace what's copied, so a copy with changes is one request. The copy is always a `DRAFT`, even with `SPEC_AUTO_APPROVE`: it's meant to be edited. Needs `SPEC_CREATE` and `SPEC_VIEW`; the answer adds `duplicated_from`, and the `CASE_CREATED` audit row names the source.
 
 ```json
 {

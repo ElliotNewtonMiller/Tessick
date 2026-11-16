@@ -49,8 +49,10 @@ const queueCase = (c: (typeof CASES)[number]) => ({
   version_status: 'APPROVED', summary: `Summary ${c.n}`, preconditions: null, steps: steps(c.n),
   latest_verdict: 'UNTESTED', latest_test_result_id: null, latest_notes: null, removed_from_plan: false,
 });
+/** What Duplicate on SMK-1 makes (the fake API adds it to the spec tree once duplicated). */
+const COPY = { n: 4, title: 'Log in with a password (copy)', suite: 'ste-login' };
 const latestVersion = (n: number) => {
-  const c = CASES[n - 1];
+  const c = [...CASES, COPY][n - 1];
   return {
     test_case: { id: `cas-${n}`, project_id: 'prj-1', test_suite_id: c.suite, external_id: `SMK-${n}`, title: c.title, priority: 'MEDIUM', execution_type: 'MANUAL', created_at: T, updated_at: T },
     version: {
@@ -83,6 +85,7 @@ function installApi(opts: {
   calls = [];
   // Evidence: none, and none allowed, until a result is recorded.
   let recorded = false;
+  let duplicated = false;
   let evidence = EVIDENCE;
   const json = (data: unknown, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -98,7 +101,7 @@ function installApi(opts: {
     if (p === '/api/v1/projects/prj-1/plans') return json({ plans: [plan] });
     if (p === '/api/v1/plans/pln-1/runs') return json({ runs: [run] });
     if (p === '/api/v1/projects/prj-1/spec-tree')
-      return json({ project: { id: 'prj-1', name: project.name, prefix: 'SMK', settings: {} }, suites: [suite('ste-login', 'Login', 2), suite('ste-pay', 'Payments', 1)], cases: CASES.map(specCase) });
+      return json({ project: { id: 'prj-1', name: project.name, prefix: 'SMK', settings: {} }, suites: [suite('ste-login', 'Login', 2), suite('ste-pay', 'Payments', 1)], cases: [...CASES, ...(duplicated ? [COPY] : [])].map(specCase) });
     if (p === '/api/v1/projects/prj-1/case-search/fields') return json({ fields: [] });
     if (p === '/api/v1/plans/pln-1/cases') return json({ plan, runs: [run], cases: CASES.map(queueCase) });
     const latest = p.match(/^\/api\/v1\/cases\/cas-(\d+)\/versions\/latest$/);
@@ -112,6 +115,11 @@ function installApi(opts: {
     if (/^\/api\/v1\/evidence\/evd-\d+$/.test(p) && method === 'DELETE') {
       evidence = evidence.filter((e) => p !== `/api/v1/evidence/${e.id}`);
       return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    if (p === '/api/v1/cases/cas-1/duplicate' && method === 'POST') {
+      duplicated = true;
+      const copy = latestVersion(4);
+      return json({ ...copy, version: { ...copy.version, status: 'DRAFT' }, duplicated_from: { test_case_id: 'cas-1', external_id: 'SMK-1', version_number: 1 } }, 201);
     }
     if (p === '/api/v1/runs/bld-1/results' && method === 'POST') {
       recorded = true;
@@ -185,6 +193,18 @@ describe('App smoke tests', () => {
     expect(await screen.findByText(/Open screen 3/)).toBeTruthy();
   });
 
+  it('Duplicate makes a copy of the case, selects it and readies its title for renaming', async () => {
+    await renderSignedIn();
+    fireEvent.click(await screen.findByText('SMK-1'));
+    await waitFor(() => expect(screen.getByDisplayValue('Log in with a password')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Duplicate/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/api/v1/cases/cas-1/duplicate')).toBe(true));
+    const title = (await screen.findByDisplayValue('Log in with a password (copy)')) as HTMLInputElement;
+    await waitFor(() => expect(document.activeElement).toBe(title));
+    expect(await screen.findByText(/Duplicated as SMK-4 \(draft\)/)).toBeTruthy();
+    expect(calls.some((c) => c.path === '/api/v1/cases/cas-4/versions/latest')).toBe(true);
+  });
+
   it('Execute mode shows the queue, and Pass records a result against the selected run', async () => {
     await renderSignedIn();
     fireEvent.click(screen.getByRole('button', { name: /^Execute$/ }));
@@ -206,6 +226,9 @@ describe('App smoke tests', () => {
     expect(screen.queryByRole('button', { name: /Import/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /\+ Suite/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /\+ Case/ })).toBeNull();
+    fireEvent.click(screen.getByText('SMK-1'));
+    await waitFor(() => expect(screen.getByDisplayValue('Log in with a password')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /Duplicate/ })).toBeNull();
     // An admin does get them.
     cleanup();
     await renderSignedIn(ADMIN);

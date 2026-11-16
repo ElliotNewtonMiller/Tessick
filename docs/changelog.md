@@ -3984,3 +3984,46 @@ Also checked live, from the backlog: a PDF and an executable renamed `setup.png`
 - **A toast:** a refused file's toast was showing at 4.5 seconds and gone at 7.
 
 The web tests pass (56).
+
+## Duplicate a test case (2026-11-15)
+
+Elliot asked for a simple **duplicate + edit**, so a person can make a similar test case quickly and an AI agent can do it in fewer calls. Before this, a copy meant creating a case and retyping its content (an agent had to read the case and send it all back).
+
+**Decided with Elliot:** a copy **always starts as a DRAFT**, even for someone with `SPEC_AUTO_APPROVE`. A copy is meant to be edited, and an untouched identical copy shouldn't go straight into plans. Kept simple: one case at a time, within its project.
+
+**`POST /api/v1/cases/:caseId/duplicate`** (`routes/specEditing.ts`; the case may be named by its readable id):
+- **What's copied:**
+  - the title (as "`<title>` (copy)", shortened to fit 255 characters), the suite, priority and execution type;
+  - the **latest** version's summary, preconditions and steps (with each step's execution type), as version 1, DRAFT. That's the version the editor shows, even a draft or a deprecated one;
+  - the custom-field values, in the same transaction.
+- **What isn't copied:** plan membership, results, evidence or other versions. The copy gets the next `PREFIX-n`.
+- **Changes in the body** replace what's copied, so a copy with changes is one request: `title`, `test_suite_id` (another suite in the project), `priority`, `execution_type`, `summary`, `preconditions`, `steps` (all of them). They're checked like creating a case (`INVALID_NAME`, `INVALID_STEPS`, `INVALID_REQUEST`, a suite from elsewhere).
+- **Needs `SPEC_CREATE`, and `SPEC_VIEW`** since it reads the source: a token with only `SPEC_CREATE` gets 403 with `required_permission: SPEC_VIEW`.
+- **The answer** is 201 with `test_case`, `version` and `duplicated_from` (the source's id, readable id and the version copied).
+- **Shared with creating a case:** the core of `POST /projects/:projectId/cases` moved into `createCaseWithVersion`. That covers the per-project id lock, the case and version 1 in one transaction, the `CASE_CREATED` audit row (which for a copy names `duplicated_from`), and the `test_case.created` webhook. Creating keeps its auto-approve rule.
+- **OpenAPI:** `duplicateCaseSchema` (operation `duplicateTestCase`). There are now 130 endpoints.
+
+**MCP `duplicate_case`** (`mcp/writeTools.ts`, `SPEC_CREATE`) takes the same optional changes and calls the route as the caller. It answers like `create_case`, with `duplicated_from`. Its description tells agents it's cheaper than reading a case and creating a new one. The server's instructions list it.
+
+**The web app:** a **⧉ Duplicate** button in the case header (Spec mode, beside Edit and Delete), for people with `SPEC_CREATE`. It copies the case, selects the copy, and focuses and selects its title, so typing renames it. A toast says "Duplicated as SHOP-13 (draft): edit it, then approve". There's no hotkey: a single key that creates a case is too easy to press by accident.
+
+**Found along the way, not fixed here:** the in-memory database's driver (`packages/db/src/dialects/postgres.ts`) runs overlapping transactions on one shared connection without separating them. So two duplicates at once in a test failed with a duplicate `PREFIX-n`: the per-project lock doesn't separate them there. Real PostgreSQL, with its connection pool, is unaffected. `external_ids.test.ts`'s comment, which says they run one after another, is wrong; its parallel creations pass on timing. This is suggested as a separate task, and the concurrency test was left out of `case_duplicate.test.ts`.
+
+**Tests:**
+- `case_duplicate.test.ts` (4):
+  - what's copied, DRAFT despite auto-approve, the custom field, the next id, the source unchanged, the audit row, the webhook;
+  - changes, including a new suite, `summary: null` and new steps;
+  - copying a draft or a deprecated latest version, and a 255-character title;
+  - the refusals: a blank title, bad steps, an unknown priority, an unknown field, an unknown case, a suite from another project, a viewer, a token without `SPEC_VIEW`, a token for another project.
+- `mcp_write.test.ts` (+1): `duplicate_case` with changes and with new steps, the audit User-Agent, and not offered without `SPEC_CREATE`.
+- `mcp.test.ts`: the tool is listed as a write tool.
+- `openapi.test.ts`: 130 routes.
+- `app.smoke.test.tsx` (+1, and the Viewer test): Duplicate posts, selects the copy with its title focused, and shows the toast; a Viewer has no button.
+
+**Verified live** on the dev server:
+- **REST:** a plain copy of CHK-1 became CHK-4, "(copy)", a DRAFT with its step, and its custom field `component=payments`. A copy with a new title and steps applied them.
+- **MCP**, with an MCP-only token: `duplicate_case` on CHK-2 with a new title and priority made a DRAFT. The same token was refused on REST (403).
+- **The web app** at `127.0.0.1:3000` (a separate tab):
+  - **⧉ Duplicate** on CHK-1 selected the copy (CHK-7, v1 DRAFT), with its title focused and selected;
+  - typing a new name and pressing Enter saved it, and **✓ Approve** approved it;
+  - read back through the API: the new title, v1 APPROVED, its step and the custom field.

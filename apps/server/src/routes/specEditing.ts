@@ -1,8 +1,8 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { evidenceCount } from '../services/evidence.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
+import type { CreateTestStepInput, Database } from '@testify/db';
 import { TestSuiteRepository, TestCaseRepository, TestCaseVersionRepository, ProjectRepository, CustomFieldRepository, TestPlanRepository } from '@testify/db';
 import { findUnsatisfiedRequiredFields, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@testify/core';
 import { requirePermission } from '../middleware/auth.js';
@@ -66,6 +66,90 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
         created_at: new Date().toISOString(),
       })
       .execute();
+  }
+
+  /**
+   * Creates a case and its version 1, and writes CASE_CREATED and the test_case.created webhook.
+   * Shared by creating and duplicating. The id is picked and the case and its first version are
+   * inserted in one transaction, holding the project's id lock: two cases created at once used to get
+   * the same PREFIX-n, and the second failed with a 500. (One transaction also means a failure can't
+   * leave a case without a version.) `customFieldValuesFrom` copies that case's custom-field values.
+   */
+  async function createCaseWithVersion(
+    request: FastifyRequest,
+    input: {
+      projectId: string;
+      prefix: string;
+      testSuiteId: string;
+      title: string;
+      priority?: string;
+      executionType?: string;
+      summary: string | null;
+      preconditions: string | null;
+      steps: CreateTestStepInput[];
+      approve: boolean;
+      customFieldValuesFrom?: string;
+      duplicatedFrom?: { test_case_id: string; external_id: string };
+    }
+  ) {
+    const actor = request.user!;
+    const { testCase, version } = await db.transaction().execute(async (trx) => {
+      const trxCases = new TestCaseRepository(trx);
+      await trxCases.lockExternalIds(input.projectId);
+      const externalId = await trxCases.getNextExternalId(input.projectId, input.prefix);
+      const testCase = await trxCases.create({
+        project_id: input.projectId,
+        test_suite_id: input.testSuiteId,
+        external_id: externalId,
+        title: input.title,
+        priority: input.priority,
+        execution_type: input.executionType,
+      });
+      const version = await new TestCaseVersionRepository(trx).create({
+        test_case_id: testCase.id,
+        version_number: 1,
+        status: input.approve ? 'APPROVED' : 'DRAFT',
+        summary: input.summary,
+        preconditions: input.preconditions,
+        author_id: actor.id,
+        reviewer_id: input.approve ? actor.id : null,
+        steps: input.steps,
+      });
+      if (input.customFieldValuesFrom) {
+        const values = await trx
+          .selectFrom('custom_field_values')
+          .selectAll()
+          .where('entity_type', '=', 'TestCase')
+          .where('entity_id', '=', input.customFieldValuesFrom)
+          .execute();
+        const now = new Date().toISOString();
+        if (values.length > 0) {
+          await trx
+            .insertInto('custom_field_values')
+            .values(values.map((v) => ({ ...v, id: uuidv4(), entity_id: testCase.id, created_at: now, updated_at: now })))
+            .execute();
+        }
+      }
+      return { testCase, version };
+    });
+
+    await insertAuditLog({
+      origin: requestOrigin(request),
+      actorId: actor.id,
+      actorType: actorType(actor),
+      action: 'CASE_CREATED',
+      resourceType: 'test_case',
+      resourceId: testCase.id,
+      projectId: input.projectId,
+      diff: {
+        external_id: testCase.external_id,
+        title: input.title,
+        test_suite_id: input.testSuiteId,
+        ...(input.duplicatedFrom ? { duplicated_from: input.duplicatedFrom } : {}),
+      },
+    });
+    await emitTestCaseEvent(db, webhookActor(actor), 'test_case.created', testCase.id, { via: internalVia(request) === 'mcp' ? 'mcp' : null });
+    return { testCase, version };
   }
 
   // ---- Test Suites ----
@@ -342,48 +426,86 @@ export async function registerSpecEditingRoutes(app: FastifyInstance, db: Kysely
           autoApprove = false;
         }
       }
-      // The id is picked and the case and its first version are inserted in one transaction,
-      // holding the project's id lock: two cases created at once used to get the same
-      // PREFIX-n, and the second failed with a 500. (One transaction also means a failure
-      // can't leave a case without a version.)
-      const { testCase, version, externalId } = await db.transaction().execute(async (trx) => {
-        const trxCases = new TestCaseRepository(trx);
-        await trxCases.lockExternalIds(projectId);
-        const externalId = await trxCases.getNextExternalId(projectId, project.prefix);
-        const testCase = await trxCases.create({
-          project_id: projectId,
-          test_suite_id: testSuiteId,
-          external_id: externalId,
-          title: title.trim(),
-          priority,
-          execution_type: executionType,
-        });
-        const version = await new TestCaseVersionRepository(trx).create({
-          test_case_id: testCase.id,
-          version_number: 1,
-          status: autoApprove ? 'APPROVED' : 'DRAFT',
-          summary: summary ?? null,
-          preconditions: preconditions ?? null,
-          author_id: actor.id,
-          reviewer_id: autoApprove ? actor.id : null,
-          steps: checkedSteps.steps,
-        });
-        return { testCase, version, externalId };
-      });
-
-      await insertAuditLog({
-        origin: requestOrigin(request),
-        actorId: actor.id,
-        actorType: actorType(actor),
-        action: 'CASE_CREATED',
-        resourceType: 'test_case',
-        resourceId: testCase.id,
+      const { testCase, version } = await createCaseWithVersion(request, {
         projectId,
-        diff: { external_id: externalId, title, test_suite_id: testSuiteId },
+        prefix: project.prefix,
+        testSuiteId,
+        title: title.trim(),
+        priority,
+        executionType,
+        summary: summary ?? null,
+        preconditions: preconditions ?? null,
+        steps: checkedSteps.steps,
+        approve: autoApprove,
       });
-
-      await emitTestCaseEvent(db, webhookActor(actor), 'test_case.created', testCase.id, { via: internalVia(request) === 'mcp' ? 'mcp' : null });
       return reply.status(201).send({ test_case: testCase, version });
+    }
+  );
+
+  // Duplicate a case (decided with Elliot, 2026-11-15): a new case whose version 1 is a DRAFT copy of
+  // the source's latest version, with its custom-field values, and any changes sent in the body applied
+  // in the same call ("duplicate + edit", one request for scripts and agents). Always DRAFT, even with
+  // SPEC_AUTO_APPROVE: a copy is meant to be edited, and an untouched copy shouldn't go into plans.
+  app.post(
+    '/api/v1/cases/:caseId/duplicate',
+    { schema: S.duplicateCaseSchema, preHandler: requirePermission('SPEC_CREATE', db, jwtSecret) },
+    async (request, reply) => {
+      const actor = request.user!;
+      if (!actor.permissions.includes('SPEC_VIEW')) {
+        return sendError(reply, 403, "Duplicating a case reads its content, which needs SPEC_VIEW.", { code: 'FORBIDDEN', required_permission: 'SPEC_VIEW' });
+      }
+      const { caseId } = request.params as { caseId: string };
+      const projectId = request.projectId ?? '';
+      const body = ((request.body as any) || {}) as Record<string, any>;
+
+      const source = await caseRepo.findById(caseId);
+      if (!source || source.project_id !== projectId) return sendError(reply, 404, 'Test case not found in this project');
+      const latest = await versionRepo.findLatestVersion(source.id);
+      if (!latest) return sendError(reply, 404, 'Test case has no version to copy');
+
+      if (body.title !== undefined) {
+        const titleError = nameProblem(body.title, 'title');
+        if (titleError) return sendError(reply, 400, titleError, { code: 'INVALID_NAME' });
+      }
+      const fieldProblems = caseFieldProblems({ priority: body.priority, execution_type: body.execution_type });
+      if (fieldProblems.length > 0) return sendCaseFieldProblems(reply, fieldProblems);
+      const checkedSteps = validateStepsInput(
+        body.steps !== undefined && body.steps !== null
+          ? body.steps
+          : latest.steps.map((st) => ({ step_number: st.step_number, action: st.action, expected_result: st.expected_result, execution_type: st.execution_type }))
+      );
+      if ('invalid' in checkedSteps) return sendInvalidSteps(reply, checkedSteps.invalid, request.url);
+
+      const testSuiteId: string = body.test_suite_id ?? source.test_suite_id;
+      const suite = await suiteRepo.findById(testSuiteId);
+      if (!suite || suite.project_id !== projectId) {
+        return sendError(reply, 400, `Test suite '${testSuiteId}' not found in this project`);
+      }
+      const project = await projectRepo.findById(projectId);
+      if (!project) return sendError(reply, 404, 'Project not found');
+
+      // "<title> (copy)", shortened to fit the column if the original is near its limit.
+      const suffix = ' (copy)';
+      const title = typeof body.title === 'string' ? body.title.trim() : `${source.title.slice(0, MAX_NAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
+      const { testCase, version } = await createCaseWithVersion(request, {
+        projectId,
+        prefix: project.prefix,
+        testSuiteId,
+        title,
+        priority: body.priority ?? source.priority,
+        executionType: body.execution_type ?? source.execution_type,
+        summary: 'summary' in body ? body.summary : latest.summary,
+        preconditions: 'preconditions' in body ? body.preconditions : latest.preconditions,
+        steps: checkedSteps.steps,
+        approve: false,
+        customFieldValuesFrom: source.id,
+        duplicatedFrom: { test_case_id: source.id, external_id: source.external_id },
+      });
+      return reply.status(201).send({
+        test_case: testCase,
+        version,
+        duplicated_from: { test_case_id: source.id, external_id: source.external_id, version_number: latest.version_number },
+      });
     }
   );
 

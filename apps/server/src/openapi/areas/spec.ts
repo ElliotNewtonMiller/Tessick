@@ -185,6 +185,44 @@ export const createCaseSchema = {
   },
 };
 
+export const duplicateCaseSchema = {
+  tags: SPEC,
+  summary: 'Duplicate a test case',
+  description:
+    "Makes a new case from this one: its title (\"<title> (copy)\"), suite, priority and execution type, its latest version's summary, preconditions and steps as version 1, and its custom-field values. Plan membership, results and evidence aren't copied. " +
+    'Any field sent replaces what is copied, so a copy with changes is one request (`steps` replaces all the steps). The copy always starts as a DRAFT, to be edited and approved. Needs `SPEC_CREATE` and `SPEC_VIEW`.',
+  params: idParams('caseId'),
+  body: handlerValidated({
+    type: 'object',
+    properties: {
+      test_suite_id: { type: 'string', description: 'Another suite in the project; default the same suite' },
+      title: { type: 'string', description: 'Trimmed; 1-255 characters. Default "<title> (copy)"' },
+      priority: oneOf(PRIORITIES),
+      execution_type: oneOf(EXECUTION_TYPES),
+      summary: nullableText,
+      preconditions: nullableText,
+      steps: stepsInput,
+    },
+  }),
+  response: {
+    201: {
+      description: 'The copy',
+      type: 'object',
+      required: ['test_case', 'version', 'duplicated_from'],
+      properties: {
+        test_case: { $ref: 'TestCase#' },
+        version: { $ref: 'Version#' },
+        duplicated_from: {
+          type: 'object',
+          required: ['test_case_id', 'external_id', 'version_number'],
+          properties: { test_case_id: { type: 'string' }, external_id: { type: 'string' }, version_number: { type: 'integer', description: 'The version copied' } },
+        },
+      },
+    },
+    ...authedErrors([400, '`INVALID_NAME`, `INVALID_STEPS` or `INVALID_REQUEST` (`invalid_params` names each problem), or a suite from elsewhere'], [403, 'Needs `SPEC_CREATE` and `SPEC_VIEW`'], 404),
+  },
+};
+
 export const updateCaseSchema = {
   tags: SPEC,
   summary: 'Change or move a test case',

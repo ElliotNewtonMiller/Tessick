@@ -87,6 +87,27 @@ describe('MCP write tools', () => {
     ]);
   });
 
+  it('duplicate_case copies a case with changes in one call, as a DRAFT; only for tokens with SPEC_CREATE', async () => {
+    const agent = await token(['SPEC_VIEW', 'SPEC_CREATE', 'SPEC_AUTO_APPROVE']);
+    const p = seed.projectId;
+    const source = body(await rest(admin, 'GET', '/api/v1/cases/SHOP-101/versions')).versions[0];
+    const copy = await tool(agent, 'duplicate_case', { project_id: p, test_case_id: 'SHOP-101', title: 'Sign in with SSO', priority: 'LOW' });
+    expect(copy).toMatchObject({ title: 'Sign in with SSO', version: { version_number: 1, status: 'DRAFT' }, duplicated_from: { external_id: 'SHOP-101' } });
+    const created = body(await rest(admin, 'GET', `/api/v1/cases/${copy.external_id}/versions`)).versions[0];
+    expect(created.steps.map((s: any) => s.action)).toEqual(source.steps.map((s: any) => s.action));
+    expect(body(await rest(admin, 'GET', `/api/v1/cases/${copy.external_id}`)).test_case.priority).toBe('LOW');
+    // New steps replace the copied ones.
+    const withSteps = await tool(agent, 'duplicate_case', { project_id: p, test_case_id: 'SHOP-101', steps: [{ action: 'Only step' }] });
+    expect(body(await rest(admin, 'GET', `/api/v1/cases/${withSteps.external_id}/versions`)).versions[0].steps.map((s: any) => s.action)).toEqual(['Only step']);
+    expect(withSteps.title).toMatch(/\(copy\)$/);
+    // Marked as made through MCP.
+    const row = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs?action=CASE_CREATED')).audit_logs.find((r: any) => r.resource_id === copy.test_case_id);
+    expect(row.user_agent).toBe('claude-code/2.0 (via Testify MCP)');
+    // Not offered without SPEC_CREATE.
+    const reader = await token(['SPEC_VIEW']);
+    expect((await tool(reader, 'duplicate_case', { project_id: p, test_case_id: 'SHOP-101' })).error).toMatch(/lacks SPEC_CREATE/);
+  });
+
   it('runs and results: create a run, record results, and change many cases and a plan at once', async () => {
     const agent = await token(['SPEC_VIEW', 'SPEC_EDIT', 'RUN_MANAGE', 'EXECUTE_RUN', 'PLAN_MANAGE']);
     const p = seed.projectId;

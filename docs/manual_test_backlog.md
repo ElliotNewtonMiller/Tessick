@@ -37,3 +37,15 @@ Commits `cc48c79` (the Execute pane's Evidence section, the viewer, the Reports 
 **Already checked by the agent** (live at `127.0.0.1:3000`, measured in the page): the table's scroll width equalled its width, with and without an expanded group of evidence additions; a toast was showing at 4.5 seconds and gone at 7.
 
 **Not checked by the agent:** how the wrapped columns look to the eye (the browser pane was hidden, so no screenshot); a window narrower than about 890 px, where the whole Admin Panel is wider than the window.
+
+## Duplicate a test case (2026-11-15)
+
+- [ ] In Spec mode, select an approved case with steps and a custom field, and press **⧉ Duplicate**. The copy is selected, marked **v1 DRAFT**, titled "… (copy)", and its title is ready to type over.
+- [ ] Type a new name and press Enter; edit a step; **✓ Approve**. The original case is unchanged.
+- [ ] The copy has the original's priority, execution type, summary, preconditions, steps and custom fields, and isn't in any plan until you add it.
+- [ ] Duplicate a case whose latest version is a draft: the copy has the draft's content.
+- [ ] As `viewer` (`DevTest123!`), there's no Duplicate button.
+
+**Already checked by the agent** (live at `127.0.0.1:3000`, a separate tab, with real clicks and typing): Duplicate on an approved case selected a DRAFT copy with its title focused and selected; typing a name and Enter saved it; Approve approved it; the copy kept its step and custom field. Through the API and MCP: plain copies, copies with changes, and the refusals.
+
+**Not checked by the agent:** editing a copy's steps in the UI, and how the new button looks beside Edit and Delete (no screenshot; the browser pane was hidden).

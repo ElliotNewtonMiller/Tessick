@@ -80,6 +80,9 @@ export function useCaseEditor({
   // DRAFT, re-synced whenever the selected case or its version identity changes.
   const [stepsDraft, setStepsDraft] = useState<Step[]>([]);
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  // The copy Duplicate just made: its title box takes focus once it's shown, so typing renames it.
+  const [focusTitleCaseId, setFocusTitleCaseId] = useState<string | null>(null);
   const [isApprovingVersion, setIsApprovingVersion] = useState(false);
   const [isTransitioningVersion, setIsTransitioningVersion] = useState(false);
   const [isSavingSteps, setIsSavingSteps] = useState(false);
@@ -279,6 +282,33 @@ export function useCaseEditor({
       setIsCreatingDraft(false);
     }
   }, [specSelectedCaseId, selectedProjectId, refreshSpecTree, handleAuthExpiry]);
+
+  // Duplicate (decided with Elliot): a new case copying this one's fields, latest content and custom
+  // fields, always a DRAFT; it's selected with its title ready to change.
+  const handleDuplicateCase = useCallback(async () => {
+    if (!specSelectedCaseId) return;
+    setIsDuplicating(true);
+    setSpecEditError(null);
+    try {
+      const res = await fetch(api.duplicateCase(specSelectedCaseId), { method: "POST", headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          handleAuthExpiry();
+          return;
+        }
+        throw new Error(errorMessage(data) || "Failed to duplicate case");
+      }
+      await refreshSpecTree();
+      setFocusTitleCaseId(data.test_case.id);
+      setSpecSelectedCaseId(data.test_case.id);
+      showToast(`Duplicated as ${data.test_case.external_id} (draft): edit it, then approve`);
+    } catch (err: any) {
+      setSpecEditError(err.message || "Failed to duplicate case");
+    } finally {
+      setIsDuplicating(false);
+    }
+  }, [specSelectedCaseId, refreshSpecTree, setSpecSelectedCaseId, showToast, handleAuthExpiry]);
 
   const handleApproveVersion = useCallback(async () => {
     if (!selectedProjectId || !specCaseDetail?.version) return;
@@ -616,6 +646,10 @@ export function useCaseEditor({
     setStepsDraft,
     isCreatingDraft,
     setIsCreatingDraft,
+    isDuplicating,
+    handleDuplicateCase,
+    focusTitleCaseId,
+    setFocusTitleCaseId,
     isApprovingVersion,
     setIsApprovingVersion,
     isTransitioningVersion,

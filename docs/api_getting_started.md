@@ -469,4 +469,10 @@ What to know:
   curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/cases/bulk" -H "Authorization: Bearer $TESTIFY_TOKEN" \
     -H 'content-type: application/json' -d '{"action": "add", "case_ids": ["SHOP-12", "SHOP-14"]}'
   ```
+- **Copying a case:** a new DRAFT case from an existing one, with its steps and custom fields; anything you send replaces what's copied (needs `SPEC_CREATE` and `SPEC_VIEW`):
+
+  ```bash
+  curl -s -X POST "$TESTIFY/api/v1/cases/SHOP-12/duplicate" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+    -H 'content-type: application/json' -d '{"title": "Pays with Apple Pay", "priority": "HIGH"}' | jq -c '{id: .test_case.external_id, status: .version.status}'
+  ```
 - **AI agents:** connect them to the MCP endpoint at `/mcp` with a token made for the agent. With `SPEC_VIEW` alone it can read and run reports; add `SPEC_CREATE`, `SPEC_EDIT`, `PLAN_MANAGE`, `RUN_MANAGE` or `EXECUTE_RUN` to let it write cases (always as DRAFTs for you to approve), manage plans, start runs and record results. See [reports_api_and_mcp.md](reports_api_and_mcp.md).

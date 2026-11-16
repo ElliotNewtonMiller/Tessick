@@ -152,6 +152,45 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
       },
     },
     {
+      name: 'duplicate_case',
+      description:
+        "Copy a test case, with any changes, in one call: cheaper than reading a case and creating a new one, for a variation of an existing case. The copy gets the case's title (\"<title> (copy)\" unless you give one), suite, priority, execution type, the latest version's summary, preconditions and steps, and its custom fields; anything you send replaces what's copied (steps replaces all the steps). It starts as a DRAFT, which a person approves. Returns its readable id.",
+      write: { permissions: ['SPEC_CREATE'] },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          project_id: projectId,
+          test_case_id: { ...caseRef, description: 'The case to copy: its id or readable id such as SHOP-12.' },
+          test_suite_id: { type: 'string', description: 'Put the copy in another suite (see list_suites); default the same one.' },
+          title: { type: 'string' },
+          priority: { type: 'string', enum: PRIORITIES },
+          execution_type: { type: 'string', enum: EXECUTION_TYPES },
+          summary: { type: 'string' },
+          preconditions: { type: 'string' },
+          steps: stepsSchema,
+        },
+        required: ['project_id', 'test_case_id'],
+        additionalProperties: false,
+      },
+      run: async (args, user, request) => {
+        const project = await requireProject(user, args.project_id);
+        const c = await findCase(project, String(args.test_case_id ?? ''));
+        const changes: Record<string, unknown> = Object.fromEntries(
+          ['test_suite_id', 'title', 'priority', 'execution_type', 'summary', 'preconditions'].filter((k) => args[k] !== undefined).map((k) => [k, args[k]])
+        );
+        if (args.steps !== undefined) changes.steps = steps(args.steps);
+        const out = await call(request, 'POST', `/api/v1/cases/${c.id}/duplicate`, changes);
+        return json({
+          test_case_id: out.test_case.id,
+          external_id: out.test_case.external_id,
+          title: out.test_case.title,
+          version: { version_number: out.version.version_number, status: out.version.status },
+          duplicated_from: out.duplicated_from,
+          note: 'Created as a DRAFT; a person approves it in Testify.',
+        });
+      },
+    },
+    {
       name: 'update_case',
       description:
         "Edit one test case. title, priority and execution_type change at once. summary, preconditions and steps are the versioned content: they're edited on the case's DRAFT, and an APPROVED case first gets a new DRAFT version (copied from the approved one), which a person approves later. A deprecated case can't be edited. custom_fields are set at once (not versioned).",

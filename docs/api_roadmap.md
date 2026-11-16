@@ -12,7 +12,7 @@ Status values: **Not started**, **Planning**, **In progress**, **Done**, **Dropp
 ## Where the API stands (2026-10-12)
 
 **Good:**
-- **Coverage:** 129 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, evidence, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
+- **Coverage:** 130 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, evidence, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
 - **Security:** project-bound API tokens (`tf_ci_...`), permissions checked per project, rate limits and an audit log (RFC 04).
 - **CI:** a build uploads its JUnit XML report as it is (up to 20,000 tests), or sends JSON batches of up to 5,000 results, into a run named after the build (step 5).
 - **Consistent** (step 1, 2026-10-12): one address style, verbs and status codes, one error format, one name per id, "runs" and "results" throughout.
@@ -196,7 +196,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 ### 6. Write tools for MCP agents
 
 **Status:** Done (2026-10-12, with step 9).
-- **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading. Later: `add_evidence`, `create_evidence_upload` and `complete_evidence_upload`, with `list_evidence` and `get_evidence` for reading (evidence, 2026-11-09).
+- **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading. Later: `add_evidence`, `create_evidence_upload` and `complete_evidence_upload`, with `list_evidence` and `get_evidence` for reading (evidence, 2026-11-09); `duplicate_case` (2026-11-15).
 - **As the caller:** each calls the REST routes with the caller's credential, so the token's capabilities decide, and a token is offered only the tools it may use.
 - **People approve:** agent-made cases are always DRAFT, and editing an approved case makes a new DRAFT. There are no approve, deprecate or delete tools.
 - **Audit:** changes are marked "via Testify MCP" in their audit rows, and every call writes an `MCP_WRITE` row to the Security Audit Log.

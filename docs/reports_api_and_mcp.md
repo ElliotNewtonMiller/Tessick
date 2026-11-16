@@ -117,6 +117,7 @@ Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever
 |---|---|---|
 | `create_suite` | A new suite | `SPEC_CREATE` |
 | `create_case` | A new case with steps, always as a **DRAFT** | `SPEC_CREATE` |
+| `duplicate_case` | A copy of a case (fields, latest content, custom fields) with any changes, in one call, as a **DRAFT** | `SPEC_CREATE` |
 | `update_case` | Title, priority, execution type, custom fields; summary, preconditions and steps on the DRAFT (an approved case gets a **new DRAFT version**) | `SPEC_EDIT` (`PLAN_MANAGE` for custom fields) |
 | `update_cases` | Priority, execution type, suite or custom fields of up to 500 cases | as above |
 | `create_run` | A run of a plan | `RUN_MANAGE` |

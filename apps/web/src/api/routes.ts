@@ -58,6 +58,7 @@ export const api = {
   suite: (suiteId: string, forced?: boolean) => force(`${V1}/suites/${enc(suiteId)}`, forced),
   projectCases: (projectId: string) => `${V1}/projects/${enc(projectId)}/cases`,
   testCase: (caseId: string, forced?: boolean) => force(`${V1}/cases/${enc(caseId)}`, forced),
+  duplicateCase: (caseId: string) => `${V1}/cases/${enc(caseId)}/duplicate`,
   caseVersions: (caseId: string) => `${V1}/cases/${enc(caseId)}/versions`,
   latestVersion: (caseId: string) => `${V1}/cases/${enc(caseId)}/versions/latest`,
   version: (versionId: string) => `${V1}/versions/${enc(versionId)}`,

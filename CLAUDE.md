@@ -119,6 +119,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - A deprecated case can't be edited or added to a plan, and is hidden from the spec tree unless "Show deprecated" (`include_deprecated=true`) is on.
 - `SPEC_AUTO_APPROVE` makes new cases start APPROVED, unless a required custom field would be unsatisfied.
 - Approving or restoring re-pins the case to that version in every **ACTIVE** plan; LOCKED and ARCHIVED plans keep their pin.
+- Duplicating a case (`POST /cases/:caseId/duplicate`, the ⧉ Duplicate button, MCP `duplicate_case`) makes a new case whose version 1 is a copy of the latest version, with the case's fields and custom-field values and any changes sent with it. The copy is always a DRAFT, even with `SPEC_AUTO_APPROVE` (decided with Elliot: it's meant to be edited).
 
 **Plans:**
 - Only APPROVED cases can be added to a plan, unless the project setting `allow_draft_plan_linking` is true. That setting has no UI.
@@ -292,7 +293,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - **The Execute-mode suite filter** (`execSuiteFilterId`) is separate from Spec-mode suite selection.
 - **Pane widths aren't persisted.**
 - **No platforms feature.** TestLink's platforms are kept by the TestLink-compatible API only as plain runs, one per (build, platform); teams tell platforms apart their own way.
-- **AI agents (MCP):** cases they create are always DRAFT, editing an approved case makes a new DRAFT, and there are no MCP tools to approve, deprecate, restore or delete. Write tools act only as the caller, through the REST routes.
+- **AI agents (MCP):** cases they create or duplicate are always DRAFT, editing an approved case makes a new DRAFT, and there are no MCP tools to approve, deprecate, restore or delete. Write tools act only as the caller, through the REST routes.
 
 ## Known gaps
 

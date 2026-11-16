@@ -11,7 +11,7 @@ interface CaseDetailPaneProps {
 /** Pane 3 in Spec mode when a case is selected: its header, lifecycle, content, steps and custom fields. */
 export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPaneProps) {
   const { can } = useApp();
-  const { hasPlanManagePermission, hasSpecEditPermission, hasSpecApprovePermission, hasSpecDeletePermission } = can;
+  const { hasPlanManagePermission, hasSpecEditPermission, hasSpecApprovePermission, hasSpecDeletePermission, hasSpecCreatePermission } = can;
   const {
     specCaseCustomFieldValues,
     savingCustomFieldId,
@@ -44,6 +44,10 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
     handleConfirmDeleteCase,
     specActiveCase,
     specVersionDetail,
+    isDuplicating,
+    handleDuplicateCase,
+    focusTitleCaseId,
+    setFocusTitleCaseId,
   } = editor;
   if (!specActiveCase) return null;
 
@@ -80,6 +84,14 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
               key={specActiveCase.id}
               type="text"
               defaultValue={specActiveCase.title}
+              ref={(el) => {
+                // A copy just made by Duplicate: ready to be renamed.
+                if (el && focusTitleCaseId === specActiveCase.id) {
+                  setFocusTitleCaseId(null);
+                  el.focus();
+                  el.select();
+                }
+              }}
               onBlur={(e) => {
                 const input = e.target;
                 if (input.value !== specActiveCase.title) {
@@ -248,6 +260,26 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
                 }}
               >
                 {isCreatingDraft ? "Creating…" : "Edit"}
+              </button>
+            )}
+            {hasSpecCreatePermission && (
+              <button
+                onClick={handleDuplicateCase}
+                disabled={isDuplicating}
+                title="Make a new case from this one (a draft copy of its latest version, with its custom fields), to edit"
+                style={{
+                  flexShrink: 0,
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "1px solid #4b5563",
+                  backgroundColor: "transparent",
+                  color: "#d1d5db",
+                  cursor: isDuplicating ? "default" : "pointer",
+                }}
+              >
+                {isDuplicating ? "Duplicating…" : "⧉ Duplicate"}
               </button>
             )}
             {hasSpecDeletePermission && (
