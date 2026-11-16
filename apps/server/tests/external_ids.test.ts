@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { TestCaseRepository } from '@tessick/db';
 import { createServer } from '../src/server.js';
 
 /** New cases get unique PREFIX-n ids, however many are created at once. */
@@ -21,11 +22,8 @@ describe('Case external ids', () => {
   });
 
   it('cases created at the same time all succeed with distinct, consecutive ids', async () => {
-    // Note: the in-memory database has one connection, so these requests' transactions run
-    // one after another and this can't reproduce the race itself (it passes without the lock
-    // too). With a real Postgres connection pool they overlap, and lockExternalIds is what
-    // keeps two of them from picking the same id. This checks the outcome and that the
-    // locked path works end to end.
+    // Whether these requests' transactions overlap is down to timing; the next test makes
+    // them overlap. This checks the outcome for many at once.
     // The seed's cases are SHOP-101..109 and SHOP-1010, so new ones start at SHOP-1011.
     const responses = await Promise.all(
       Array.from({ length: 12 }, (_, i) =>
@@ -42,6 +40,39 @@ describe('Case external ids', () => {
     expect(created).toEqual(Array.from({ length: 12 }, (_, i) => `SHOP-${1011 + i}`));
     // Each has its version and step.
     for (const r of responses) expect(body(r).version.steps).toHaveLength(1);
+  });
+
+  it('two creations whose transactions overlap still get distinct ids', async () => {
+    // Each transaction pauses after picking its id, so the second request reaches its
+    // transaction while the first is still open. With a Postgres pool, lockExternalIds makes
+    // the second wait; the in-memory database, one PGlite session for every connection, runs
+    // one transaction at a time instead. (Before it did, the two ran inside each other, both
+    // picked SHOP-1011 and the second failed on uq_test_case_external.)
+    const pick = TestCaseRepository.prototype.getNextExternalId;
+    let picks = 0;
+    vi.spyOn(TestCaseRepository.prototype, 'getNextExternalId').mockImplementation(async function (this: TestCaseRepository, ...args) {
+      const id = await pick.apply(this, args);
+      picks++;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return id;
+    });
+    try {
+      const create = (title: string) =>
+        app.inject({
+          method: 'POST',
+          url: `/api/v1/projects/${seed.projectId}/cases`,
+          headers,
+          payload: { test_suite_id: seed.suiteId, title },
+        });
+      const first = create('Overlap A');
+      // Start the second only once the first holds its transaction and has picked its id.
+      await vi.waitFor(() => expect(picks).toBe(1));
+      const responses = await Promise.all([first, create('Overlap B')]);
+      expect(responses.map((r: any) => r.statusCode)).toEqual([201, 201]);
+      expect(responses.map((r: any) => body(r).test_case.external_id).sort()).toEqual(['SHOP-1011', 'SHOP-1012']);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it('an import numbers cases without ids after the highest, skipping ids the file uses, and gives copies a new id', async () => {

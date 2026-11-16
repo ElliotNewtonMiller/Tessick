@@ -46,6 +46,7 @@ npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves
 
 **Development database:**
 - The dev server uses an in-memory database (PGlite), so every restart starts empty and signs everyone out.
+- PGlite is one Postgres session, so its driver (`packages/db/src/dialects/postgres.ts`) runs one transaction at a time, and a query outside a transaction waits for the open one. Races between overlapping transactions therefore happen only on PostgreSQL.
 - It seeds the role registry, an `admin` / `password` user, and fixture users for each built-in role with password `DevTest123!`: `test_lead`, `tester`, `viewer`, `automation_bot`, `project_admin`, `override_tester`.
 - It seeds no projects; run the demo script for data.
 - Backend or shared-package changes need a dev-server restart.
@@ -248,7 +249,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - **Limits** come from the columns: names 255 (`MAX_NAME_LENGTH`), integers 2,147,483,647 (`MAX_DB_INTEGER`; durations, positions, step numbers), in `packages/core/src/limits`. Put `maxLength`/`maximum` on enforced body schemas; handler-validated bodies check in the route.
   - **NUL characters** are refused before any route runs (`registerNulGuard` in `storableInput.ts`). Routes whose input is other tools' output set `config: { stripNul: true }` to remove them instead: results, imports, `/mcp`. Imported files are cleaned after parsing (`storableSuites`).
   - **Safety net:** a data exception the database still raises (too long, out of range) answers `400 INVALID_REQUEST` and logs `unstorable_value`. Seeing one means a check is missing.
-- **Transactions:** group a change into one transaction. Repositories that may run inside a caller's transaction use the `runInTransaction` pattern (if `db.isTransaction`, run directly; otherwise open one).
+- **Transactions:** group a change into one transaction. Repositories that may run inside a caller's transaction use the `runInTransaction` pattern (if `db.isTransaction`, run directly; otherwise open one). Inside a transaction's callback, use only `trx`: on PostgreSQL a `db` query there runs on another connection, outside the transaction (on PGlite it runs inside it, and a `db.transaction()` there is refused).
 - **Schema changes:** a new migration `packages/db/src/migrations/00N_<name>.ts` with `up` and `down`, registered in `MIGRATIONS`. Never edit a migration that has shipped; databases record which ones they ran. Ids are `varchar(36)` UUIDs, so never prefix them.
 - **Logging and limits:**
   - Logs are JSON lines to stdout (`observability.ts`). Never log headers or bodies.

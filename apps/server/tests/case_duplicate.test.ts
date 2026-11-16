@@ -4,9 +4,7 @@ import { createServer } from '../src/server.js';
 /**
  * Duplicating a test case (POST /cases/:caseId/duplicate): a new case whose version 1 is a DRAFT copy
  * of the latest version, with the case's fields and custom-field values, and any changes in the body.
- * It numbers the copy through the same locked path as creating a case (external_ids.test.ts); two at
- * once can't be tested here, since the in-memory database runs overlapping transactions on one
- * connection without separating them.
+ * It numbers the copy through the same locked path as creating a case (external_ids.test.ts).
  */
 describe('Duplicating a test case', () => {
   let app: any;
@@ -137,5 +135,11 @@ describe('Duplicating a test case', () => {
 
     const otherToken = (await ok(admin, 'POST', `/api/v1/projects/${project.id}/api-tokens`, { name: 'els', capabilities: ['SPEC_VIEW', 'SPEC_CREATE'] })).plaintext;
     expect((await call(otherToken, 'POST', url)).statusCode).toBe(404);
+  });
+
+  it('two duplicates made at once get different readable ids', async () => {
+    const src = await sourceCase();
+    const [a, b] = await Promise.all([1, 2].map(() => ok(admin, 'POST', `/api/v1/cases/${src.test_case.id}/duplicate`)));
+    expect(a.test_case.external_id).not.toBe(b.test_case.external_id);
   });
 });

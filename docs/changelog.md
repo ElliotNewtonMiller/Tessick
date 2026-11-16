@@ -4065,3 +4065,41 @@ Elliot renamed the project from **Testify** to **Tessick**: the old name clashed
   - MCP `initialize` names the server `tessick`, with instructions that begin "Tessick is a test case management system";
   - the web page's title is "Tessick - High-Density Test Management Workspace".
 - Outside the history files, no "testify" is left in any case.
+
+## The in-memory database runs one transaction at a time (2026-11-15)
+
+**The bug:** the in-memory PGlite driver (`packages/db/src/dialects/postgres.ts`) gave Kysely a new connection object each time, but every one of them shared PGlite's single Postgres session, and nothing took turns. So two requests' `db.transaction()` calls at once ran inside each other: one BEGIN, both callers' queries, and the first COMMIT or ROLLBACK ending both. The per-project id lock (`lockExternalIds`, a transaction-level advisory lock) is re-entrant within a session, so it didn't keep them apart either. Two cases created at once could both pick the same PREFIX-n, and the second failed with `duplicate key value violates unique constraint "uq_test_case_external"` and then "current transaction is aborted". Found by running two `POST /cases/:caseId/duplicate` at once. Real PostgreSQL (a `pg.Pool`, one session per connection) was never affected.
+
+**The fix,** in the driver:
+- **A transaction holds the session** from BEGIN to COMMIT/ROLLBACK, under a FIFO lock; the others wait their turn. A failed COMMIT keeps the lock until Kysely's ROLLBACK that follows it.
+- **A query outside any transaction waits for the open one,** so it doesn't see that transaction's uncommitted rows, and isn't rolled back with it or failed by its aborted state.
+- **Except a `db` query from inside the open transaction's own callback**, which would otherwise wait forever for its own caller. It runs at once, inside the transaction, as before. The driver can tell because the PGlite client (`PGliteKysely`) marks each `db.transaction().execute(...)` call with an `AsyncLocalStorage` value, which the callback and anything it starts carry.
+- **A `db.transaction()` started inside another's callback is refused** with an error saying to use `trx`, rather than waiting forever.
+
+Kysely 0.29's own `PGliteDialect` was considered. It makes every query wait for the one connection, so a `db` query inside a callback would hang. PGlite's `transaction()` alone doesn't help: its plain `query()` doesn't wait for an open transaction.
+
+**`db` inside transaction callbacks:**
+- **A static search** (every `.transaction().execute` callback, for `db`, `this.db` and methods on `this`) found none. `AdminGuard.run` passes its trx-based `RoleRepository` to `ceiling`.
+- **The full test suite was run with the pass-through branch logging each use.** Only the new test's deliberate one appeared. So nothing needed fixing.
+- **CLAUDE.md now says to use only `trx` inside a callback:** on PostgreSQL a `db` query there runs on another connection, outside the transaction.
+
+**Tests:**
+- `packages/db/tests/pglite_transactions.test.ts` (new, 4 tests):
+  - two overlapping transactions run one after the other, and the second's rollback leaves the first's row;
+  - a query outside a transaction, asked while its row is uncommitted, waits and sees nothing after the rollback;
+  - a `db` query inside the callback runs and sees the transaction's row;
+  - a nested `db.transaction()` is refused, and the outer one rolls back.
+- `external_ids.test.ts` (+1): two case creations whose transactions overlap. `getNextExternalId` is wrapped to pause 50 ms after picking, and the second request starts once the first has picked. Both are 201, with SHOP-1011 and SHOP-1012.
+- `external_ids.test.ts` comment: its 12-parallel-creations test said the in-memory database ran these transactions one after another. They didn't; the test passed on timing. The comment is corrected.
+- **Checked against the old driver:** all four new driver tests fail, and the overlap test gets `[201, 500]`. On the new driver they pass.
+- `npx vitest run --maxWorkers=3`: 863 passed, 4 skipped. `npm run typecheck` is clean.
+
+**Docs:** CLAUDE.md/AGENTS.md (the development database runs one transaction at a time; `trx` only inside a callback) and RFC 01 §4.1 (the concurrency difference between PGlite and PostgreSQL).
+
+**Merged after the rename** (applied onto `main`, after the duplicate feature and the Testify → Tessick rename):
+- `external_ids.test.ts`'s new import now reads `@tessick/db`;
+- `case_duplicate.test.ts` gets back the test that two duplicates made at once get different readable ids, which couldn't pass on the old driver.
+
+The merged suite passes: 870 tests, 4 skipped. The type check is clean.
+
+An earlier full run from the repo root stalled for hours with no output and no CPU, before any test ran. Stopped, each workspace then passed on its own, and a second full root run passed in 7.4 minutes. It looked like a startup stall, not a deadlock in the tests.

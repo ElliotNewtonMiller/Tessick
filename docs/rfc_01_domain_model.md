@@ -225,7 +225,7 @@ The original design ran two SQL engines end to end: `better-sqlite3` (a native N
 - **Development and tests:** an in-memory PGlite instance (`createDbClient()` with no connection string; `DATABASE_URL=memory` for the server).
 - **Production:** a real PostgreSQL server (`DATABASE_URL=postgres://...`).
 
-Both go through Kysely and the same migrations, with no per-dialect branching. The production build has been run against PostgreSQL 17, and CI does so on every push.
+Both go through Kysely and the same migrations, with no per-dialect branching. One difference is concurrency: PGlite is a single Postgres session, so its driver runs one transaction at a time (a query outside a transaction waits for it), where PostgreSQL's connection pool runs them side by side. The production build has been run against PostgreSQL 17, and CI does so on every push.
 
 ### 4.2 Query Layer (Kysely) and Migrations
 
