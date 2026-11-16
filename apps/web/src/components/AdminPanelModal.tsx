@@ -3525,21 +3525,14 @@ export function AdminPanelModal({
                   <tr
                     style={{ borderBottom: "1px solid #0f172a" }}
                   >
-                    <td
-                      style={{
-                        padding: "6px",
-                        color: "#64748b",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {log.first_created_at ? (
-                        <>
-                          {new Date(log.first_created_at).toLocaleString()}
-                          <div>to {new Date(log.created_at).toLocaleTimeString()}</div>
-                        </>
-                      ) : (
-                        new Date(log.created_at).toLocaleString()
-                      )}
+                    {/* The date above the time, so the column stays narrow (no horizontal scroll at the panel's width). */}
+                    <td style={{ padding: "6px", color: "#64748b", whiteSpace: "nowrap" }}>
+                      {new Date(log.first_created_at ?? log.created_at).toLocaleDateString()}
+                      <div>
+                        {log.first_created_at
+                          ? `${new Date(log.first_created_at).toLocaleTimeString()} to ${new Date(log.created_at).toLocaleTimeString()}`
+                          : new Date(log.created_at).toLocaleTimeString()}
+                      </div>
                     </td>
                     <td style={{ padding: "6px" }}>
                       <span
@@ -3551,7 +3544,17 @@ export function AdminPanelModal({
                           fontWeight: 700,
                         }}
                       >
-                        {log.action}
+                        {/* Long names (PERMISSION_OVERRIDES_UPDATED) may wrap after an underscore. */}
+                        {log.action.split("_").map((part, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && (
+                              <>
+                                _<wbr />
+                              </>
+                            )}
+                            {part}
+                          </React.Fragment>
+                        ))}
                       </span>
                       {log.grouped_count && (
                         <button
@@ -3574,7 +3577,9 @@ export function AdminPanelModal({
                         padding: "6px",
                         fontFamily: "monospace",
                         color: "#cbd5e1",
-                        whiteSpace: "nowrap",
+                        // Ids wrap onto two lines rather than widening the table; a click still selects the whole id.
+                        wordBreak: "break-all",
+                        minWidth: "130px",
                       }}
                     >
                       {/* The whole id (selectable), with what kind of thing it is above it. */}

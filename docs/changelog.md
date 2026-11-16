@@ -3963,3 +3963,24 @@ The answer: per file, both write one row. But a Playwright suite with screenshot
 - the run id appeared twice in the grouped line (its resource column and the summary), so it was dropped from the summary.
 
 Also checked live, from the backlog: a PDF and an executable renamed `setup.png`, dropped on the Execute pane, were both refused. The message named each file.
+
+## Longer toasts; the Security Audit Log fits without scrolling sideways (2026-11-15)
+
+**Toasts stay twice as long:** 6 seconds instead of 3 (`TOAST_MS` in `hooks/useToast.ts`), at Elliot's request, since they went too fast to read. Showing a toast now restarts the hide timer. Before, the first toast's timer cut short the same message shown again within 3 seconds. The hook's comment said the toast is at the top of the screen; it's at the bottom right.
+
+**The Security Audit Log no longer scrolls sideways.** Elliot asked whether its horizontal scroll bar could go for most screen sizes.
+- **Why it scrolled:** the Admin Panel is a fixed 840 px wide on every screen, so screen size didn't matter. The table's narrowest possible width was 773 px, against 749 px inside the panel, because:
+  - the resource id (a UUID) couldn't wrap: 250 px;
+  - the timestamp and the action name didn't wrap.
+- **The fix:**
+  - the timestamp is the date above the time;
+  - action names may wrap after an underscore (`PERMISSION_OVERRIDES_`/`UPDATED`);
+  - ids may wrap onto two lines (at least 130 px), and a click still selects the whole id.
+- **The result:** the table's narrowest width is now 594 px, so it fits the panel with room to spare, with a group of evidence additions expanded too.
+- **Not changed:** on a window narrower than about 890 px, the whole Admin Panel (every tab) is wider than the window. That's the panel's fixed width, not the table, and is left as it was.
+
+**Verified live** at `127.0.0.1:3000` (a separate tab), measured in the page:
+- **The audit log:** no horizontal scroll (scroll width 773 = client width), with and without the ×5 group expanded. Column widths 148/91/72/139/300 px.
+- **A toast:** a refused file's toast was showing at 4.5 seconds and gone at 7.
+
+The web tests pass (56).
