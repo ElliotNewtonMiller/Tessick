@@ -19,7 +19,7 @@ describe('Admin password reset', () => {
   async function createUser(username: string, global_role: string) {
     const res = await call(adminToken, 'POST', '/api/v1/admin/users', {
       username,
-      email: `${username}@testify.local`,
+      email: `${username}@tessick.local`,
       password: 'SecurePass123!',
       global_role,
     });

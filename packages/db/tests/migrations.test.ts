@@ -50,7 +50,7 @@ describe('migrateToLatest', () => {
   it('refuses, with a clear message, a pre-tracking database from an older build that lacks part of the schema', async () => {
     await initialSchema.up(db);
     await db.schema.dropTable('last_email').execute();
-    await expect(migrateToLatest(db)).rejects.toThrow(/created by an older Testify build/);
+    await expect(migrateToLatest(db)).rejects.toThrow(/created by an older Tessick build/);
   });
 
   it('migrations are registered in run order, each with up and down', () => {
@@ -225,7 +225,7 @@ describe('migrateToLatest', () => {
     await db.insertInto('users').values({ id: 'u1', username: 'u', email: 'u@x', password_hash: 'x', status: 'ACTIVE', created_at: now, updated_at: now } as any).execute();
     await db
       .insertInto('api_tokens' as any)
-      .values({ id: 't1', project_id: 'p1', name: 'CI', token_prefix: 'tf_ci_x', token_hash: 'h', capabilities: '[]', created_by: 'u1', created_at: now })
+      .values({ id: 't1', project_id: 'p1', name: 'CI', token_prefix: 'tk_ci_x', token_hash: 'h', capabilities: '[]', created_by: 'u1', created_at: now })
       .execute();
     expect(await migrateToLatest(db)).toContain('013_api_token_interfaces');
     expect(await db.selectFrom('api_tokens' as any).select('interfaces').execute()).toEqual([{ interfaces: 'BOTH' }]);

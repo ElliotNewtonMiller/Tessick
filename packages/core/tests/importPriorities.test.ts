@@ -8,7 +8,7 @@ async function parseAll(parser: IFileParser, text: string): Promise<ParsedSuite[
   return suites;
 }
 
-describe('priorities in imports: all four of Testify\'s', () => {
+describe('priorities in imports: all four of Tessick\'s', () => {
   it('normalizePriority reads names in any case, 1-4, and falls back', () => {
     expect(['critical', 'High', 'MEDIUM', 'low', ' Critical '].map((p) => normalizePriority(p))).toEqual(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'CRITICAL']);
     expect(['1', '2', '3', '4', 4].map((p) => normalizePriority(p))).toEqual(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'CRITICAL']);
@@ -33,7 +33,7 @@ describe('priorities in imports: all four of Testify\'s', () => {
     expect(xml[0].test_cases[0].importance).toBe('HIGH');
   });
 
-  it("JSON: reads Testify's own export (cases, priority, version content, custom field values)", async () => {
+  it("JSON: reads Tessick's own export (cases, priority, version content, custom field values)", async () => {
     const bundle = {
       object: 'definitions_export_bundle',
       suites: [

@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { TestCaseVersionRepository } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { TestCaseVersionRepository } from '@tessick/db';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { innerRequest } from '../internalRequests.js';
 import { ToolError, json, type JsonSchema, type ToolDef } from './toolTypes.js';
@@ -12,7 +12,7 @@ import { ToolError, json, type JsonSchema, type ToolDef } from './toolTypes.js';
  * same rules, errors and audit rows. On top of that:
  * - cases it creates start as DRAFT, and editing an approved case makes a new DRAFT: a person
  *   approves agents' work (there's no approve, deprecate or delete tool);
- * - its changes' audit rows say "via Testify MCP" in their User-Agent, and every call writes an
+ * - its changes' audit rows say "via Tessick MCP" in their User-Agent, and every call writes an
  *   MCP_WRITE row to the Security Audit Log (mcpServer.ts).
  */
 
@@ -115,7 +115,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
     {
       name: 'create_case',
       description:
-        'Create a test case in a suite. It starts as a DRAFT, which a person reviews and approves in Testify before it can be added to a plan. Returns its readable id (e.g. SHOP-12).',
+        'Create a test case in a suite. It starts as a DRAFT, which a person reviews and approves in Tessick before it can be added to a plan. Returns its readable id (e.g. SHOP-12).',
       write: { permissions: ['SPEC_CREATE'] },
       inputSchema: {
         type: 'object',
@@ -147,7 +147,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
           test_case_id: out.test_case.id,
           external_id: out.test_case.external_id,
           version: { version_number: out.version.version_number, status: out.version.status },
-          note: 'Created as a DRAFT; a person approves it in Testify.',
+          note: 'Created as a DRAFT; a person approves it in Tessick.',
         });
       },
     },
@@ -186,7 +186,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
           title: out.test_case.title,
           version: { version_number: out.version.version_number, status: out.version.status },
           duplicated_from: out.duplicated_from,
-          note: 'Created as a DRAFT; a person approves it in Testify.',
+          note: 'Created as a DRAFT; a person approves it in Tessick.',
         });
       },
     },
@@ -253,7 +253,7 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
           external_id: c.external_id,
           changed,
           ...(version ? { version } : {}),
-          ...(newDraft ? { note: `The case was approved, so its content was edited in a new DRAFT version ${version!.version_number}; a person approves it in Testify.` } : {}),
+          ...(newDraft ? { note: `The case was approved, so its content was edited in a new DRAFT version ${version!.version_number}; a person approves it in Tessick.` } : {}),
         });
       },
     },

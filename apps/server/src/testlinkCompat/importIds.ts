@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely';
-import { COMPAT_ID_SPACES, CustomFieldRepository, type CompatEntityType, type Database } from '@testify/db';
-import { TL_KEYWORDS_FIELD, parseCustomFieldValue, type CustomFieldType } from '@testify/core';
+import { COMPAT_ID_SPACES, CustomFieldRepository, type CompatEntityType, type Database } from '@tessick/db';
+import { TL_KEYWORDS_FIELD, parseCustomFieldValue, type CustomFieldType } from '@tessick/core';
 import { v7 as uuidv7 } from 'uuid';
 
 /**

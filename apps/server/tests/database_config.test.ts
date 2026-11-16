@@ -13,12 +13,12 @@ describe('resolveDatabaseConfig (DATABASE_URL)', () => {
   });
 
   it('accepts a PostgreSQL connection string', () => {
-    expect(resolveDatabaseConfig({ DATABASE_URL: 'postgres://u:p@db:5432/testify' })).toEqual({
-      connectionString: 'postgres://u:p@db:5432/testify',
+    expect(resolveDatabaseConfig({ DATABASE_URL: 'postgres://u:p@db:5432/tessick' })).toEqual({
+      connectionString: 'postgres://u:p@db:5432/tessick',
       inMemory: false,
     });
-    expect(resolveDatabaseConfig({ DATABASE_URL: ' postgresql://db/testify ', NODE_ENV: 'production' }).connectionString).toBe(
-      'postgresql://db/testify'
+    expect(resolveDatabaseConfig({ DATABASE_URL: ' postgresql://db/tessick ', NODE_ENV: 'production' }).connectionString).toBe(
+      'postgresql://db/tessick'
     );
   });
 
@@ -28,7 +28,7 @@ describe('resolveDatabaseConfig (DATABASE_URL)', () => {
   });
 
   it('rejects anything that is not a PostgreSQL URL (e.g. a typo)', () => {
-    for (const DATABASE_URL of ['memroy', 'mysql://db/testify', 'localhost:5432']) {
+    for (const DATABASE_URL of ['memroy', 'mysql://db/tessick', 'localhost:5432']) {
       expect(() => resolveDatabaseConfig({ DATABASE_URL })).toThrow(/must be a PostgreSQL connection string/);
     }
   });
@@ -42,6 +42,6 @@ describe('server startup', () => {
     delete env.DATABASE_URL;
     const run = spawnSync(tsx, ['src/server.ts'], { cwd: serverDir, env, encoding: 'utf8', timeout: 30_000 });
     expect(run.status).toBe(1);
-    expect(run.stderr).toContain('[testify] DATABASE_URL is not set');
+    expect(run.stderr).toContain('[tessick] DATABASE_URL is not set');
   }, 40_000);
 });

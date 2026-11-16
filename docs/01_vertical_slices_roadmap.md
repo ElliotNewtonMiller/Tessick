@@ -1,4 +1,4 @@
-# Vertical Slices Implementation Roadmap: Testify
+# Vertical Slices Implementation Roadmap: Tessick
 
 **Document Status:** Implementation roadmap, updated 2026-10-11 to record what was built
 **Date:** September 8, 2026
@@ -11,7 +11,7 @@ The original roadmap broke the build into five vertical slices, each with target
 
 ## 1. Slicing Strategy
 
-Rather than building by layers (all tables, then all routes, then all screens), Testify was built in vertical slices:
+Rather than building by layers (all tables, then all routes, then all screens), Tessick was built in vertical slices:
 1. **End to end:** each slice delivers working capabilities across migrations, domain logic, API routes and UI.
 2. **Following the design:** schemas, state machines, focus rules and permissions follow the RFCs; where the build departed from them, the RFCs have been updated.
 3. **Verified as it goes:** every slice has automated tests, all run by `npm test` (Vitest, all workspaces), plus CI on every push.
@@ -137,9 +137,9 @@ flowchart TD
 - out-of-band storage for attachments.
 
 **Built:**
-- **Import:** five parsers (TestLink XML, JUnit XML, Testify JSON, CSV, TestRail CSV), `POST /api/v1/projects/{projectId}/imports/dry-run` and `/execute` (multipart, up to 50 MB), and an import wizard with custom-field mapping and duplicate handling (RFC 03 §6).
+- **Import:** five parsers (TestLink XML, JUnit XML, Tessick JSON, CSV, TestRail CSV), `POST /api/v1/projects/{projectId}/imports/dry-run` and `/execute` (multipart, up to 50 MB), and an import wizard with custom-field mapping and duplicate handling (RFC 03 §6).
 - **Export:** suite and case definitions, or a run's results, as JSON or CSV (`/api/v1/projects/{projectId}/exports/...`).
-- **API tokens:** `tf_ci_...`, created under `/api/v1/projects/{projectId}/api-tokens`, project-bound and capped by the issuer (RFC 04 §4.2).
+- **API tokens:** `tk_ci_...`, created under `/api/v1/projects/{projectId}/api-tokens`, project-bound and capped by the issuer (RFC 04 §4.2).
 - **Reports:** a catalog of reports over REST (`/api/v1/projects/{projectId}/reports/...`), a Reports view in the web app, scheduled and manual report emails, and an MCP endpoint (`POST /mcp`) for agents, read-only at first (write tools came with API roadmap step 6) ([reports_api_and_mcp.md](./reports_api_and_mcp.md)).
 - **Not built:**
   - attachments and `IStorageProvider`, including the pre-signed upload route;

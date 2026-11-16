@@ -1,4 +1,4 @@
-import { API_TOKEN_INTERFACES, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@testify/core';
+import { API_TOKEN_INTERFACES, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@tessick/core';
 import { authedErrors, wrapped, list, NO_CONTENT, FORCE_QUERY, idParams, handlerValidated, oneOf, VERDICTS, STEP_VERDICTS, RESULT_STATUSES, PLAN_STATUSES, RUN_STATUSES, pageQuery, NEXT_CURSOR } from '../schemas.js';
 
 /** Route schemas for routes/projects.ts, the run list in routes/exports.ts, routes/results.ts and routes/batchExecution.ts. */
@@ -390,7 +390,7 @@ export const batchResultsSchema = {
       environment: { type: 'string', description: 'e.g. staging' },
       runner_info: {
         type: 'object',
-        description: 'Shown in reports. `run_id` is your CI system\'s run id, not a Testify id.',
+        description: 'Shown in reports. `run_id` is your CI system\'s run id, not a Tessick id.',
         properties: {
           name: { type: 'string' },
           run_id: { type: 'string' },
@@ -492,7 +492,7 @@ export const BATCH_BODY_LIMIT_BYTES = 50 * 1024 * 1024;
 const JUNIT_QUERY = {
   environment: { type: 'string', description: 'e.g. staging; stored with every result' },
   ci_name: { type: 'string', description: 'Your CI system, e.g. GitHub Actions (shown in reports)' },
-  ci_run_id: { type: 'string', description: "Your CI system's id for this build (not a Testify id)" },
+  ci_run_id: { type: 'string', description: "Your CI system's id for this build (not a Tessick id)" },
   ci_job_name: { type: 'string' },
   ci_url: { type: 'string', description: 'A link back to the build' },
   commit_sha: { type: 'string' },
@@ -501,7 +501,7 @@ const JUNIT_QUERY = {
 
 const JUNIT_DESCRIPTION =
   'The body is a JUnit XML report, as most test runners write it (pytest `--junitxml`, Maven Surefire, Gradle, Jest and Vitest junit reporters, go-junit-report, ...), sent as is: `curl --data-binary @report.xml`. Up to 20,000 tests and 50 MB. ' +
-  'Each `<testcase>` is matched to a case of the project: by readable id (a `testify_id` property, or an id such as SHOP-101 in the test name), otherwise by suite and title, which is how a JUnit import of the same file names cases. ' +
+  'Each `<testcase>` is matched to a case of the project: by readable id (a `tessick_id` property, or an id such as SHOP-101 in the test name), otherwise by suite and title, which is how a JUnit import of the same file names cases. ' +
   'failure and error are FAILED, skipped is SKIPPED, everything else PASSED; `time` (seconds) becomes the duration, unless it is not a number, negative or over about 24 days (likely milliseconds), and then the result has none; the failure message and text become the error and stack trace. NUL characters in the file are removed. ' +
   'A matched case not yet in the plan is added if it is approved. Tests that match no case are listed as refused (`CASE_NOT_FOUND`, 207) and not recorded. Needs `EXECUTE_RUN`.\n\n' +
   'With evidence: send multipart/form-data, the report as the `file` part and screenshots, videos, logs or traces as other file parts. Each goes to the result of the test that attaches it, `[[ATTACHMENT|path]]` in its `system-out`/`system-err` or an `attachment` property, matched by file name (`curl -F file=@report.xml -F shot=@screenshots/login.png`). The answer\'s `evidence` says what was stored and refused; see the Evidence endpoints for the types and limits.';

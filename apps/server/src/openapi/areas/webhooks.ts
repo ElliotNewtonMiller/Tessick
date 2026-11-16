@@ -1,4 +1,4 @@
-import { WEBHOOK_EVENT_KEYS, WEBHOOK_FORMATS } from '@testify/core';
+import { WEBHOOK_EVENT_KEYS, WEBHOOK_FORMATS } from '@tessick/core';
 import { authedErrors, NO_CONTENT, idParams, oneOf, handlerValidated, pageQuery, NEXT_CURSOR } from '../schemas.js';
 
 /** Route schemas for routes/webhooks.ts (API roadmap step 7; RFC 03 §7.3). */
@@ -12,9 +12,9 @@ export const WEBHOOK_PAGE = { defaultLimit: 50, maxLimit: 200 };
 const nullableText = { type: ['string', 'null'] };
 
 const deliverySummaryProperties = {
-  id: { type: 'string', description: 'The delivery id (X-Testify-Delivery)' },
+  id: { type: 'string', description: 'The delivery id (X-Tessick-Delivery)' },
   webhook_id: { type: 'string' },
-  event_id: { type: 'string', description: 'The event id (X-Testify-Event-Id, and `id` in the body): the same for every retry and redelivery' },
+  event_id: { type: 'string', description: 'The event id (X-Tessick-Event-Id, and `id` in the body): the same for every retry and redelivery' },
   event: { type: 'string' },
   status: oneOf(DELIVERY_STATUSES, 'PENDING: waiting for its first attempt or a retry; FAILED: gave up after 6 attempts (or the webhook was turned off or deleted).'),
   attempts: { type: 'integer' },

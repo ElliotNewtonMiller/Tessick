@@ -57,7 +57,7 @@ describe('User & Role Repositories', () => {
     const admin = await userRepo.seedInitialAdmin({ password: 'password' });
     expect(admin).not.toBeNull();
     expect(admin.username).toBe('admin');
-    expect(admin.email).toBe('admin@testify.local');
+    expect(admin.email).toBe('admin@tessick.local');
 
     const role = await roleRepo.getUserGlobalRole(admin.id);
     expect(role).toBe('Admin');
@@ -83,7 +83,7 @@ describe('User & Role Repositories', () => {
     expect(again.id).toBe(admin.id);
     expect(await userRepo.isCurrentPassword(admin.id, 'something-else-entirely')).toBe(false);
 
-    const updated = await userRepo.updateCredentials({ userId: admin.id, newEmail: 'root@testify.local' });
+    const updated = await userRepo.updateCredentials({ userId: admin.id, newEmail: 'root@tessick.local' });
     expect(updated.must_change_password).toBe(true); // not cleared by other changes
     const changed = await userRepo.updateCredentials({ userId: admin.id, newPassword: 'my-own-long-passphrase' });
     expect(changed.must_change_password).toBe(false);
@@ -94,7 +94,7 @@ describe('User & Role Repositories', () => {
 
     const newUser = await userRepo.create({
       username: 'tester_john',
-      email: 'john@testify.local',
+      email: 'john@tessick.local',
       password: 'MyPassword123!',
       global_role: 'Tester',
     });
@@ -119,7 +119,7 @@ describe('User & Role Repositories', () => {
   it('enforces explicit project roles and privilege delegation', async () => {
     const lead = await userRepo.create({
       username: 'dev_lead',
-      email: 'lead@testify.local',
+      email: 'lead@tessick.local',
       password: 'LeadPassword1!',
       global_role: 'Tester', // Global Tester
     });

@@ -3,7 +3,7 @@ import { addImportedKeywords, keepTestLinkId } from '../testlinkCompat/importIds
 import { Readable } from 'node:stream';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
-import { CustomFieldRepository, TestCaseRepository, MAX_SUITE_PATH_LENGTH, suiteTooDeepError, type Database } from '@testify/db';
+import { CustomFieldRepository, TestCaseRepository, MAX_SUITE_PATH_LENGTH, suiteTooDeepError, type Database } from '@tessick/db';
 import {
   SaxXmlParser,
   JsonSchemaParser,
@@ -28,7 +28,7 @@ import {
   type DryRunWarning,
   type HierarchyPreviewNode,
   type SkippedCustomFieldValueWarning,
-} from '@testify/core';
+} from '@tessick/core';
 import { authenticateRequest, permissionsInProject } from '../middleware/auth.js';
 import { isPublicError, publicErrorMessage, sendError } from '../errors.js';
 import { requestOrigin } from '../audit.js';

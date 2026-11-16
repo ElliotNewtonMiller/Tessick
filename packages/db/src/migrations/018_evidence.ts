@@ -83,7 +83,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('size_bytes', 'bigint', (col) => col.notNull())
     .addColumn('sha256', 'varchar(64)', (col) => col.notNull())
     .addColumn('storage_key', 'varchar(255)', (col) => col.notNull().unique())
-    // pending: waiting for the file; receiving: being uploaded through Testify; done: it's evidence
+    // pending: waiting for the file; receiving: being uploaded through Tessick; done: it's evidence
     // (`evidence_id`), whose row now owns the stored file.
     .addColumn('status', 'varchar(10)', (col) => col.notNull().defaultTo('pending'))
     .addColumn('evidence_id', 'varchar(36)')

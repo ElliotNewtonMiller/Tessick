@@ -10,7 +10,7 @@ import {
   resolveDefaultValue,
   type CustomFieldType,
   type CustomFieldEntityType,
-} from '@testify/core';
+} from '@tessick/core';
 
 export interface CustomFieldOption {
   id?: string;
@@ -388,7 +388,7 @@ export class CustomFieldRepository {
   /**
    * Updates every existing custom_field_values row for `definition` that's currently
    * "blank" (every typed column null, or -- for MULTI_SELECT -- json_value of '[]', matching
-   * @testify/core's own isEmpty() semantics) to the definition's own default_value. Meant to
+   * @tessick/core's own isEmpty() semantics) to the definition's own default_value. Meant to
    * be called after updateDefinition() whenever the update leaves a field required with a
    * usable default.
    *
@@ -781,7 +781,7 @@ export class CustomFieldRepository {
   }
 
   /** Validates `rawValue` against the definition's field_type/options/validation_regex via
-   * @testify/core's parseCustomFieldValue (throwing INVALID_FIELD_VALUE/REQUIRED_FIELD_MISSING
+   * @tessick/core's parseCustomFieldValue (throwing INVALID_FIELD_VALUE/REQUIRED_FIELD_MISSING
    * on failure), then updates the existing value row for this (definition, entity) pair or
    * inserts a new one -- never accumulating duplicates on repeated edits. `projectId`
    * (optional) widens the internal definition lookup to also match that project's own
@@ -844,7 +844,7 @@ export class CustomFieldRepository {
   }
 }
 
-/** A validation pattern must compile and be a reasonable length (see @testify/core). */
+/** A validation pattern must compile and be a reasonable length (see @tessick/core). */
 function assertValidationPattern(pattern: string | null | undefined): void {
   if (!pattern) return;
   const problem = checkValidationPattern(pattern);

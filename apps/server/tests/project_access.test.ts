@@ -12,7 +12,7 @@ describe('Per-project access', () => {
 
   async function createUser(globalRole: string): Promise<{ id: string; token: string }> {
     const username = `u_${Math.random().toString(36).slice(2)}`;
-    const created = await call(admin, 'POST', '/api/v1/admin/users', { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole });
+    const created = await call(admin, 'POST', '/api/v1/admin/users', { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole });
     expect(created.statusCode).toBe(201);
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } });
     return { id: body(created).user.id, token: body(login).token };

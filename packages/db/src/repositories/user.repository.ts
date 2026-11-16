@@ -3,7 +3,7 @@ import { v7 as uuidv7 } from 'uuid';
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Database, UsersTable } from '../types.js';
-import { validatePasswordPolicy } from '@testify/core';
+import { validatePasswordPolicy } from '@tessick/core';
 import type { RoleName } from './role.repository.js';
 
 export type User = Selectable<UsersTable>;
@@ -105,7 +105,7 @@ export class UserRepository {
     const adminUser: NewUser = {
       id: adminId,
       username: 'admin',
-      email: 'admin@testify.local',
+      email: 'admin@tessick.local',
       password_hash: passwordHash,
       status: 'ACTIVE',
       must_change_password: options.mustChangePassword ?? false,

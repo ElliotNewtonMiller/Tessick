@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import { createServer } from '../src/server.js';
 import { setTransportFactoryForTests } from '../src/services/mailer.js';
 import { runDueSchedules } from '../src/services/reportEmailService.js';
-import { ProjectRepository, ReportScheduleRepository, TestPlanRepository } from '@testify/db';
+import { ProjectRepository, ReportScheduleRepository, TestPlanRepository } from '@tessick/db';
 
 describe('Report emails: settings, last email, manual sends and schedules', () => {
   let serverInstance: any;
@@ -28,7 +28,7 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } });
     return { token: JSON.parse(login.payload).token, userId: JSON.parse(createRes.payload).user.id };
@@ -62,11 +62,11 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
       expect(initial).toMatchObject({ smtp_host: null, has_password: false, delivery: 'capture_only' });
 
       const put = await call(app, admin, 'PUT', '/api/v1/admin/email-settings', {
-        smtp_host: 'smtp.example.com', smtp_port: 587, smtp_user: 'me', smtp_password: 's3cret', from: 'Testify <qa@example.com>', public_url: 'https://testify.example.com/',
+        smtp_host: 'smtp.example.com', smtp_port: 587, smtp_user: 'me', smtp_password: 's3cret', from: 'Tessick <qa@example.com>', public_url: 'https://tessick.example.com/',
       });
       expect(put.statusCode).toBe(200);
       expect(put.payload).not.toContain('s3cret');
-      expect(JSON.parse(put.payload).settings).toMatchObject({ smtp_host: 'smtp.example.com', smtp_port: 587, has_password: true, public_url: 'https://testify.example.com', delivery: 'smtp' });
+      expect(JSON.parse(put.payload).settings).toMatchObject({ smtp_host: 'smtp.example.com', smtp_port: 587, has_password: true, public_url: 'https://tessick.example.com', delivery: 'smtp' });
 
       // Leaving the password out keeps it.
       await call(app, admin, 'PUT', '/api/v1/admin/email-settings', { smtp_host: 'smtp.example.com', from: 'qa@example.com' });
@@ -95,7 +95,7 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
       });
       const sent = JSON.parse((await call(app, admin, 'POST', '/api/v1/admin/email-settings/test', { to: 'me@example.com' })).payload);
       expect(sent.email.status).toBe('SENT');
-      expect(sentMessages[0]).toMatchObject({ to: ['me@example.com'], subject: 'Testify test email' });
+      expect(sentMessages[0]).toMatchObject({ to: ['me@example.com'], subject: 'Tessick test email' });
 
       setTransportFactoryForTests(() => ({ sendMail: async () => { throw new Error('connection refused'); } }) as any);
       const failed = JSON.parse((await call(app, admin, 'POST', '/api/v1/admin/email-settings/test', { to: 'me@example.com' })).payload);
@@ -103,8 +103,8 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
 
       // Only the last email is kept -- no log.
       const last = await lastEmail(app, admin);
-      expect(last).toMatchObject({ status: 'FAILED', error: 'connection refused', recipients: ['me@example.com'], subject: 'Testify test email' });
-      expect(last.html).toContain('Testify can send email');
+      expect(last).toMatchObject({ status: 'FAILED', error: 'connection refused', recipients: ['me@example.com'], subject: 'Tessick test email' });
+      expect(last.html).toContain('Tessick can send email');
       const rows = await serverInstance.db.selectFrom('last_email').select('id').execute();
       expect(rows).toHaveLength(1);
     });
@@ -114,15 +114,15 @@ describe('Report emails: settings, last email, manual sends and schedules', () =
     it('preview renders without sending; sending becomes the last email and writes an audit row', async () => {
       const { app, seed } = serverInstance;
       const admin = await loginAsAdmin(app);
-      await call(app, admin, 'PUT', '/api/v1/admin/email-settings', { public_url: 'https://testify.example.com' });
+      await call(app, admin, 'PUT', '/api/v1/admin/email-settings', { public_url: 'https://tessick.example.com' });
       const url = `/api/v1/projects/${seed.projectId}/report-emails`;
       const sections = [{ report_id: 'run_summary', params: { test_run_id: seed.buildId } }];
 
       const preview = await call(app, admin, 'POST', url, { sections, preview: true });
       expect(preview.statusCode).toBe(200);
       const p = JSON.parse(preview.payload);
-      expect(p.subject).toMatch(/^Testify · .* · Run /);
-      expect(p.html).toContain(`https://testify.example.com/#/reports/run?project=${seed.projectId}`);
+      expect(p.subject).toMatch(/^Tessick · .* · Run /);
+      expect(p.html).toContain(`https://tessick.example.com/#/reports/run?project=${seed.projectId}`);
       expect(await lastEmail(app, admin)).toBeNull();
 
       const sent = await call(app, admin, 'POST', url, { sections, recipients: ['Boss@Example.com', 'boss@example.com', 'qa@example.com'], message: 'Release status' });

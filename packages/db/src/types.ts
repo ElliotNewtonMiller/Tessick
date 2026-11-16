@@ -347,13 +347,13 @@ export interface Database {
   evidence_uploads: EvidenceUploadsTable;
 }
 
-/** TestLink's numeric id for a Testify row, in its id space (migration 016; testlinkCompat). */
+/** TestLink's numeric id for a Tessick row, in its id space (migration 016; testlinkCompat). */
 export interface CompatIdsTable {
   id_space: string;
   int_id: number;
   entity_type: string;
   entity_id: string;
-  /** 'testlink' (kept by the migration) or 'testify' (numbered when first shown). */
+  /** 'testlink' (kept by the migration) or 'tessick' (numbered when first shown). */
   origin: Generated<string>;
 }
 

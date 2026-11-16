@@ -224,14 +224,14 @@ export function EmailSettingsPanel() {
                 ? "•••••••• (saved, encrypted — type to replace)"
                 : "",
           })}
-          {field("from", "FROM ADDRESS", { placeholder: "Testify <qa@example.com>" })}
+          {field("from", "FROM ADDRESS", { placeholder: "Tessick <qa@example.com>" })}
           <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "6px", marginTop: "20px", cursor: "pointer" }}>
             <input type="checkbox" checked={form.smtp_secure} onChange={(e) => setForm((f) => ({ ...f, smtp_secure: e.target.checked }))} />
             Use TLS from the start (usually port 465)
           </label>
         </div>
         <div style={{ marginTop: "10px" }}>
-          {field("public_url", "TESTIFY ADDRESS FOR LINKS IN EMAILS", { placeholder: "https://testify.example.com" })}
+          {field("public_url", "TESSICK ADDRESS FOR LINKS IN EMAILS", { placeholder: "https://tessick.example.com" })}
         </div>
         <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap", alignItems: "center" }}>
           <button onClick={save} disabled={busy} style={{ ...buttonStyle, backgroundColor: "#0284c7", border: "none", color: "#fff" }}>
@@ -340,7 +340,7 @@ export function EmailPreviewModal({ subject, html, onClose, actions }: { subject
             ×
           </button>
         </div>
-        {/* Links open in a new tab (base target) so "Open in Testify" can be checked from here. */}
+        {/* Links open in a new tab (base target) so "Open in Tessick" can be checked from here. */}
         <iframe
           title="Email preview"
           sandbox="allow-popups allow-popups-to-escape-sandbox"

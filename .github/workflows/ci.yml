@@ -31,21 +31,21 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: testify
-          POSTGRES_USER: testify
-          POSTGRES_PASSWORD: testify
+          POSTGRES_DB: tessick
+          POSTGRES_USER: tessick
+          POSTGRES_PASSWORD: tessick
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U testify -d testify"
+          --health-cmd "pg_isready -U tessick -d tessick"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://testify:testify@localhost:5432/testify
+      DATABASE_URL: postgres://tessick:tessick@localhost:5432/tessick
       JWT_SECRET: ci-only-jwt-secret-not-for-real-use-0123456789
       ADMIN_PASSWORD: CiAdminPassword123!
-      EVIDENCE_DIR: /tmp/testify-evidence
+      EVIDENCE_DIR: /tmp/tessick-evidence
       PORT: 3001
     steps:
       - uses: actions/checkout@v7
@@ -63,8 +63,8 @@ jobs:
       - name: Load the demo data through the API
         run: npx tsx apps/server/scripts/report-demo.ts
         env:
-          TESTIFY_URL: http://localhost:3001
-          TESTIFY_PASSWORD: CiAdminPassword123!
+          TESSICK_URL: http://localhost:3001
+          TESSICK_PASSWORD: CiAdminPassword123!
       - name: Restart against the same database
         run: |
           pkill -f "[n]ode dist/server.js"
@@ -84,4 +84,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: docker build -t testify:ci .
+      - run: docker build -t tessick:ci .

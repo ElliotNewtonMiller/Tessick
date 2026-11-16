@@ -31,7 +31,7 @@ describe('Admin: template roles & per-user permission overrides', () => {
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         username,
-        email: `${username}@testify.local`,
+        email: `${username}@tessick.local`,
         password: 'SecurePass123!',
         global_role: 'Viewer',
       },

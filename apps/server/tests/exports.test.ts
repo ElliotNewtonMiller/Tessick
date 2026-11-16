@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { CustomFieldRepository, ProjectRepository } from '@testify/db';
+import { CustomFieldRepository, ProjectRepository } from '@tessick/db';
 
 describe('Data export: definitions and execution results', () => {
   let serverInstance: any;
@@ -30,7 +30,7 @@ describe('Data export: definitions and execution results', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(createRes.statusCode).toBe(201);
     const loginRes = await app.inject({

@@ -9,7 +9,7 @@ import {
   TestSuiteRepository,
   type CustomFieldDefinition,
   type Project,
-} from '@testify/db';
+} from '@tessick/db';
 import {
   SuiteTree,
   TL_CHECKBOX_VALUE,
@@ -29,19 +29,19 @@ import {
   type TlCustomFieldDef,
   type TlCustomFieldEntry,
   type TlSuite,
-} from '@testify/core';
+} from '@tessick/core';
 import { permissionsInProject } from '../middleware/auth.js';
 import type { CompatContext } from './index.js';
 
 /**
- * Testify's rows as the TestLink-compatible API shows them: TestLink's numeric ids (compat_ids,
+ * Tessick's rows as the TestLink-compatible API shows them: TestLink's numeric ids (compat_ids,
  * numbered the first time they're shown), codes and field names. Reads go straight to the
- * repositories; writes go through Testify's routes (phase 3).
+ * repositories; writes go through Tessick's routes (phase 3).
  */
 
 /** What the caller may do in a project, through this API. */
 export interface ProjectAccess {
-  /** Can see the project, its plans and builds (SPEC_VIEW or EXECUTE_RUN, as Testify's project list). */
+  /** Can see the project, its plans and builds (SPEC_VIEW or EXECUTE_RUN, as Tessick's project list). */
   visible: boolean;
   /** Can read its specification (SPEC_VIEW). */
   spec: boolean;
@@ -75,7 +75,7 @@ export async function findProject(request: FastifyRequest, ctx: CompatContext, i
   return access.visible ? { project, access } : undefined;
 }
 
-/** Projects as TestLink shows them (GET /testprojects). Testify has no inactive or private projects. */
+/** Projects as TestLink shows them (GET /testprojects). Tessick has no inactive or private projects. */
 export async function projectItems(ctx: CompatContext, projects: Project[]): Promise<Record<string, unknown>[]> {
   const ids = await new CompatIdRepository(ctx.db).intIds('project', projects.map((p) => p.id));
   const keys = new CompatApiKeyRepository(ctx.db);
@@ -95,7 +95,7 @@ export interface ProjectSpec {
   /** The project's case custom fields, without the ones shown as keywords and duration. */
   customFields: TlCustomFieldDef[];
   keywords: Array<{ id: number; keyword: string; notes: string }>;
-  /** Testify's suite id for each numeric one. */
+  /** Tessick's suite id for each numeric one. */
   suiteUuid: Map<number, string>;
 }
 

@@ -18,7 +18,7 @@ const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 
 /** A multipart/form-data body. */
 function multipart(parts: Array<{ name: string; filename?: string; content: Buffer | string; type?: string }>) {
-  const boundary = `----testify${Math.random().toString(16).slice(2)}`;
+  const boundary = `----tessick${Math.random().toString(16).slice(2)}`;
   const chunks: Buffer[] = [];
   for (const p of parts) {
     const disposition = `form-data; name="${p.name}"${p.filename !== undefined ? `; filename="${p.filename}"` : ''}`;

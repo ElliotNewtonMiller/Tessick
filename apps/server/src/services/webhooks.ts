@@ -1,8 +1,8 @@
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database, WebhookDelivery } from '@testify/db';
-import { ProjectRepository, WebhookRepository } from '@testify/db';
-import { renderSlackMessage, renderTeamsMessage, signWebhook, type WebhookEnvelope } from '@testify/core';
+import type { Database, WebhookDelivery } from '@tessick/db';
+import { ProjectRepository, WebhookRepository } from '@tessick/db';
+import { renderSlackMessage, renderTeamsMessage, signWebhook, type WebhookEnvelope } from '@tessick/core';
 import { getSecretBox } from './secrets.js';
 import { loadEmailSettings } from './mailer.js';
 import { actorNames } from './actorNames.js';
@@ -63,7 +63,7 @@ export async function buildEnvelope(
 ): Promise<WebhookEnvelope | null> {
   const project = await new ProjectRepository(db).findById(e.projectId);
   if (!project) return null;
-  const actor = e.actor ? { type: e.actor.type, name: (await actorNames(db, [e.actor.id])).get(e.actor.id) ?? e.actor.id } : { type: 'SYSTEM' as const, name: 'Testify' };
+  const actor = e.actor ? { type: e.actor.type, name: (await actorNames(db, [e.actor.id])).get(e.actor.id) ?? e.actor.id } : { type: 'SYSTEM' as const, name: 'Tessick' };
   return {
     id: e.eventId ?? uuidv4(),
     event: e.event,
@@ -222,10 +222,10 @@ async function attempt(db: Kysely<Database>, d: WebhookDelivery, now: Date): Pro
   const timestamp = Math.floor(Date.now() / 1000);
   const headers = {
     'content-type': 'application/json',
-    'user-agent': 'Testify-Webhooks/1',
-    'x-testify-event': d.event,
-    'x-testify-event-id': d.event_id,
-    'x-testify-delivery': d.id,
+    'user-agent': 'Tessick-Webhooks/1',
+    'x-tessick-event': d.event,
+    'x-tessick-event-id': d.event_id,
+    'x-tessick-delivery': d.id,
     'x-signature-timestamp': String(timestamp),
     'x-signature-sha256': signWebhook(secret, timestamp, body),
   };

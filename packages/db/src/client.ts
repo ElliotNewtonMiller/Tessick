@@ -6,7 +6,7 @@ export interface DbClientConfig {
   /**
    * Postgres connection string for a real Postgres server (production / team deployments).
    * Omit for an ephemeral, zero-config PGlite (WASM Postgres) instance -- no server, no native
-   * bindings, works identically on every machine. This is the only supported engine: Testify
+   * bindings, works identically on every machine. This is the only supported engine: Tessick
    * targets Postgres-compatible SQL everywhere (PGlite locally, real Postgres in production)
    * rather than maintaining a second SQL dialect.
    */

@@ -22,7 +22,7 @@ describe('EXECUTE_RUN without SPEC_VIEW', () => {
     adminToken = await login('admin', 'password');
     expect((await call(adminToken, 'POST', '/api/v1/admin/roles', { name: 'Runner', permission_keys: ['EXECUTE_RUN'] })).statusCode).toBe(201);
     expect((await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username: 'runner', email: 'runner@testify.local', password: 'Runner-Pass-123', global_role: 'Runner',
+      username: 'runner', email: 'runner@tessick.local', password: 'Runner-Pass-123', global_role: 'Runner',
     })).statusCode).toBe(201);
     runnerToken = await login('runner', 'Runner-Pass-123');
     // One case of the project that isn't in the plan.

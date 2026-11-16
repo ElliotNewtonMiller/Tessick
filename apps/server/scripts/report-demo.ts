@@ -1,5 +1,5 @@
 /**
- * Fills a running Testify server with a "Report Demo" project whose history exercises every
+ * Fills a running Tessick server with a "Report Demo" project whose history exercises every
  * report: a regression, a fix, a flip-flopping case, a pass-after-retry, a slowing case, an
  * always-failing case, a case not run in the latest run, and one never run at all -- plus
  * failure messages, CI runner info, and a couple of results recorded "by hand".
@@ -9,11 +9,11 @@
  *
  *   npx tsx apps/server/scripts/report-demo.ts
  *
- * Env: TESTIFY_URL (default http://localhost:3001), TESTIFY_USER / TESTIFY_PASSWORD
+ * Env: TESSICK_URL (default http://localhost:3001), TESSICK_USER / TESSICK_PASSWORD
  * (default admin / password).
  */
 
-const BASE = (process.env.TESTIFY_URL || 'http://localhost:3001').replace(/\/$/, '');
+const BASE = (process.env.TESSICK_URL || 'http://localhost:3001').replace(/\/$/, '');
 const RUNS = 8;
 
 async function api<T = any>(method: string, path: string, token: string | null, body?: unknown): Promise<T> {
@@ -65,8 +65,8 @@ function hex(n: number): string {
 
 async function main() {
   const login = await api<{ token: string }>('POST', '/api/v1/auth/login', null, {
-    username: process.env.TESTIFY_USER || 'admin',
-    password: process.env.TESTIFY_PASSWORD || 'password',
+    username: process.env.TESSICK_USER || 'admin',
+    password: process.env.TESSICK_PASSWORD || 'password',
   });
   const jwt = login.token;
 

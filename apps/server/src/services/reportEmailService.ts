@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
-import type { Database, LastEmail, ReportSchedule, ReportScheduleSection } from '@testify/db';
-import { TestRunRepository, ProjectRepository, ReportScheduleRepository, RoleRepository, TestPlanRepository, UserRepository } from '@testify/db';
-import { EMAILABLE_REPORTS, findReport, nextRunAt, renderReportEmail, validateReportParams, type EmailSection, type RenderedEmail } from '@testify/core';
+import type { Database, LastEmail, ReportSchedule, ReportScheduleSection } from '@tessick/db';
+import { TestRunRepository, ProjectRepository, ReportScheduleRepository, RoleRepository, TestPlanRepository, UserRepository } from '@tessick/db';
+import { EMAILABLE_REPORTS, findReport, nextRunAt, renderReportEmail, validateReportParams, type EmailSection, type RenderedEmail } from '@tessick/core';
 import { ReportError, ReportService } from './reportService.js';
 import { loadEmailSettings, sendEmail } from './mailer.js';
 import { publicErrorMessage } from '../errors.js';
@@ -15,7 +15,7 @@ export interface EmailReportRequest {
 
 export const SCHEDULE_SECTION_KINDS = ['overview', 'latest_run', 'test_health', 'plan_trend'] as const;
 
-/** Reports-view tab for each report, for "Open in Testify" links (see ReportsView.tsx). */
+/** Reports-view tab for each report, for "Open in Tessick" links (see ReportsView.tsx). */
 const TAB_FOR_REPORT: Record<string, string> = {
   overview: 'overview',
   run_summary: 'run',

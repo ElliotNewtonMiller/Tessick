@@ -1,8 +1,8 @@
 {
-  "name": "testify",
+  "name": "tessick",
   "version": "1.0.0",
   "private": true,
-  "description": "Modernized Testify Platform - High-Performance Test Management",
+  "description": "Modernized Tessick Platform - High-Performance Test Management",
   "workspaces": [
     "packages/*",
     "apps/*"

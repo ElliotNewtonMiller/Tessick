@@ -35,8 +35,8 @@ describe('Browser security headers', () => {
   });
 
   it("the web app's page gets a policy for its own scripts and API and Google Fonts", async () => {
-    webDir = mkdtempSync(path.join(tmpdir(), 'testify-web-'));
-    writeFileSync(path.join(webDir, 'index.html'), '<!doctype html><title>Testify</title><div id="root"></div>');
+    webDir = mkdtempSync(path.join(tmpdir(), 'tessick-web-'));
+    writeFileSync(path.join(webDir, 'index.html'), '<!doctype html><title>Tessick</title><div id="root"></div>');
     ({ app } = await createServer(undefined, { webDistDir: webDir }));
     const res = await app.inject({ url: '/reports/run' });
     expect(res.statusCode).toBe(200);

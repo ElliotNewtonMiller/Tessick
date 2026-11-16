@@ -11,12 +11,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
  * - Path=/api: only sent to the API.
  *
  * CSRF: a request authenticated by the cookie that changes something (anything but
- * GET/HEAD/OPTIONS) must also carry `X-Testify-Client: web`. Other origins can't add a custom
+ * GET/HEAD/OPTIONS) must also carry `X-Tessick-Client: web`. Other origins can't add a custom
  * header without a CORS preflight, which the server refuses unless CORS_ORIGINS allows them,
  * so a cross-origin form or fetch can't act with the cookie even from a sibling subdomain.
  */
-export const SESSION_COOKIE = 'testify_session';
-export const CSRF_HEADER = 'x-testify-client';
+export const SESSION_COOKIE = 'tessick_session';
+export const CSRF_HEADER = 'x-tessick-client';
 export const CSRF_HEADER_VALUE = 'web';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);

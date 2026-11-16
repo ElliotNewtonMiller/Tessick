@@ -16,7 +16,7 @@ export class SecretBox {
   private constructor(private key: Buffer) {}
 
   static fromSecret(secret: string): SecretBox {
-    return new SecretBox(Buffer.from(hkdfSync('sha256', secret, 'testify', 'stored-secrets-v1', 32)));
+    return new SecretBox(Buffer.from(hkdfSync('sha256', secret, 'tessick', 'stored-secrets-v1', 32)));
   }
 
   /** For the throwaway in-memory database: a key that lives as long as this process. */

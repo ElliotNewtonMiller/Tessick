@@ -8,8 +8,8 @@ import {
   TestSuiteRepository,
   type CustomFieldDefinition,
   type Project,
-} from '@testify/db';
-import { cleanHtmlText, customFieldValueFromString, keywordKey, parseCustomFieldValue, type CustomFieldType } from '@testify/core';
+} from '@tessick/db';
+import { cleanHtmlText, customFieldValueFromString, keywordKey, parseCustomFieldValue, type CustomFieldType } from '@tessick/core';
 import { innerRequest } from '../internalRequests.js';
 import { permissionsInProject } from '../middleware/auth.js';
 import { INSUFFICIENT_RIGHTS, tlKo } from './envelope.js';
@@ -17,12 +17,12 @@ import type { CompatContext } from './index.js';
 import { findProject, isDurationField, isKeywordsField, projectAccess, type ProjectAccess } from './projectData.js';
 
 /**
- * What the TestLink-compatible API's writes share. Every change goes through Testify's own route,
+ * What the TestLink-compatible API's writes share. Every change goes through Tessick's own route,
  * as the key's user (an inner request, `via: 'testlink'`), so permissions, validation, audit
- * rows and webhooks are Testify's; a refusal comes back in TestLink's envelope.
+ * rows and webhooks are Tessick's; a refusal comes back in TestLink's envelope.
  */
 
-export interface TestifyAnswer {
+export interface TessickAnswer {
   ok: boolean;
   status: number;
   body: any;
@@ -30,25 +30,25 @@ export interface TestifyAnswer {
   detail: string;
 }
 
-/** Calls one of Testify's routes as the key's user. */
+/** Calls one of Tessick's routes as the key's user. */
 export async function asUser(
   request: FastifyRequest,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
   payload?: unknown,
   opts: { startDraft?: boolean } = {}
-): Promise<TestifyAnswer> {
+): Promise<TessickAnswer> {
   const res = await innerRequest(request, 'testlink', method, url, payload, { asUserId: request.user!.id, startDraft: opts.startDraft });
   const detail = typeof res.body?.detail === 'string' ? res.body.detail : typeof res.body === 'string' ? res.body : 'error';
   return { ok: res.status < 300, status: res.status, body: res.body, detail };
 }
 
 /**
- * Testify's refusal as TestLink's: 403 is "Insufficient rights" (Testify's reason in `detail`),
+ * Tessick's refusal as TestLink's: 403 is "Insufficient rights" (Tessick's reason in `detail`),
  * 404 and 409 stay, a refusal of the current state (422: a closed run, a version not a draft)
  * is a 409, anything else a 400; `extra` adds the route's own fields (`id: -1`).
  */
-export function refuse(reply: FastifyReply, res: TestifyAnswer, extra: Record<string, unknown> = {}) {
+export function refuse(reply: FastifyReply, res: TessickAnswer, extra: Record<string, unknown> = {}) {
   if (res.status === 403) return tlKo(reply, 403, INSUFFICIENT_RIGHTS, { ...extra, detail: res.detail });
   if (res.status >= 500) return tlKo(reply, 500, `Server error: ${res.detail}`, extra);
   const http = res.status === 404 || res.status === 409 ? res.status : res.status === 422 ? 409 : 400;
@@ -68,7 +68,7 @@ export function bodyOf(request: FastifyRequest): Record<string, any> {
 /** A value given, i.e. not missing, null or an empty string. */
 export const given = (v: unknown) => v !== undefined && v !== null && v !== '';
 
-/** TestLink's HTML as Testify's text (as the TestLink XML importer does). */
+/** TestLink's HTML as Tessick's text (as the TestLink XML importer does). */
 export const textOf = (v: unknown): string | undefined => (v === undefined || v === null ? undefined : cleanHtmlText(String(v)));
 
 /**
@@ -86,7 +86,7 @@ export async function projectFromRef(request: FastifyRequest, ctx: CompatContext
   return given(ref) ? findProject(request, ctx, String(ref)) : undefined;
 }
 
-/** A Testify row behind a TestLink number. */
+/** A Tessick row behind a TestLink number. */
 async function byNumber(ctx: CompatContext, type: 'suite' | 'case' | 'plan' | 'build', value: unknown): Promise<string | undefined> {
   if (!given(value) || !/^\d+$/.test(String(value))) return undefined;
   return new CompatIdRepository(ctx.db).entityId(type, Number(value));
@@ -151,7 +151,7 @@ export async function duplicateTitle(ctx: CompatContext, suiteId: string, title:
 
 export const DUPLICATE_CASE = 'Test case name already exists on this suite';
 
-/** A TestLink test step as Testify's. */
+/** A TestLink test step as Tessick's. */
 export function stepsFrom(steps: unknown): Array<{ step_number: number; action: string; expected_result: string; execution_type: string }> | undefined {
   if (!Array.isArray(steps)) return undefined;
   return steps.map((s: any, i) => ({
@@ -239,8 +239,8 @@ export function fieldWrites(body: Record<string, any>, fields: ProjectFields): {
   return { writes };
 }
 
-/** Writes the fields through Testify's route; the first refusal, if any. */
-export async function writeFields(request: FastifyRequest, caseId: string, writes: FieldWrite[]): Promise<TestifyAnswer | undefined> {
+/** Writes the fields through Tessick's route; the first refusal, if any. */
+export async function writeFields(request: FastifyRequest, caseId: string, writes: FieldWrite[]): Promise<TessickAnswer | undefined> {
   for (const w of writes) {
     const res = await asUser(request, 'PUT', `/api/v1/cases/${caseId}/custom-fields/${w.definition.id}`, { value: w.value });
     if (!res.ok) return res;
@@ -249,14 +249,14 @@ export async function writeFields(request: FastifyRequest, caseId: string, write
 }
 
 /**
- * Takes a case's latest version from where it is to `target` through Testify's lifecycle
+ * Takes a case's latest version from where it is to `target` through Tessick's lifecycle
  * routes (approve, deprecate, restore, a new draft). The first refusal, if any.
  */
-export async function moveToStatus(request: FastifyRequest, ctx: CompatContext, caseId: string, target: 'DRAFT' | 'APPROVED' | 'DEPRECATED'): Promise<TestifyAnswer | undefined> {
+export async function moveToStatus(request: FastifyRequest, ctx: CompatContext, caseId: string, target: 'DRAFT' | 'APPROVED' | 'DEPRECATED'): Promise<TessickAnswer | undefined> {
   for (let step = 0; step < 3; step++) {
     const latest = await latestVersion(ctx, caseId);
     if (!latest || latest.status === target) return undefined;
-    let res: TestifyAnswer;
+    let res: TessickAnswer;
     if (latest.status === 'DEPRECATED') res = await asUser(request, 'POST', `/api/v1/versions/${latest.id}/restore`);
     else if (latest.status === 'DRAFT') res = await asUser(request, 'POST', `/api/v1/versions/${latest.id}/approve`);
     else if (target === 'DEPRECATED') res = await asUser(request, 'POST', `/api/v1/versions/${latest.id}/deprecate`);

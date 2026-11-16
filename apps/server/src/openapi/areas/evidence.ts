@@ -1,4 +1,4 @@
-import { MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_FILENAME, MAX_EVIDENCE_PER_EXECUTION, EVIDENCE_TYPES_TEXT } from '@testify/core';
+import { MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_FILENAME, MAX_EVIDENCE_PER_EXECUTION, EVIDENCE_TYPES_TEXT } from '@tessick/core';
 import { authedErrors, errors, handlerValidated, idParams, oneOf, pageQuery, NEXT_CURSOR, NO_CONTENT } from '../schemas.js';
 
 const TAGS = ['Evidence'];
@@ -117,7 +117,7 @@ export const createUploadSchema = {
   summary: 'Make an upload link',
   description:
     'For a large file, or an AI agent with a file on disk: a single-use link, valid 15 minutes, for one file of this size and SHA-256. ' +
-    "PUT the file to `url` with `headers`. Through Testify's own link the file becomes evidence at once (the PUT answers it); a link to S3 storage needs `POST complete_url` after. " +
+    "PUT the file to `url` with `headers`. Through Tessick's own link the file becomes evidence at once (the PUT answers it); a link to S3 storage needs `POST complete_url` after. " +
     `Same rules as uploading directly. ${ABOUT_UPLOADS}`,
   params: idParams('runId', 'caseId'),
   body: {
@@ -159,7 +159,7 @@ export const putUploadSchema = {
   tags: TAGS,
   summary: 'Upload to a link',
   description:
-    "The file, as the body, to an upload link's `url` (Testify's own links). No sign-in: the link is the credential, used once, within 15 minutes, for the size and SHA-256 it was made for. Answers the evidence.",
+    "The file, as the body, to an upload link's `url` (Tessick's own links). No sign-in: the link is the credential, used once, within 15 minutes, for the size and SHA-256 it was made for. Answers the evidence.",
   params: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } },
   security: [],
   body: { content: { 'application/octet-stream': fileBody.content['application/octet-stream'] } },
@@ -181,7 +181,7 @@ export const completeUploadSchema = {
   tags: TAGS,
   summary: 'Complete an upload',
   description:
-    "After PUTting a file to an S3 upload link: checks it (size, type, and a log to its end; S3 checked its SHA-256) and records it. For Testify's own links it answers the evidence the PUT made. Only whoever made the link.",
+    "After PUTting a file to an S3 upload link: checks it (size, type, and a log to its end; S3 checked its SHA-256) and records it. For Tessick's own links it answers the evidence the PUT made. Only whoever made the link.",
   params: idParams('uploadId'),
   response: {
     201: { description: 'Recorded', type: 'object', required: ['evidence'], properties: { evidence: { $ref: 'Evidence#' } } },

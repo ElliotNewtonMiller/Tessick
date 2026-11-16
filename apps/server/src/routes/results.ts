@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import { EvidenceRepository, TestResultRepository, type Database, type RunResultRow } from '@testify/db';
+import { EvidenceRepository, TestResultRepository, type Database, type RunResultRow } from '@tessick/db';
 import { presentEvidence } from '../services/evidence.js';
 import { sendCaseRemovedFromPlanError, sendProblemDetails, sendError, sendRunClosedError } from '../errors.js';
 import { validateManualResult } from '../services/resultValidation.js';

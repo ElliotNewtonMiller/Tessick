@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely';
-import type { Database, TestSuiteNode, FinalResultRow, CustomFieldDefinition } from '@testify/db';
-import { decodeCursor } from '@testify/db';
+import type { Database, TestSuiteNode, FinalResultRow, CustomFieldDefinition } from '@tessick/db';
+import { decodeCursor } from '@tessick/db';
 import {
   TestRunRepository,
   CustomFieldRepository,
@@ -9,7 +9,7 @@ import {
   TestCaseRepository,
   TestPlanRepository,
   TestSuiteRepository,
-} from '@testify/db';
+} from '@tessick/db';
 import {
   DIFF_BUCKETS,
   computeCaseStats,
@@ -33,7 +33,7 @@ import {
   type ReportRunRef,
   type RunResult,
   type RunSummaryReport,
-} from '@testify/core';
+} from '@tessick/core';
 import { CaseFilterService } from './caseFilterService.js';
 import { actorNames } from './actorNames.js';
 

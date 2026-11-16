@@ -62,7 +62,7 @@ export class JsonSchemaParser implements IFileParser {
       ? raw.sub_suites.map((s: any) => this.normalizeSuite(s, options))
       : [];
 
-    // `test_cases` in the import format; `cases` in Testify's own JSON export (DefinitionsExportBundle).
+    // `test_cases` in the import format; `cases` in Tessick's own JSON export (DefinitionsExportBundle).
     const rawCases = Array.isArray(raw.test_cases) ? raw.test_cases : Array.isArray(raw.cases) ? raw.cases : [];
     const testCases = rawCases.map((c: any) => this.normalizeCase(c, options));
 
@@ -85,7 +85,7 @@ export class JsonSchemaParser implements IFileParser {
         }))
       : [];
 
-    // `importance` in the import format; `priority` in Testify's export.
+    // `importance` in the import format; `priority` in Tessick's export.
     const importance = normalizePriority(raw.importance ?? raw.priority, options?.defaultImportance);
 
     const rawExecType = (raw.execution_type || options?.defaultExecutionType || 'MANUAL').toString().toUpperCase();
@@ -97,7 +97,7 @@ export class JsonSchemaParser implements IFileParser {
         customFields[k] = String(v ?? '');
       }
     }
-    // Testify's export: [{ name, value }], values typed. Lists become "a, b" (how imports read a
+    // Tessick's export: [{ name, value }], values typed. Lists become "a, b" (how imports read a
     // MULTI_SELECT value); unset values are left out.
     if (Array.isArray(raw.custom_field_values)) {
       for (const cf of raw.custom_field_values) {
@@ -114,7 +114,7 @@ export class JsonSchemaParser implements IFileParser {
     return {
       external_id: raw.external_id || raw.externalid || undefined,
       title,
-      // Testify's export keeps a case's content in `version`.
+      // Tessick's export keeps a case's content in `version`.
       summary: raw.summary || raw.version?.summary || '',
       preconditions: raw.preconditions || raw.version?.preconditions || '',
       importance,

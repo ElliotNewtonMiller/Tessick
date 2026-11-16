@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { EVIDENCE_TYPES_TEXT, MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_FILENAME } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { EVIDENCE_TYPES_TEXT, MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_FILENAME } from '@tessick/core';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { innerRequest } from '../internalRequests.js';
 import { ToolError, json, type JsonSchema, type ToolContent, type ToolDef } from './toolTypes.js';
@@ -210,7 +210,7 @@ export function evidenceTools({ db, requireProject }: WriteToolDeps): ToolDef[] 
     {
       name: 'get_evidence',
       description:
-        'One evidence file: what it is, and its content when it can be shown here. An image of up to 2 MB is returned as an image you can look at; a log as text (the first 100 KB). A video or trace is described only: the user can open it in Testify.',
+        'One evidence file: what it is, and its content when it can be shown here. An image of up to 2 MB is returned as an image you can look at; a log as text (the first 100 KB). A video or trace is described only: the user can open it in Tessick.',
       inputSchema: {
         type: 'object',
         properties: { project_id: projectId, evidence_id: { type: 'string', description: 'See list_evidence.' } },
@@ -234,8 +234,8 @@ export function evidenceTools({ db, requireProject }: WriteToolDeps): ToolDef[] 
         }
         const note =
           evidence.kind === 'image'
-            ? `This image is ${Math.round(evidence.size_bytes / 1024)} KB, too large to show here (at most 2 MB): open it in Testify.`
-            : `A ${evidence.kind} can't be shown here: open it in Testify, or download it from content_url with an API token.`;
+            ? `This image is ${Math.round(evidence.size_bytes / 1024)} KB, too large to show here (at most 2 MB): open it in Tessick.`
+            : `A ${evidence.kind} can't be shown here: open it in Tessick, or download it from content_url with an API token.`;
         return { content: [about, { type: 'text', text: note }] };
       },
     },

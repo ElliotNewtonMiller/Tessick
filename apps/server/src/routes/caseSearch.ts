@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { ProjectRepository } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { ProjectRepository } from '@tessick/db';
 import { requirePermission, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { CaseFilterService } from '../services/caseFilterService.js';
 

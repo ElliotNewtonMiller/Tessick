@@ -35,7 +35,7 @@ type CustomFieldType = "TEXT" | "NUMBER" | "CHECKBOX" | "DATE" | "SINGLE_SELECT"
 // computes them from the whole file at execute time; the wizard previews them below.
 const CREATABLE_FIELD_TYPES: CustomFieldType[] = ["TEXT", "NUMBER", "CHECKBOX", "DATE", "SINGLE_SELECT", "MULTI_SELECT"];
 
-/** Mirrors @testify/core's splitMultiSelectValue (the web app doesn't depend on core). */
+/** Mirrors @tessick/core's splitMultiSelectValue (the web app doesn't depend on core). */
 function splitCommaValues(value: string): string[] {
   return Array.from(new Set(value.split(",").map((v) => v.trim()).filter(Boolean)));
 }

@@ -1,7 +1,7 @@
 import React from "react";
 
-/** Mirrors @testify/core's CaseFilterFieldDescriptor (GET .../case-search/fields) -- the web
- * app doesn't depend on @testify/core, so the shape is restated here. */
+/** Mirrors @tessick/core's CaseFilterFieldDescriptor (GET .../case-search/fields) -- the web
+ * app doesn't depend on @tessick/core, so the shape is restated here. */
 export interface CaseFilterField {
   key: string;
   label: string;

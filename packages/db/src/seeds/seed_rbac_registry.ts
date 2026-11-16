@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../types.js';
-import { PERMISSION_REGISTRY, DEFAULT_ROLE_PERMISSIONS, DEFAULT_ROLE_NAMES, DEFAULT_ROLE_DESCRIPTIONS } from '@testify/core';
+import { PERMISSION_REGISTRY, DEFAULT_ROLE_PERMISSIONS, DEFAULT_ROLE_NAMES, DEFAULT_ROLE_DESCRIPTIONS } from '@tessick/core';
 
 /**
  * Seeds the `permissions`, `roles`, and `role_permissions` tables: every permission key in

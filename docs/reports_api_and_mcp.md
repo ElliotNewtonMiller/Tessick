@@ -1,6 +1,6 @@
 # Reports API & MCP
 
-Testify's reports are built for three audiences: QA engineers troubleshooting failures, stakeholders who want status, and agents/scripts that need the same numbers. Every report is computed in one place (`apps/server/src/services/reportService.ts`) and described once in a catalog (`packages/core/src/reporting/catalog.ts`). The web UI and this API therefore always agree.
+Tessick's reports are built for three audiences: QA engineers troubleshooting failures, stakeholders who want status, and agents/scripts that need the same numbers. Every report is computed in one place (`apps/server/src/services/reportService.ts`) and described once in a catalog (`packages/core/src/reporting/catalog.ts`). The web UI and this API therefore always agree.
 
 In the web app, **📊 Reports** in the header opens the same reports as a full view (Overview, Run, Trends & Breakdown, Test Health, plus a case-history drawer). Its address is a shareable link (`#/reports/<tab>?project=&plan=&run=&case=`).
 
@@ -11,7 +11,7 @@ New to the API? Start with [api_getting_started.md](api_getting_started.md).
 Send `Authorization: Bearer <token>` with either:
 
 - **A login JWT.** `POST /api/v1/auth/login` returns one. It stays valid while it's used: it ends after 8 hours without a request, and 7 days after signing in at most.
-- **A machine API token** (`tf_ci_…`), created in Admin Panel → API Tokens. This is the right credential for scripts and agents: it doesn't expire unless you set an expiry, and it's bound to one project. It needs the `SPEC_VIEW` capability.
+- **A machine API token** (`tk_ci_…`), created in Admin Panel → API Tokens. This is the right credential for scripts and agents: it doesn't expire unless you set an expiry, and it's bound to one project. It needs the `SPEC_VIEW` capability.
 
 To a token, anything in another project is not found (`404`, as if it didn't exist); on a route that isn't part of a project (e.g. `/api/v1/admin/...`) it gets `403 TOKEN_NOT_ALLOWED`.
 
@@ -75,22 +75,22 @@ POST /api/v1/projects/:projectId/reports/:reportId[?format=json|markdown|csv]
 - `notes`
 - `environment_tags`
 
-A retry with the same `Idempotency-Key` header gets the first answer back instead of recording again (RFC 03 §3.5). Per submission, it also stores `environment` and `runner_info`: `{ name, run_id, job_name, commit_sha, url }` (`run_id` is your CI system's run id, not Testify's). The full request and response are in [RFC 03 §3](rfc_03_api_and_xml_contracts.md). The failure message and stack trace show up in run summaries and case history, and the commit shows up in run summaries.
+A retry with the same `Idempotency-Key` header gets the first answer back instead of recording again (RFC 03 §3.5). Per submission, it also stores `environment` and `runner_info`: `{ name, run_id, job_name, commit_sha, url }` (`run_id` is your CI system's run id, not Tessick's). The full request and response are in [RFC 03 §3](rfc_03_api_and_xml_contracts.md). The failure message and stack trace show up in run summaries and case history, and the commit shows up in run summaries.
 
 ## MCP (for AI agents)
 
 The API server also serves the reports, and tools to change test cases, plans and results, as an MCP server, built in at `POST /mcp`. It uses the Streamable HTTP transport, stateless, with JSON responses. It authenticates exactly like the REST API, so the best credential is an API token made for the agent:
 - **With just the capabilities it should have:** `SPEC_VIEW` alone for an agent that only reads.
-- **Works with: MCP only** (`"interfaces": "MCP"`). Such a token is refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), so an agent can't step around MCP's limits (drafts only, no approve or delete tools, changes marked "via Testify MCP") by calling REST routes with the same token. A token for both is the default.
+- **Works with: MCP only** (`"interfaces": "MCP"`). Such a token is refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), so an agent can't step around MCP's limits (drafts only, no approve or delete tools, changes marked "via Tessick MCP") by calling REST routes with the same token. A token for both is the default.
 
-The address is Testify's own plus `/mcp`. Testify serves plain HTTP; HTTPS comes from a reverse proxy in front (`docs/deployment.md`). So a local or Docker instance is `http://`, and a hosted one is usually `https://`:
+The address is Tessick's own plus `/mcp`. Tessick serves plain HTTP; HTTPS comes from a reverse proxy in front (`docs/deployment.md`). So a local or Docker instance is `http://`, and a hosted one is usually `https://`:
 
 ```bash
-claude mcp add --transport http testify http://localhost:3001/mcp --header "Authorization: Bearer tf_ci_..."
+claude mcp add --transport http tessick http://localhost:3001/mcp --header "Authorization: Bearer tk_ci_..."
 ```
 
 **If it doesn't connect:**
-- **"TLS handshake failed" / `EPROTO`:** the address says `https://`, but nothing in front of Testify speaks HTTPS there. Use `http://`, or put a proxy in front. Testify's log says so too ("A client spoke HTTPS (TLS) to this plain-HTTP port").
+- **"TLS handshake failed" / `EPROTO`:** the address says `https://`, but nothing in front of Tessick speaks HTTPS there. Use `http://`, or put a proxy in front. Tessick's log says so too ("A client spoke HTTPS (TLS) to this plain-HTTP port").
 - **401:** the token is wrong, revoked or expired.
 - **403 `TOKEN_INTERFACE_NOT_ALLOWED`:** a REST-only token.
 - **404:** a project other than the token's (it's not found, as if it didn't exist).
@@ -130,7 +130,7 @@ Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever
 How the write tools are kept safe:
 - **They act as the caller.** Each one calls the REST routes with the caller's credential, so an agent can do exactly what its token or user may, with the same rules and errors. An API token is offered only the tools its capabilities allow.
 - **A person approves agents' cases.** Cases an agent creates start as DRAFT even if the token holds `SPEC_AUTO_APPROVE`, and editing an approved case's content creates a new DRAFT version. Only approved cases can join a plan or get results. There are no tools to approve, deprecate, restore or delete; people do that in the web app, or scripts through the REST API.
-- **Everything is audit-logged.** Each change writes its usual audit row (e.g. `CASE_CREATED`), with "(via Testify MCP)" added to its User-Agent, and each write-tool call writes an `MCP_WRITE` row (tool, success or error) to the Security Audit Log in the Admin Panel.
+- **Everything is audit-logged.** Each change writes its usual audit row (e.g. `CASE_CREATED`), with "(via Tessick MCP)" added to its User-Agent, and each write-tool call writes an `MCP_WRITE` row (tool, success or error) to the Security Audit Log in the Admin Panel.
 
 **Evidence through MCP** follows the REST rules (RFC 03 §5): the case needs a result first, files are recognised by contents, and after a run closes only whoever recorded the result may add files, for 24 hours. There's no tool to delete evidence. An upload link is its own credential, so its `curl` command works for an MCP-only token too; with local storage the PUT records the file at once, and `complete_evidence_upload` then just answers it. `/mcp` takes requests of up to 8 MB, for a 5 MB file as base64.
 
@@ -173,11 +173,11 @@ A schedule's fields:
 ## Examples
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT/reports/run_summary?format=markdown" \
+curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT/reports/run_summary?format=markdown" \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d "{\"test_run_id\": \"$RUN\"}"
 
-curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT/reports/case_history" \
+curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT/reports/case_history" \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"test_case_id": "SHOP-12", "limit": 10}'
 ```

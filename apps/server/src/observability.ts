@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { sql, type Kysely } from 'kysely';
 import { LogController, type FastifyInstance } from 'fastify';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import { healthSchema } from './openapi/areas/other.js';
 
 /** How long the health check waits for the database before calling it unreachable. */
@@ -89,9 +89,9 @@ export function registerHealthRoute(app: FastifyInstance, db: Kysely<Database>):
 const HTTPS_HINT_INTERVAL_MS = 60_000;
 
 /**
- * Testify serves plain HTTP (HTTPS is a reverse proxy's job, docs/deployment.md). A client sent to
+ * Tessick serves plain HTTP (HTTPS is a reverse proxy's job, docs/deployment.md). A client sent to
  * `https://` on its port starts a TLS handshake, which fails on the client's side with an unhelpful
- * "TLS handshake failed" / EPROTO, and on Testify's side as a request it can't parse. Recognise that
+ * "TLS handshake failed" / EPROTO, and on Tessick's side as a request it can't parse. Recognise that
  * (a TLS handshake record starts with byte 0x16) and say plainly in the log what to change.
  */
 export function registerHttpsOnHttpHint(app: FastifyInstance): void {
@@ -103,7 +103,7 @@ export function registerHttpsOnHttpHint(app: FastifyInstance): void {
     lastLoggedAt = now;
     app.log.warn(
       { event: 'https_on_http_port' },
-      'A client spoke HTTPS (TLS) to this plain-HTTP port. Testify serves HTTP: use an http:// address (e.g. http://localhost:3001/mcp), or put an HTTPS reverse proxy in front (docs/deployment.md).'
+      'A client spoke HTTPS (TLS) to this plain-HTTP port. Tessick serves HTTP: use an http:// address (e.g. http://localhost:3001/mcp), or put an HTTPS reverse proxy in front (docs/deployment.md).'
     );
   });
 }

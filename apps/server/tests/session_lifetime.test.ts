@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SessionRepository } from '@testify/db';
+import { SessionRepository } from '@tessick/db';
 import { createServer } from '../src/server.js';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../src/sessionLifetime.js';
 
@@ -42,7 +42,7 @@ describe('Session lifetime', () => {
     const cookieLogin = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
-      headers: { 'x-testify-client': 'web' },
+      headers: { 'x-tessick-client': 'web' },
       payload: { username: 'admin', password: 'password', session: 'cookie' },
     });
     expect(String(cookieLogin.headers['set-cookie'])).toContain(`Max-Age=${SESSION_MAX_SECONDS}`);

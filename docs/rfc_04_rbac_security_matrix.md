@@ -3,7 +3,7 @@
 - **Document Status:** Design document, updated 2026-10-11 to match what's built
 - **Author:** Security & RBAC Analyst
 - **Date:** September 8, 2026
-- **Target Version:** Testify v1.0
+- **Target Version:** Tessick v1.0
 - **Upstream Alignment:** [00_requirements_alignment.md](00_requirements_alignment.md), [.antigravity/agents/security_rbac.md](../.antigravity/agents/security_rbac.md)
 
 ---
@@ -13,10 +13,10 @@
 ### 1.1 Context & Objectives
 Legacy TestLink implementations relied on coarse, monolithic and brittle permission models. Permissions were hard to audit, didn't separate human users from automated runners, and allowed silent test case tampering and execution spoofing.
 
-Testify's security model enforces:
+Tessick's security model enforces:
 1. **String-constant permission keys** instead of bitmasks, from one registry (`packages/core/src/rbac/registry.ts`).
 2. **Global roles with per-project roles and per-user overrides**, resolved deterministically for the project each request touches.
-3. **Machine API tokens:** high-entropy, project-bound tokens (`tf_ci_...`) shown once and stored only as a SHA-256 digest. A token can never do more than the person who issued it can do now.
+3. **Machine API tokens:** high-entropy, project-bound tokens (`tk_ci_...`) shown once and stored only as a SHA-256 digest. A token can never do more than the person who issued it can do now.
 4. **An append-only audit log:** the `audit_logs` table is protected by database triggers that reject UPDATE and DELETE, and nothing deletes rows automatically (locked requirement from [00_requirements_alignment.md](00_requirements_alignment.md)).
 5. **Defense in depth** against execution spoofing, spec tampering, credential leakage, privilege escalation and data exfiltration.
 
@@ -55,7 +55,7 @@ Permissions are string constants named `<DOMAIN>_<ACTION>`, e.g. `SPEC_APPROVE`,
 
 ## 3. Built-in Role Templates & Scoping Hierarchy
 
-Testify ships with six built-in role templates. Admins can edit or delete them (once no one holds them) and create their own.
+Tessick ships with six built-in role templates. Admins can edit or delete them (once no one holds them) and create their own.
 
 ### 3.1 Role Profiles
 
@@ -141,11 +141,11 @@ Every role, override, status and password change in the Admin Panel goes through
 
 ## 4. Authentication Architecture & Token Lifecycle
 
-Testify has two kinds of credentials: **sign-ins** for people, and **machine API tokens** for CI pipelines and agents. A third, **TestLink API keys**, works only on the TestLink-compatible API (§4.4).
+Tessick has two kinds of credentials: **sign-ins** for people, and **machine API tokens** for CI pipelines and agents. A third, **TestLink API keys**, works only on the TestLink-compatible API (§4.4).
 
 ### 4.1 Interactive User Sessions
 - **Passwords** are checked against a password policy (`packages/core/src/security/passwordPolicy.ts`) and stored as a PBKDF2-SHA512 hash at 210,000 iterations (OWASP's recommendation) with a 16-byte random salt, as `pbkdf2_sha512$<iterations>$<salt>$<key>` (`UserRepository`). Hashes from before 2026-10-22 (100,000 iterations, `<salt>:<key>`) still work and are re-hashed at the current setting when their user next signs in. Hashing runs on Node's thread pool, so sign-ins don't stall other requests. A sign-in naming an unknown account still checks a password, so response times don't reveal which usernames exist.
-- **Sign-in tokens:** HMAC-SHA256 JWTs carrying `sub` (user id), `username`, `sid` (session id) and `exp`, valid for 7 days, signed with `JWT_SECRET`. The web app keeps its token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` over HTTPS) and sends `X-Testify-Client: web` on every change, as a CSRF guard. Scripts send the token as `Authorization: Bearer`.
+- **Sign-in tokens:** HMAC-SHA256 JWTs carrying `sub` (user id), `username`, `sid` (session id) and `exp`, valid for 7 days, signed with `JWT_SECRET`. The web app keeps its token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` over HTTPS) and sends `X-Tessick-Client: web` on every change, as a CSRF guard. Scripts send the token as `Authorization: Bearer`.
 - **Server-side sessions:** every token names a session row (`sessions` table), checked on every request. A session ends when any of these happens:
   - 8 hours pass without a request (each request extends it);
   - 7 days pass since sign-in;
@@ -165,26 +165,26 @@ Testify has two kinds of credentials: **sign-ins** for people, and **machine API
 API tokens let CI runners and agents use the API without a person's credentials.
 
 ```
-Token format: tf_ci_<64 hex characters>   (32 random bytes)
-Example:      tf_ci_64a0e7aa89701aae3a92c2bab4804c9837de313c04c132fb3b8ae5aeac5026bf
+Token format: tk_ci_<64 hex characters>   (32 random bytes)
+Example:      tk_ci_64a0e7aa89701aae3a92c2bab4804c9837de313c04c132fb3b8ae5aeac5026bf
 ```
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Admin as Test Lead / Admin
-    participant System as Testify API
+    participant System as Tessick API
     participant DB as Database (api_tokens)
     actor Runner as CI Runner
 
     Admin->>System: POST /api/v1/projects/{projectId}/api-tokens (name, capabilities, optional expiry)
     System->>System: Check capabilities ⊆ issuer's permissions in the project, never SYSTEM_ADMIN
-    System->>System: Generate tf_ci_..., compute SHA-256 digest
+    System->>System: Generate tk_ci_..., compute SHA-256 digest
     System->>DB: Store digest, 8-character prefix, capabilities, project, issuer
     System-->>Admin: Return the plaintext token ONCE
     Note over Admin: Admin stores it as a CI secret
 
-    Runner->>System: POST /api/v1/runs/{runId}/results/batch (Bearer tf_ci_...)
+    Runner->>System: POST /api/v1/runs/{runId}/results/batch (Bearer tk_ci_...)
     System->>DB: Look the token up by digest
     System->>System: Check revoked, expired, issuer still active and allowed, project matches, rate limit
     System->>DB: Update last_used_at
@@ -209,7 +209,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Request with Authorization: Bearer ...] --> B{Starts with tf_ci_?}
+    A[Request with Authorization: Bearer ...] --> B{Starts with tk_ci_?}
     B -- No --> J[Validate as a sign-in JWT and session]
     B -- Yes --> C[SHA-256 the token, look it up]
     C --> D{Found, not revoked, not expired?}
@@ -232,7 +232,7 @@ A third credential, only for the TestLink-compatible API (`/lib/api/rest/{v1,v2,
 1. **One per user,** made in My Account (`POST /api/v1/auth/me/testlink-key`) and shown once. A new one replaces the old. 32 hex characters, like TestLink's; stored only as a SHA-256 digest (`user_api_keys`), with its first 6 characters and last use for display.
 2. **Sent** as the `APIKEY` header (v2, custom) or the HTTP Basic user name (any version; v1 takes only that).
 3. **Acts as its user,** with the user's permissions in each project, as a sign-in would. Unlike an API token it isn't bound to a project, as TestLink's key isn't.
-4. **Only on the TestLink paths.** `/api` and `/mcp` don't accept it, so the project-bound tokens and MCP's limits are unaffected. Writes reach Testify's routes as inner requests naming the user (`x-testify-internal-user`), honoured only with the per-process secret and `via: 'testlink'`.
+4. **Only on the TestLink paths.** `/api` and `/mcp` don't accept it, so the project-bound tokens and MCP's limits are unaffected. Writes reach Tessick's routes as inner requests naming the user (`x-tessick-internal-user`), honoured only with the per-process secret and `via: 'testlink'`.
 5. **Ends** when the user removes it, an admin removes it (`DELETE /api/v1/admin/users/{userId}/testlink-key`), or the user is disabled. A disabled user's key is refused even before then.
 6. **Rate limit:** the user's own, 1,200 requests a minute.
 7. **Failures** answer TestLink's `400 {"status":"ko","message":"authentication error"}`, for a missing, wrong or removed key alike.
@@ -363,7 +363,7 @@ graph TD
 #### 5. API Token Leakage
 - **Risk:** A token ends up in CI logs or a leaked environment.
 - **Mitigation:**
-  - The distinctive `tf_ci_` prefix makes leaked tokens easy to find with secret scanners and log searches.
+  - The distinctive `tk_ci_` prefix makes leaked tokens easy to find with secret scanners and log searches.
   - Tokens are shown once and stored only as a digest, so a database dump yields no usable token.
   - A token is limited to one project and to its issuer's current permissions, and can never hold `SYSTEM_ADMIN` or `PROJECT_DELETE`, so a leaked token can't delete its project.
   - One-click revocation, with last-used time shown.
@@ -384,12 +384,12 @@ graph TD
   - A token is refused on any project other than its own, centrally for every route and per tool call on `/mcp`.
   - MCP write tools (`apps/server/src/mcp/writeTools.ts`) call the REST routes as the caller (`apps/server/src/internalRequests.ts`): no permission or rule of their own, and an API token is offered only the tools its capabilities allow. Read tools carry `readOnlyHint: true`, write tools `readOnlyHint: false` (and `destructiveHint` for removing cases from a plan), so MCP clients can ask the user before a write.
   - What injected instructions could do through MCP is limited: cases an agent creates are always DRAFT (even with `SPEC_AUTO_APPROVE`), editing an approved case's content creates a new DRAFT, and there are no tools to approve, deprecate, restore or delete. Results go only to approved cases in open runs.
-  - Every write is traceable: its usual audit row has "(via Testify MCP)" in its User-Agent and the token as a `SERVICE_ACCOUNT` actor, and each write-tool call adds an `MCP_WRITE` row to the Security Audit Log.
-  - Agents should use a dedicated token with only the capabilities they need (`SPEC_VIEW` alone to read), revocable on its own, and **MCP only**. MCP's own limits (drafts only; no approve, deprecate, restore or delete tools; changes marked "via Testify MCP") hold only on `/mcp`. An agent holding a token that also works on the REST API can step around them, for example by falling back to REST routes when MCP doesn't connect. An MCP-only token is refused there (`403 TOKEN_INTERFACE_NOT_ALLOWED`).
+  - Every write is traceable: its usual audit row has "(via Tessick MCP)" in its User-Agent and the token as a `SERVICE_ACCOUNT` actor, and each write-tool call adds an `MCP_WRITE` row to the Security Audit Log.
+  - Agents should use a dedicated token with only the capabilities they need (`SPEC_VIEW` alone to read), revocable on its own, and **MCP only**. MCP's own limits (drafts only; no approve, deprecate, restore or delete tools; changes marked "via Tessick MCP") hold only on `/mcp`. An agent holding a token that also works on the REST API can step around them, for example by falling back to REST routes when MCP doesn't connect. An MCP-only token is refused there (`403 TOKEN_INTERFACE_NOT_ALLOWED`).
 - **Gaps:**
   - Report reads aren't audit-logged; only exports are.
 
-**Report emails** send report data to arbitrary addresses outside Testify, which makes them a direct exfiltration channel.
+**Report emails** send report data to arbitrary addresses outside Tessick, which makes them a direct exfiltration channel.
 
 Mitigations:
 - A dedicated `REPORT_EMAIL` permission (Admin and Test Lead by default), project-scoped like every other route.
@@ -411,14 +411,14 @@ Mitigations:
 - Test content in Slack-format messages is escaped, so it can't mention `@channel` or add links.
 
 #### 8. Browser Attacks: Cross-Site Scripting, Clickjacking, Downgrade
-- **Risk:** Test content (titles, steps, notes, failure messages, imported files) is text from users and CI. Shown unsafely, it could run script in another user's browser and act with their session. Another site could also show Testify in a hidden frame to trick clicks, or an attacker on the network could strip HTTPS.
+- **Risk:** Test content (titles, steps, notes, failure messages, imported files) is text from users and CI. Shown unsafely, it could run script in another user's browser and act with their session. Another site could also show Tessick in a hidden frame to trick clicks, or an attacker on the network could strip HTTPS.
 - **Mitigation:**
   - The web app is React, which escapes every value it displays; it never inserts raw HTML (`dangerouslySetInnerHTML` isn't used). Imported HTML (TestLink) is reduced to plain text.
   - Every reply carries browser security headers (`apps/server/src/securityHeaders.ts`):
     - a Content-Security-Policy. The web app's page may load only its own scripts and API, and Google Fonts. Inline styles are allowed, inline scripts aren't. Every other reply loads nothing. The `/docs` page keeps the policy its library sets.
     - `frame-ancestors 'none'` and `X-Frame-Options: DENY` (no framing), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`, and a `Permissions-Policy` turning off camera, microphone, location, payment and USB.
     - `Strict-Transport-Security: max-age=31536000` on replies served over HTTPS (through a proxy with `TRUST_PROXY=true`), so browsers then refuse plain HTTP. Subdomains aren't included, since they may be other services.
-  - The session cookie is `HttpOnly` (scripts can't read it) and `SameSite=Strict`, and every change needs the `X-Testify-Client` header (CSRF).
+  - The session cookie is `HttpOnly` (scripts can't read it) and `SameSite=Strict`, and every change needs the `X-Tessick-Client` header (CSRF).
 - **Gaps:** the development web server (Vite, port 3000) doesn't send these headers; only the production server does.
 
 #### 9. Malicious Evidence Files
@@ -430,10 +430,10 @@ Mitigations:
   - a file could be swapped under its record.
 - **Mitigation:**
   - **Files are recognised by their contents,** never their name or declared type. Only PNG, JPEG, GIF and WebP images, MP4 and WebM videos, UTF-8 text logs (checked to the end) and Playwright trace archives are accepted; SVG, HTML, PDF and executables are refused.
-  - **Files are always served by Testify** with their sniffed type and a policy that makes them inert: `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`, and a download disposition for archives. Permissions are checked on every read.
+  - **Files are always served by Tessick** with their sniffed type and a policy that makes them inert: `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`, and a download disposition for archives. Permissions are checked on every read.
   - **Uploads are streamed through a spool** that counts, hashes and sniffs them. A file over `EVIDENCE_MAX_FILE_MB` is cut off mid-stream (413) and nothing is kept. An execution holds at most 50 files, and requests count against the per-user and per-token rate limits.
   - **Storage keys are generated,** never taken from input, and checked against their pattern: no path traversal. Local files are 0600 in 0700 directories. S3 can encrypt at rest (`EVIDENCE_S3_SSE`).
-  - **Upload links** are 256-bit random tokens, stored as SHA-256 digests, used once, for one file of a stated size and SHA-256, and valid 15 minutes. Testify never writes them to its logs (`loggableUrl`). A proxy's own access log may still record one, as with any presigned URL.
+  - **Upload links** are 256-bit random tokens, stored as SHA-256 digests, used once, for one file of a stated size and SHA-256, and valid 15 minutes. Tessick never writes them to its logs (`loggableUrl`). A proxy's own access log may still record one, as with any presigned URL.
   - **After a run closes,** only whoever recorded a result may add evidence to it, for 24 hours. Late additions are marked `after_close`, and every addition and deletion is audited with the file's SHA-256, which also ties a record to its file.
 - **Gaps:** no malware scanning. Accepted files are inert in the browser, but a downloaded trace or video is opened by other software at the viewer's own risk.
 

@@ -1,9 +1,9 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { passesCsrfCheck, requestCredential } from '../sessionCookie.js';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { UserRepository, RoleRepository, ApiTokenRepository, SessionRepository, API_TOKEN_PREFIX, hashToken } from '@testify/db';
-import { verifyJwt, isTokenGrantable, type ApiTokenInterface } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { UserRepository, RoleRepository, ApiTokenRepository, SessionRepository, API_TOKEN_PREFIX, hashToken } from '@tessick/db';
+import { verifyJwt, isTokenGrantable, type ApiTokenInterface } from '@tessick/core';
 import { sendTokenNotAllowedError, sendTokenInterfaceNotAllowedError, sendInvalidTokenError,
   sendTokenRevokedError,
   sendTokenExpiredError,
@@ -14,7 +14,7 @@ import { isInternalRequest, internalVia, internalUserId } from '../internalReque
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import { applyCaseRefs, resolveCaseRef } from '../caseRefs.js';
 
-/** verifyJwt's reasons for something that was never a Testify sign-in token. */
+/** verifyJwt's reasons for something that was never a Tessick sign-in token. */
 const NOT_A_SIGN_IN_TOKEN = new Set(['Token missing', 'Malformed token', 'Invalid payload encoding', 'Missing subject claim']);
 
 export interface AuthenticatedUser {
@@ -235,7 +235,7 @@ export function tokenMayUseRoute(method: string, routeUrl: string): boolean {
 
 /**
  * Authenticates a request presenting a machine API token (Authorization: Bearer
- * tf_ci_...) instead of a JWT. Produces the same AuthenticatedUser shape as the JWT path
+ * tk_ci_...) instead of a JWT. Produces the same AuthenticatedUser shape as the JWT path
  * so every downstream consumer (request.user!.id/.permissions/etc.) keeps working
  * unmodified regardless of which auth method was used.
  *
@@ -354,7 +354,7 @@ const PASSWORD_CHANGE_ALLOWED_ROUTES = new Set(['/api/v1/auth/me']);
 
 /**
  * Authenticates a request from its `Authorization: Bearer <...>` header -- either a
- * human JWT or a machine API token (tf_ci_...), dispatched by prefix -- or, failing that,
+ * human JWT or a machine API token (tk_ci_...), dispatched by prefix -- or, failing that,
  * from the web app's session cookie (a JWT; see sessionCookie.ts).
  *
  * There is no other way in: no `X-User-Id` impersonation header, and no fallback to
@@ -398,7 +398,7 @@ export async function authenticateRequest(
       return null;
     }
     if (!passesCsrfCheck(request)) {
-      sendError(reply, 403, 'This request is missing the X-Testify-Client header that cookie-based sign-ins require.', { code: 'CSRF_HEADER_MISSING' });
+      sendError(reply, 403, 'This request is missing the X-Tessick-Client header that cookie-based sign-ins require.', { code: 'CSRF_HEADER_MISSING' });
       return null;
     }
   }
@@ -424,7 +424,7 @@ export async function authenticateRequest(
     // Not a sign-in token at all (a typo, a token from another tool, a truncated paste): say so,
     // rather than that a sign-in ended (API audit, 2026-10-23).
     if (!result.reason || NOT_A_SIGN_IN_TOKEN.has(result.reason)) {
-      sendError(reply, 401, "Unauthorized: this isn't a Testify API token (tf_ci_...) or sign-in token. Send one as Authorization: Bearer <token>.", { code: 'INVALID_TOKEN', reason: result.reason || 'invalid token' });
+      sendError(reply, 401, "Unauthorized: this isn't a Tessick API token (tk_ci_...) or sign-in token. Send one as Authorization: Bearer <token>.", { code: 'INVALID_TOKEN', reason: result.reason || 'invalid token' });
       return null;
     }
     // A real one that no longer works: signed with another key (a server restart without

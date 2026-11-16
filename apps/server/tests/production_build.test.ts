@@ -11,8 +11,8 @@ const serverDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 
 /** A stand-in for apps/web/dist. */
 function fakeWebBuild(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'testify-web-'));
-  writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Testify</title><div id="root"></div>');
+  const dir = mkdtempSync(path.join(tmpdir(), 'tessick-web-'));
+  writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Tessick</title><div id="root"></div>');
   mkdirSync(path.join(dir, 'assets'));
   writeFileSync(path.join(dir, 'assets', 'index-abc123.js'), 'console.log("app")');
   writeFileSync(path.join(dir, 'robots.txt'), 'User-agent: *');
@@ -117,8 +117,8 @@ describe('Production: the build runs with plain Node', () => {
     child.stderr.on('data', (d) => (output += d));
     try {
       const deadline = Date.now() + 30_000;
-      while (!output.includes('[testify] Listening on') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
-      expect(output).toContain('[testify] Listening on');
+      while (!output.includes('[tessick] Listening on') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+      expect(output).toContain('[tessick] Listening on');
       expect(output).toContain(`Serving the web app from ${webDir}`);
 
       const page = await fetch(`http://127.0.0.1:${port}/reports`);

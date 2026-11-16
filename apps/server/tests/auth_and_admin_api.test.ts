@@ -158,7 +158,7 @@ describe('Auth & Admin API Integration Tests', () => {
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         username: 'regular_tester',
-        email: 'tester@testify.local',
+        email: 'tester@tessick.local',
         password: 'TesterPassword1!',
         global_role: 'Tester',
       },
@@ -205,7 +205,7 @@ describe('Auth & Admin API Integration Tests', () => {
       headers: authHeaders,
       payload: {
         username: 'qa_alice',
-        email: 'alice@testify.local',
+        email: 'alice@tessick.local',
         password: 'AlicePassword1!',
         global_role: 'Tester',
       },
@@ -262,7 +262,7 @@ describe('Auth & Admin API Integration Tests', () => {
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         username: 'plain_tester',
-        email: 'plain_tester@testify.local',
+        email: 'plain_tester@tessick.local',
         password: 'PlainTester1!',
         global_role: 'Tester',
       },

@@ -1,6 +1,6 @@
-# Deploying Testify
+# Deploying Tessick
 
-Testify is one Node.js process that serves the API, the MCP endpoint (`/mcp`) and the web app on one port, on top of PostgreSQL. Database migrations run automatically at startup.
+Tessick is one Node.js process that serves the API, the MCP endpoint (`/mcp`) and the web app on one port, on top of PostgreSQL. Database migrations run automatically at startup.
 
 **Requirements**:
 - PostgreSQL (tested with 17).
@@ -8,19 +8,19 @@ Testify is one Node.js process that serves the API, the MCP endpoint (`/mcp`) an
 
 ## With Docker Compose
 
-`docker-compose.yml` runs Testify and PostgreSQL together, with the database kept in a Docker volume.
+`docker-compose.yml` runs Tessick and PostgreSQL together, with the database kept in a Docker volume.
 
 1. `cp .env.example .env`, then fill in `POSTGRES_PASSWORD` and `JWT_SECRET`. Generate each with `openssl rand -hex 32`. Also set `SECRETS_KEY` if you'll send email or use webhooks.
 2. `docker compose up -d`
-3. `docker compose logs testify` shows the first admin's password. Sign in at http://localhost:3001 as `admin`; you'll be asked to choose a new password.
+3. `docker compose logs tessick` shows the first admin's password. Sign in at http://localhost:3001 as `admin`; you'll be asked to choose a new password.
 
-Testify listens on port 3001; set `TESTIFY_PORT` in `.env` to use another port on the host. To upgrade, pull the new code and run `docker compose up -d --build`.
+Tessick listens on port 3001; set `TESSICK_PORT` in `.env` to use another port on the host. To upgrade, pull the new code and run `docker compose up -d --build`.
 
 The image (`Dockerfile`) works on its own too:
 
 ```bash
-docker build -t testify .
-docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... testify
+docker build -t tessick .
+docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... tessick
 ```
 
 It runs as the unprivileged `node` user, and Docker checks its health through `GET /api/v1/health`.
@@ -30,7 +30,7 @@ It runs as the unprivileged `node` user, and Docker checks its health through `G
 ```bash
 npm ci
 npm run build    # apps/web/dist and apps/server/dist/server.js
-DATABASE_URL=postgres://testify:secret@db.example.com:5432/testify \
+DATABASE_URL=postgres://tessick:secret@db.example.com:5432/tessick \
 JWT_SECRET=<32+ random characters> \
 NODE_ENV=production \
 npm start
@@ -57,24 +57,24 @@ All configuration comes from environment variables; nothing reads a `.env` file 
 | `WEB_DIST_DIR` | `apps/web/dist` | Where the built web app is. If there's no build, only the API is served. |
 | `SEED_SAMPLE_DATA` | `false` | `true` creates a small sample project. |
 | `EVIDENCE_STORAGE` | from the settings below | Where evidence files (screenshots, videos, logs, traces uploaded for test executions) are kept: `local` (a directory) or `s3` (a bucket). `memory` only with `DATABASE_URL=memory`. **A real database needs one**: startup stops otherwise. Docker Compose uses `local` on the `evidence-data` volume. |
-| `EVIDENCE_DIR` | none | `local`: the directory. Testify must be able to write to it (checked at startup); it makes its folders 0700 and files 0600. |
+| `EVIDENCE_DIR` | none | `local`: the directory. Tessick must be able to write to it (checked at startup); it makes its folders 0700 and files 0600. |
 | `EVIDENCE_S3_BUCKET` | none | `s3`: the bucket. Credentials come from AWS's own variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, ...) or the server's IAM role. Startup checks the bucket can be reached. |
 | `EVIDENCE_S3_REGION` | none | `s3`: the bucket's region (`us-east-1` when `EVIDENCE_S3_ENDPOINT` is set and this isn't). |
 | `EVIDENCE_S3_ENDPOINT` | none | `s3`: an S3-compatible server's address (MinIO, Cloudflare R2, ...). |
 | `EVIDENCE_S3_FORCE_PATH_STYLE` | `false` | `s3`: `true` for most S3-compatible servers (`https://host/bucket/key`). |
-| `EVIDENCE_S3_PREFIX` | none | `s3`: a prefix for Testify's files in a shared bucket. |
+| `EVIDENCE_S3_PREFIX` | none | `s3`: a prefix for Tessick's files in a shared bucket. |
 | `EVIDENCE_S3_SSE` | none | `s3`: `AES256` or `aws:kms` to ask for server-side encryption. |
 | `EVIDENCE_MAX_FILE_MB` | `200` | The largest evidence file accepted, in MB. |
 
 ## HTTPS and reverse proxies
 
-Put Testify behind a reverse proxy (nginx, Caddy, Traefik, a cloud load balancer) that handles HTTPS. Then:
+Put Tessick behind a reverse proxy (nginx, Caddy, Traefik, a cloud load balancer) that handles HTTPS. Then:
 
-- **Set `TRUST_PROXY=true`.** Sign-in limits then see real client addresses, the audit log records them, the session cookie is marked `Secure`, and replies over HTTPS carry `Strict-Transport-Security` (browsers then refuse plain HTTP to Testify for a year, so serve it over HTTPS only from then on).
-- **Testify itself speaks only HTTP.** A client sent to `https://` on Testify's own port (no proxy in between) fails with "TLS handshake failed". Testify then logs a warning, at most once a minute: "A client spoke HTTPS (TLS) to this plain-HTTP port". Without a proxy, as on a laptop, use `http://`.
-- **Security headers are Testify's own.** Every reply already has a Content-Security-Policy, no-framing, `nosniff` and referrer headers, so the proxy needn't add them. If it does, keep them no looser.
+- **Set `TRUST_PROXY=true`.** Sign-in limits then see real client addresses, the audit log records them, the session cookie is marked `Secure`, and replies over HTTPS carry `Strict-Transport-Security` (browsers then refuse plain HTTP to Tessick for a year, so serve it over HTTPS only from then on).
+- **Tessick itself speaks only HTTP.** A client sent to `https://` on Tessick's own port (no proxy in between) fails with "TLS handshake failed". Tessick then logs a warning, at most once a minute: "A client spoke HTTPS (TLS) to this plain-HTTP port". Without a proxy, as on a laptop, use `http://`.
+- **Security headers are Tessick's own.** Every reply already has a Content-Security-Policy, no-framing, `nosniff` and referrer headers, so the proxy needn't add them. If it does, keep them no looser.
 - **Allow large uploads.** Imports can be up to 50 MB; with nginx, set `client_max_body_size 60m;`.
-- **Set the address used in emails.** In Admin Panel → Email, set "Testify address for links in emails" to the public address, e.g. `https://testify.example.com`.
+- **Set the address used in emails.** In Admin Panel → Email, set "Tessick address for links in emails" to the public address, e.g. `https://tessick.example.com`.
 
 The session cookie is `SameSite=Strict`, so serve the web app and the API from the same site. The built-in serving of the web app does that.
 
@@ -88,11 +88,11 @@ The session cookie is `SameSite=Strict`, so serve the web app and the API from t
 ## Backups and upgrades
 
 - **Backups:** the data is in PostgreSQL, and evidence files in their directory or bucket. Back up both, at the same time:
-  - the database with `pg_dump`, e.g. `docker compose exec db pg_dump -U testify testify > testify.sql`;
+  - the database with `pg_dump`, e.g. `docker compose exec db pg_dump -U tessick tessick > tessick.sql`;
   - the evidence directory (the `evidence-data` volume), or rely on the bucket's own versioning or replication.
 
   A database restored without its files lists evidence whose files are missing (reading them fails). Files without rows are harmless, but take space. Keep `JWT_SECRET` and `SECRETS_KEY` somewhere safe too; they aren't in the database.
-- **Upgrades:** stop Testify, back up the database, then start the new version. Pending migrations run at startup, and a failed one stops the server with its name. Migrations only move forward; to go back to an older version, restore the backup.
+- **Upgrades:** stop Tessick, back up the database, then start the new version. Pending migrations run at startup, and a failed one stops the server with its name. Migrations only move forward; to go back to an older version, restore the backup.
 
 ## More than one instance
 
@@ -105,12 +105,12 @@ Account lockouts are stored in the database and apply across all instances.
 
 ## Moving from TestLink
 
-To move a TestLink 1.9 database into Testify, keeping its ids, API keys and history for the TestLink-compatible API, run `apps/server/scripts/migrate-testlink.ts` with `--dry-run` first. The options and what it brings are in [testlink_compat_api.md](testlink_compat_api.md), "Migration". Migrated users have no password until an admin sets one; their TestLink API keys work from the start.
+To move a TestLink 1.9 database into Tessick, keeping its ids, API keys and history for the TestLink-compatible API, run `apps/server/scripts/migrate-testlink.ts` with `--dry-run` first. The options and what it brings are in [testlink_compat_api.md](testlink_compat_api.md), "Migration". Migrated users have no password until an admin sets one; their TestLink API keys work from the start.
 
 ## Security checklist
 
 - Strong, unique `JWT_SECRET`, `SECRETS_KEY` and database password, kept out of version control (`.env` is git-ignored).
 - HTTPS in front, with `TRUST_PROXY=true`.
-- Change the first admin's password at first sign-in. Testify asks for it when it generated the password.
-- PostgreSQL reachable only from Testify, not from the internet.
+- Change the first admin's password at first sign-in. Tessick asks for it when it generated the password.
+- PostgreSQL reachable only from Tessick, not from the internet.
 - Regular database backups, restored at least once to check they work.

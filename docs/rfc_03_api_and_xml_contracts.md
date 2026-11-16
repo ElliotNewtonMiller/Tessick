@@ -3,7 +3,7 @@
 **Document Status:** Describes the API as built (§1-4 rewritten 2026-10-12 after the API consistency work; §5-9 updated 2026-10-11)
 **Date:** September 8, 2026
 **Author:** API & Integration Architecture Team
-**Target Platform:** Testify
+**Target Platform:** Tessick
 **Related Documents:** [00_requirements_alignment.md](00_requirements_alignment.md), [rfc_01_domain_model.md](rfc_01_domain_model.md), [rfc_04_rbac_security_matrix.md](rfc_04_rbac_security_matrix.md), [reports_api_and_mcp.md](reports_api_and_mcp.md), [api_roadmap.md](api_roadmap.md)
 
 > This RFC describes the API as it works today. Every running server also serves a generated OpenAPI spec at `/docs/json` and a docs page with "Try it out" at `/docs`, covering every route with its fields, allowed values and errors ([api_roadmap.md](api_roadmap.md) step 3). This document gives the conventions and the overview; the spec has the field-level detail, and [api_getting_started.md](api_getting_started.md) is a step-by-step guide for scripts and CI. Reports, report email and MCP are covered in more depth in [reports_api_and_mcp.md](reports_api_and_mcp.md). Where something from the original design isn't built, the section says so.
@@ -26,9 +26,9 @@ The API serves two kinds of client:
                   | JSON requests                               | Batch POSTs, reports, /mcp
                   v                                             v
 +-----------------------------------------------------------------------------------+
-|                        Testify server (Fastify, one process)                      |
+|                        Tessick server (Fastify, one process)                      |
 |  +-----------------------------------------------------------------------------+  |
-|  | Authentication (session cookie / Bearer JWT / Bearer tf_ci_...), project     |  |
+|  | Authentication (session cookie / Bearer JWT / Bearer tk_ci_...), project     |  |
 |  | resolution, permissions, rate limits (middleware/auth.ts, rateLimits.ts)     |  |
 |  +-----------------------------------------------------------------------------+  |
 |  | Routes (apps/server/src/routes) and services; problem-details errors         |  |
@@ -193,7 +193,7 @@ CI pipelines send many results at once: as JSON (up to 5,000 per request), or as
 
 - **`case_identifier`:** `external_id`, `by_uuid` (the case id), or `by_path_title`. A case that isn't in the plan yet is linked to it if it's APPROVED (or the project allows drafts); a case removed from the plan is refused.
 - **Each result:** `verdict` as in §2.2; optional `status`, `duration_ms` (at most 2,147,483,647, about 24 days), `executed_at` (defaults to now; more than 5 minutes ahead of the server is refused), `notes`, `failure_message`, `stack_trace`, `environment_tags` (up to 50 text values), `step_results` (by `test_step_id` or `step_number`).
-- **`runner_info.run_id`** is the CI system's own run id, unrelated to Testify's `test_run_id`. Reports link back through `url`.
+- **`runner_info.run_id`** is the CI system's own run id, unrelated to Tessick's `test_run_id`. Reports link back through `url`.
 
 Response:
 
@@ -229,7 +229,7 @@ The body is a JUnit XML report as test runners write it, sent as is with any con
 
 - **Verdicts:** `<failure>` and `<error>` are FAILED (an error also gets a note saying so), `<skipped>` is SKIPPED with its message as the note, anything else PASSED. Only the first outcome element counts; Surefire's `flakyFailure`/`rerunFailure` are ignored, so a test that passed on a rerun is PASSED.
 - **Fields:** `time` (seconds) → `duration_ms`; a failure's `message` attribute (or the first line of its text) → `failure_message`; its text → `stack_trace`. A `time` that isn't a number, is negative, or is over about 24 days (2,147,483,647 ms, the column's limit; usually milliseconds written as seconds) leaves the result without a duration. NUL characters in the file are removed (§4.3).
-- **Matching a test to a case:** `external_id` from a `testify_id` property on the test, else a readable id in its name (`SHOP-101 …`, `[SHOP-101] …`); plus `by_path_title` with the suite a JUnit import would have created (the last part of `classname`, or the `<testsuite>` name) and the test's name as title. The batch tries the readable id first, then suite and title within the plan, then the project's cases (preferring the one in the named suite).
+- **Matching a test to a case:** `external_id` from a `tessick_id` property on the test, else a readable id in its name (`SHOP-101 …`, `[SHOP-101] …`); plus `by_path_title` with the suite a JUnit import would have created (the last part of `classname`, or the `<testsuite>` name) and the test's name as title. The batch tries the readable id first, then suite and title within the plan, then the project's cases (preferring the one in the named suite).
 - **Query parameters:** `environment`; `ci_name`, `ci_run_id`, `ci_job_name`, `ci_url`, `commit_sha` (stored as `runner_info`); `all_or_nothing`.
 - **Errors:** `400 INVALID_JUNIT` for an empty body, a file that isn't JUnit XML (no `<testsuite>`/`<testsuites>`), one without tests, or over 20,000 tests; `413` over 50 MB. Tests that match no case are refused per item (`CASE_NOT_FOUND`, 207).
 - **With evidence:** sent as multipart/form-data, the report is the `file` part and other file parts are evidence (§5). A test attaches a file with `[[ATTACHMENT|path]]` in its `<system-out>`/`<system-err>` (the Jenkins and GitLab convention) or an `attachment` property; each file goes to its test's new result, matched by file name. The answer's `evidence` lists what was stored and what was refused (`NOT_ATTACHED`, or the file's own refusal).
@@ -259,7 +259,7 @@ Every error, from every route, is **RFC 7807 problem details** (`Content-Type: a
 
 | Field | Meaning |
 | :--- | :--- |
-| `type` | `https://api.testify.dev/errors/{code}` |
+| `type` | `https://api.tessick.dev/errors/{code}` |
 | `title` | The HTTP status text, e.g. `Unprocessable Entity` |
 | `status` | The HTTP status |
 | `code` | A machine-readable code (§4.2); defaults from the status, e.g. `NOT_FOUND` |
@@ -280,7 +280,7 @@ HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/problem+json
 
 {
-  "type": "https://api.testify.dev/errors/RUN_CLOSED",
+  "type": "https://api.tessick.dev/errors/RUN_CLOSED",
   "title": "Unprocessable Entity",
   "status": 422,
   "code": "RUN_CLOSED",
@@ -300,7 +300,7 @@ The codes a client is most likely to handle (the code is always in `code`; `deta
 | Status | Codes |
 | :--- | :--- |
 | `400` | `CHECKSUM_MISMATCH`, `SIZE_MISMATCH`, `NOT_ATTACHED` (evidence, §5), `INVALID_REQUEST` (default), `INVALID_PARAMS` (reports, schedules), `INVALID_RESULT`, `INVALID_STEPS`, `INVALID_NAME`, `INVALID_FILTER`, `INVALID_FIELD_VALUE`, `INVALID_VALIDATION_PATTERN`, `PROJECTS_DIFFER`, `AMBIGUOUS_CASE_ID`, `INVALID_CURSOR`, `INVALID_JUNIT`, `INVALID_WEBHOOK_URL`, `SECRETS_KEY_REQUIRED`, `UNKNOWN_FIELD` (a bulk change naming a custom field that doesn't exist), `CAPABILITY_NOT_GRANTABLE`, `PASSWORD_POLICY_VIOLATION`, `CURRENT_PASSWORD_REQUIRED`, `PASSWORD_UNCHANGED` |
-| `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN` (not a Testify token at all, or an API token that doesn't exist), `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE`. Every 401 carries `WWW-Authenticate: Bearer realm="Testify"`, with `error="invalid_token"` when a credential was sent and doesn't work. |
+| `401` | `UNAUTHORIZED` (no credential), `SESSION_ENDED` (signed out, expired, or signed by another server key), `INVALID_TOKEN` (not a Tessick token at all, or an API token that doesn't exist), `TOKEN_REVOKED`, `TOKEN_EXPIRED`, `TOKEN_ISSUER_INACTIVE`. Every 401 carries `WWW-Authenticate: Bearer realm="Tessick"`, with `error="invalid_token"` when a credential was sent and doesn't work. |
 | `405` | `METHOD_NOT_ALLOWED`: an API address that exists, under another method; `Allow` lists the methods it takes |
 | `403` | `FORBIDDEN` (with `required_permission`), `TOKEN_NOT_ALLOWED` (an API token on a route outside any project), `TOKEN_INTERFACE_NOT_ALLOWED` (an MCP-only token on the REST API, or a REST-only one on `/mcp`; with `token_interfaces`), `RESULT_OVERWRITE_NOT_PERMITTED`, `AUTO_CLOSE_NOT_YOURS`, `CAPABILITY_CEILING_EXCEEDED`, `PASSWORD_CHANGE_REQUIRED`, `CSRF_HEADER_MISSING`, `CURRENT_PASSWORD_INCORRECT`, and the Admin Panel guards `PERMISSION_CEILING`, `TARGET_OUTRANKS_ACTOR`, `ROLE_OUTRANKS_ACTOR` |
 | `404` | `NOT_FOUND` (also what an API token gets for anything in another project), and in reports `PROJECT_NOT_FOUND`, `PLAN_NOT_FOUND`, `RUN_NOT_FOUND`, `CASE_NOT_FOUND`, `REPORT_NOT_FOUND` |
@@ -342,7 +342,7 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
   - Send multipart/form-data file parts (a `description` field applies to the files after it; a `sha256` field to the next file), or the file as a raw body (`?filename=`, `X-Checksum-SHA256`).
 - **CI, a whole run in one request:** `POST /runs/{runId}/evidence` with file parts named by case (`curl -F "SHOP-12=@login.png"`), or a JUnit report with the files its tests attach (§3.3).
 - **Upload links,** for large files and AI agents: `POST /runs/{runId}/cases/{caseId}/evidence/uploads` with `filename`, `size_bytes` and `sha256` gives a single-use URL, valid 15 minutes, for that file only.
-  - **With local storage,** it's `PUT /evidence-uploads/{token}` on Testify (no sign-in: the link is the credential; its token never appears in logs), which stores the file and answers the evidence.
+  - **With local storage,** it's `PUT /evidence-uploads/{token}` on Tessick (no sign-in: the link is the credential; its token never appears in logs), which stores the file and answers the evidence.
   - **With S3,** it's a presigned PUT to the bucket (S3 enforces the length and SHA-256), then `POST /evidence-uploads/{uploadId}/complete`, which checks the size and type and records it.
 - **One answer for every upload:** `{ evidence: [...], refused: [...] }`.
   - 201 when all were stored; 200 when all were already there (the same SHA-256 on the same execution, so retries add nothing);
@@ -358,7 +358,7 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 - **Deleting** (`DELETE /evidence/{evidenceId}`, for good) is for its uploader while the run is open, or anyone with `EXECUTE_OVERWRITE`.
 - **Audit:** every addition writes an `EVIDENCE_ADDED` audit row and every deletion an `EVIDENCE_DELETED` one, with the file's name, size and SHA-256. The Security Audit Log (`GET /admin/audit-logs`) shows additions grouped by uploader, run and clock hour, so a CI build's hundreds of files are one entry (`grouped_count`, `first_created_at`, a summary as its `diff`); `?action=EVIDENCE_ADDED` lists each one. Deletions show one by one.
 
-**Serving:** always through Testify (`GET /evidence/{evidenceId}/content`), permissions checked on every read, so the web app shows images and videos with its sign-in cookie. The headers:
+**Serving:** always through Tessick (`GET /evidence/{evidenceId}/content`), permissions checked on every read, so the web app shows images and videos with its sign-in cookie. The headers:
 - `Content-Type` is the sniffed type, with `nosniff`;
 - `Content-Security-Policy: default-src 'none'; sandbox`, so nothing in a file can run;
 - `Cross-Origin-Resource-Policy: same-origin`;
@@ -372,7 +372,7 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
   - every object is written with its SHA-256 (`x-amz-checksum-sha256`), so the bucket refuses a file changed on the way, and with server-side encryption when `EVIDENCE_S3_SSE` asks;
   - upload links are presigned PUTs for one object of an exact length and SHA-256, the checksum a signed header the client must send. The SDK's default CRC32 is turned off, since it would be signed into the URL for an empty body;
   - completing such an upload checks the object's size and type (a ranged read; a log to its end) and deletes it if refused;
-  - reads still go through Testify.
+  - reads still go through Tessick.
   - Credentials come from AWS's usual chain (environment, an IAM role).
   - Startup checks the bucket (HeadBucket).
 - **The database keeps** each file's key (generated, never from input), sniffed type, size and SHA-256. A real database needs storage configured (deployment.md); startup checks it.
@@ -390,11 +390,11 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 
 ## 6. Extensible Multi-Format Ingestion & Migration Engine
 
-Importing existing test repositories into Testify supports five formats through one pipeline: preview (dry run), then execute. The import wizard in the web app (`ImportWizardModal.tsx`) walks through Upload → Field Mapping → Duplicates → Confirm → Results.
+Importing existing test repositories into Tessick supports five formats through one pipeline: preview (dry run), then execute. The import wizard in the web app (`ImportWizardModal.tsx`) walks through Upload → Field Mapping → Duplicates → Confirm → Results.
 
 ```
 +-----------------------------------------------------------------------------------+
-|  TestLink XML | JUnit XML | Testify JSON | CSV | TestRail CSV (explicit only)     |
+|  TestLink XML | JUnit XML | Tessick JSON | CSV | TestRail CSV (explicit only)     |
 +----------------------------------------+------------------------------------------+
                                          v
 +-----------------------------------------------------------------------------------+
@@ -433,7 +433,7 @@ export interface IFileParser {
 
 #### TestLink XML
 
-| TestLink XML Element | Testify Field | Rules |
+| TestLink XML Element | Tessick Field | Rules |
 | :--- | :--- | :--- |
 | `<testsuite name="...">` | Suite name | Nesting preserved, at most 27 levels deep (deeper refuses the import). Over 255 characters is cut. |
 | `<details>` | Suite details | |
@@ -449,7 +449,7 @@ export interface IFileParser {
 
 Priorities, in every format: `CRITICAL`, `HIGH`, `MEDIUM` or `LOW` in any letter case, or `1`-`4` (LOW to CRITICAL); anything else gets the import's default (MEDIUM).
 
-- **Testify JSON:** suites with `test_cases` (`title`, `external_id`, `summary`, `preconditions`, `importance`, `execution_type`, `steps`, `custom_fields`). It also reads Testify's own JSON export (suites with `cases`, `priority`, the content in `version`, `custom_field_values`), so an export re-imports with every case, priority, step and custom-field value (multi-select values joined with commas).
+- **Tessick JSON:** suites with `test_cases` (`title`, `external_id`, `summary`, `preconditions`, `importance`, `execution_type`, `steps`, `custom_fields`). It also reads Tessick's own JSON export (suites with `cases`, `priority`, the content in `version`, `custom_field_values`), so an export re-imports with every case, priority, step and custom-field value (multi-select values joined with commas).
 - **CSV:** a header row with columns matched by name, case-insensitively: `Suite Path`, `External ID`, `Title`, `Summary`, `Preconditions`, `Importance` (or `Priority`), `Execution Type`, `Step Number`, `Action`, `Expected Result`. Other columns become custom fields; the CSV export writes them as `cf_<name>`. One row per step, with the case's fields repeated. A CSV definitions export re-imports through this parser. Known limits:
   - A custom field whose name contains a built-in column's word (`title`, `suite`, `action`, `result`...) is read as that column.
 - **JUnit XML:** suites nest by the test's dotted `classname`. Status, duration and failure message arrive as the custom fields `junit_status`, `junit_duration_seconds` and `junit_failure_message`. They're case fields, not results; send results through the batch API instead.
@@ -458,7 +458,7 @@ Priorities, in every format: `CRITICAL`, `HIGH`, `MEDIUM` or `LOW` in any letter
   - one row per case with indexed columns, `Steps (Step 1)`, `Steps (Expected Result 1)`, ...;
   - one row per step: rows with no `ID` or `Title` add a step to the case above.
 
-  `Section` ("Parent > Child") becomes the suite tree; `Priority` maps onto Testify's four (`Critical` → CRITICAL); a `Type` of "Automated" makes the case AUTOMATED. Other columns (`Type`, `Estimate`, ...) become custom fields, named readably by default ("Type"). When a case has more or fewer expected-result lines than steps, the expected results go on its last step, with a `STEP_EXPECTED_MISALIGNED` warning.
+  `Section` ("Parent > Child") becomes the suite tree; `Priority` maps onto Tessick's four (`Critical` → CRITICAL); a `Type` of "Automated" makes the case AUTOMATED. Other columns (`Type`, `Estimate`, ...) become custom fields, named readably by default ("Type"). When a case has more or fewer expected-result lines than steps, the expected results go on its last step, with a `STEP_EXPECTED_MISALIGNED` warning.
 
 ### 6.3 File Size & Memory
 
@@ -529,8 +529,8 @@ Execute runs the whole import in one transaction, writes an `IMPORT_EXECUTED` au
 
 ### 7.1 Authentication
 Every API request needs a credential (RFC 04 §4 has the details):
-- **Machine API tokens** (`Authorization: Bearer tf_ci_...`), for CI and agents. Each is created per project in Admin Panel → API Tokens, with chosen capabilities, and is bound to that project and capped by its issuer's current permissions. Tokens can't use the admin routes or hold system-wide permissions (RFC 04 §4.2).
-- **Sign-in tokens:** `POST /api/v1/auth/login` returns a JWT for scripts, with `expires_at` (7 days at most) and `idle_timeout_seconds` (it ends sooner after 8 hours unused). The web app uses an HttpOnly session cookie instead, plus a `X-Testify-Client: web` header on changes.
+- **Machine API tokens** (`Authorization: Bearer tk_ci_...`), for CI and agents. Each is created per project in Admin Panel → API Tokens, with chosen capabilities, and is bound to that project and capped by its issuer's current permissions. Tokens can't use the admin routes or hold system-wide permissions (RFC 04 §4.2).
+- **Sign-in tokens:** `POST /api/v1/auth/login` returns a JWT for scripts, with `expires_at` (7 days at most) and `idle_timeout_seconds` (it ends sooner after 8 hours unused). The web app uses an HttpOnly session cookie instead, plus a `X-Tessick-Client: web` header on changes.
 
 - **TestLink API keys**, one per user, only for the TestLink-compatible API under `/lib/api/rest/{v1,v2,custom}` (§7.4, RFC 04 §4.4).
 
@@ -552,7 +552,7 @@ Retry-After: 30
 Content-Type: application/problem+json
 
 {
-  "type": "https://api.testify.dev/errors/RATE_LIMITED",
+  "type": "https://api.tessick.dev/errors/RATE_LIMITED",
   "title": "Too Many Requests",
   "status": 429,
   "code": "RATE_LIMITED",
@@ -590,14 +590,14 @@ A project's webhooks send its events to other systems as they happen (`apps/serv
   "created_at": "2026-10-12T10:00:00.000Z",
   "project": { "id": "…", "name": "Shop", "prefix": "SHOP" },
   "actor": { "type": "SERVICE_ACCOUNT", "name": "ci (API token)" },
-  "url": "https://testify.example.com/#/reports/run?project=…&plan=…&run=…",
+  "url": "https://tessick.example.com/#/reports/run?project=…&plan=…&run=…",
   "data": { "run": { "id": "…", "name": "CI build 42", "status": "CLOSED" }, "plan": { "id": "…", "name": "Release" }, "closed_by": "ci", "summary": { "total": 120, "passed": 117, "failed": 3, "pass_rate": 0.975, "new_failures": 1, "failures": [ … ] } }
 }
 ```
 
 `id` is the event's: the same for every webhook, retry and redelivery, so receivers can drop duplicates. `url` links into the web app when the server's public URL is set (Admin Panel → Email); `actor.type` is `SYSTEM` for automatic closes.
 
-**Signing.** Every delivery is a `POST` with `Content-Type: application/json`, `User-Agent: Testify-Webhooks/1`, `X-Testify-Event`, `X-Testify-Event-Id`, `X-Testify-Delivery` and:
+**Signing.** Every delivery is a `POST` with `Content-Type: application/json`, `User-Agent: Tessick-Webhooks/1`, `X-Tessick-Event`, `X-Tessick-Event-Id`, `X-Tessick-Delivery` and:
 - `X-Signature-Timestamp`: Unix seconds;
 - `X-Signature-SHA256`: the hex HMAC-SHA256 of `{timestamp}.{body}` with the webhook's secret (`whsec_…`, shown once when created or rotated, stored encrypted with `SECRETS_KEY`).
 
@@ -615,13 +615,13 @@ A receiver recomputes the signature over the raw body, compares in constant time
 
 ### 7.4 TestLink-compatible API
 
-Testify also serves Dave's TestLink REST API (v1, v2 and custom), so clients written for TestLink work with only the host changed. It's a translation layer in `apps/server/src/testlinkCompat/`, outside this RFC's conventions on purpose:
+Tessick also serves Dave's TestLink REST API (v1, v2 and custom), so clients written for TestLink work with only the host changed. It's a translation layer in `apps/server/src/testlinkCompat/`, outside this RFC's conventions on purpose:
 - **Paths:** TestLink's own, under `/lib/api/rest/v1`, `/v2` and `/custom`, each version with the routes TestLink's has.
 - **Authentication:** a user's TestLink API key, as the `APIKEY` header or the HTTP Basic user name (v1: Basic only). It isn't accepted on `/api` or `/mcp`.
 - **Answers:** TestLink's envelope (`{status: "ok"|"ko", message, ...}`), never problem details, with the HTTP codes Dave's spec documents for each route (other refusals are 200, as TestLink's PHP answers them); an authentication failure is `400 "authentication error"`, as in TestLink.
-- **Ids:** TestLink's numeric ids, kept beside Testify's UUIDs (`compat_ids`).
+- **Ids:** TestLink's numeric ids, kept beside Tessick's UUIDs (`compat_ids`).
 - **Writes** go through the routes in §2 as the key's user (an inner request, `via: 'testlink'`), so permissions, validation, audit rows and webhooks are the same.
-- These routes aren't in Testify's OpenAPI spec; Dave's `openapi.yaml` documents them.
+- These routes aren't in Tessick's OpenAPI spec; Dave's `openapi.yaml` documents them.
 
 The details, the model mapping, the phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
 
@@ -635,10 +635,10 @@ The details, the model mapping, the phases and what can't be exact are in [testl
 sequenceDiagram
     autonumber
     participant CI as CI Runner
-    participant API as Testify API
+    participant API as Tessick API
     participant DB as PostgreSQL
 
-    CI->>API: POST /api/v1/runs/{runId}/results/batch or /results/junit (Bearer tf_ci_...)
+    CI->>API: POST /api/v1/runs/{runId}/results/batch or /results/junit (Bearer tk_ci_...)
     API->>API: Authenticate token, check project binding, rate limit, EXECUTE_RUN
     alt Run closed or plan locked
         API-->>CI: 422 (RUN_CLOSED / PLAN_LOCKED)
@@ -658,7 +658,7 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant UI as Import wizard
-    participant API as Testify API
+    participant API as Tessick API
     participant DB as PostgreSQL
 
     UI->>API: POST /api/v1/projects/{id}/imports/dry-run (multipart: file, format, configuration)

@@ -8,7 +8,7 @@ export interface ParsedStep {
   execution_type: 'MANUAL' | 'AUTOMATED';
 }
 
-/** A case's priority, as Testify stores it. */
+/** A case's priority, as Tessick stores it. */
 export type ParsedPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 const PRIORITIES: readonly ParsedPriority[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
@@ -16,7 +16,7 @@ const PRIORITIES: readonly ParsedPriority[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LO
 const NUMERIC_PRIORITIES: Record<string, ParsedPriority> = { '1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL' };
 
 /**
- * A priority from a file: one of Testify's four (any letter case) or 1-4; anything else (or
+ * A priority from a file: one of Tessick's four (any letter case) or 1-4; anything else (or
  * nothing) gives the fallback (the import's default, else MEDIUM).
  */
 export function normalizePriority(raw: unknown, fallback?: string): ParsedPriority {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { createDbClient } from '@testify/db';
+import { createDbClient } from '@tessick/db';
 import { resolveInitialAdminPassword, ConfigError } from '../src/config.js';
 import { createServer } from '../src/server.js';
 import { MemoryStorageProvider } from '../src/storage/index.js';
@@ -90,7 +90,7 @@ describe('First start against a real database', () => {
     const previousJwtSecret = process.env.JWT_SECRET;
     process.env.JWT_SECRET = 'initial-admin-test-secret-0123456789'; // a real database requires one
     try {
-      const { app } = await createServer('postgres://unused/testify', { db, evidence: { storage: new MemoryStorageProvider() } });
+      const { app } = await createServer('postgres://unused/tessick', { db, evidence: { storage: new MemoryStorageProvider() } });
       const printed = warn.mock.calls.map((c) => String(c[0])).join('\n');
       const password = /password: (\S+)/.exec(printed)?.[1];
       expect(password).toBeTruthy();
@@ -107,7 +107,7 @@ describe('First start against a real database', () => {
 
       // A restart doesn't print (or change) anything.
       warn.mockClear();
-      const second = await createServer('postgres://unused/testify', { db, evidence: { storage: new MemoryStorageProvider() } });
+      const second = await createServer('postgres://unused/tessick', { db, evidence: { storage: new MemoryStorageProvider() } });
       expect(warn.mock.calls.some((c) => String(c[0]).includes('Created the first admin'))).toBe(false);
       await second.app.close();
     } finally {

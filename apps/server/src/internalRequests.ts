@@ -10,7 +10,7 @@ import type { FastifyRequest } from 'fastify';
  *
  * Such a request carries a secret only this process knows. It isn't counted again against an API
  * token's rate limit (the outer request was), and its `via` (bulk or mcp) is believed: an MCP
- * change is recorded with "via Testify MCP" in its audit rows' User-Agent, and cases it creates
+ * change is recorded with "via Tessick MCP" in its audit rows' User-Agent, and cases it creates
  * start as DRAFT. The secret is random per process and never leaves it (headers aren't logged).
  *
  * The TestLink-compatible API (testlinkCompat/) makes its changes the same way, `via` testlink,
@@ -20,10 +20,10 @@ import type { FastifyRequest } from 'fastify';
  */
 
 const INTERNAL_SECRET = randomBytes(32).toString('hex');
-const SECRET_HEADER = 'x-testify-internal';
-const VIA_HEADER = 'x-testify-via';
-const USER_HEADER = 'x-testify-internal-user';
-const DRAFT_HEADER = 'x-testify-start-draft';
+const SECRET_HEADER = 'x-tessick-internal';
+const VIA_HEADER = 'x-tessick-via';
+const USER_HEADER = 'x-tessick-internal-user';
+const DRAFT_HEADER = 'x-tessick-start-draft';
 
 export type InternalVia = 'bulk' | 'mcp' | 'testlink';
 
@@ -84,13 +84,13 @@ export async function innerRequest(
   if (options.asUserId) {
     headers[USER_HEADER] = options.asUserId;
   } else {
-    for (const name of ['authorization', 'cookie', 'x-testify-client'] as const) {
+    for (const name of ['authorization', 'cookie', 'x-tessick-client'] as const) {
       const value = outer.headers[name];
       if (typeof value === 'string') headers[name] = value;
     }
   }
   const agent = typeof outer.headers['user-agent'] === 'string' ? outer.headers['user-agent'] : '';
-  const MARK = via === 'mcp' ? '(via Testify MCP)' : via === 'testlink' ? '(via TestLink API)' : '';
+  const MARK = via === 'mcp' ? '(via Tessick MCP)' : via === 'testlink' ? '(via TestLink API)' : '';
   headers['user-agent'] = MARK && !agent.includes(MARK) ? `${agent} ${MARK}`.trim() : agent;
   // The outer request's address, so links an answer makes (an upload link) point back at this server.
   for (const name of ['host', 'x-forwarded-host', 'x-forwarded-proto'] as const) {

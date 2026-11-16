@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import { UserApiKeyRepository, UserRepository, RoleRepository, type Database } from '@testify/db';
+import { UserApiKeyRepository, UserRepository, RoleRepository, type Database } from '@tessick/db';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { tlAuthError, tlKo } from './envelope.js';
 import type { TestLinkVersion } from './versions.js';
@@ -12,7 +12,7 @@ import type { TestLinkVersion } from './versions.js';
  * - v1: only the HTTP Basic user name (TestLink's v1 doesn't read the header).
  *
  * The key works only here, on the compatible paths, and with the user's own permissions in each
- * project (Testify's project-bound tokens and MCP rules are untouched). A missing, unknown or
+ * project (Tessick's project-bound tokens and MCP rules are untouched). A missing, unknown or
  * removed key, or a disabled user, gets TestLink's 400 "authentication error". The user's
  * requests count against their per-user rate limit, as a sign-in's do.
  */

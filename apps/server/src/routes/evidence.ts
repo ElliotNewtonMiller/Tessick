@@ -2,8 +2,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4, v7 as uuidv7 } from 'uuid';
-import { EvidenceRepository, EvidenceUploadRepository, type Database, type Evidence } from '@testify/db';
-import { SNIFF_BYTES, TextCheck, contentDisposition, parseRange, shownInline, sniffEvidence, MAX_EVIDENCE_FILENAME } from '@testify/core';
+import { EvidenceRepository, EvidenceUploadRepository, type Database, type Evidence } from '@tessick/db';
+import { SNIFF_BYTES, TextCheck, contentDisposition, parseRange, shownInline, sniffEvidence, MAX_EVIDENCE_FILENAME } from '@tessick/core';
 import { requireAnyPermission, requirePermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { requestOrigin } from '../audit.js';
 import { sendError } from '../errors.js';
@@ -31,10 +31,10 @@ import * as S from '../openapi/areas/evidence.js';
  * logs and Playwright traces, for a case's execution in a run.
  *
  * Uploads stream through the spool (storage/spool.ts), which counts, hashes and sniffs them, so
- * nothing is stored unless it's a file Testify accepts. Every upload route answers one shape:
+ * nothing is stored unless it's a file Tessick accepts. Every upload route answers one shape:
  * `{ evidence: [...], refused: [...] }`, 201 when all were stored (200 when all were already
  * there), 207 when some were refused, and the refusal itself when all were. Files are always
- * served through Testify, permissions checked, with their sniffed type and a sandboxing CSP.
+ * served through Tessick, permissions checked, with their sniffed type and a sandboxing CSP.
  */
 
 /** A raw upload body, kept off request.body (the NUL guard walks plain objects). */
@@ -263,7 +263,7 @@ export async function registerEvidenceRoutes(app: FastifyInstance, db: Kysely<Da
     });
 
     // The link itself: its token is the only credential (single use, 15 minutes, one file of a
-    // known size and checksum). Through Testify, the file becomes evidence at once.
+    // known size and checksum). Through Tessick, the file becomes evidence at once.
     scope.put('/api/v1/evidence-uploads/:token', { schema: S.putUploadSchema }, async (request, reply) => {
       const { token } = request.params as { token: string };
       const upload = await uploads.findByTokenHash(hashToken(token));

@@ -94,7 +94,7 @@ describe('Projects: real create / edit / delete', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: h,
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: 'Tester' },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: 'Tester' },
     });
     const th = { authorization: `Bearer ${await login(app, username, 'SecurePass123!')}` };
     expect((await app.inject({ method: 'POST', url: '/api/v1/projects', headers: th, payload: { name: 'X', prefix: 'X' } })).statusCode).toBe(403);

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { signWebhook, WEBHOOK_EVENT_KEYS } from '@testify/core';
+import { signWebhook, WEBHOOK_EVENT_KEYS } from '@tessick/core';
 import { createServer } from '../src/server.js';
 import { configureWebhooks, runDueWebhookDeliveries } from '../src/services/webhooks.js';
 
@@ -122,7 +122,7 @@ describe('Webhooks', () => {
   });
 
   it('delivers a signed JSON envelope; ping, redeliver, the Slack format and the delivery log', async () => {
-    await call(admin, 'PUT', '/api/v1/admin/email-settings', { public_url: 'https://testify.example' });
+    await call(admin, 'PUT', '/api/v1/admin/email-settings', { public_url: 'https://tessick.example' });
     const { webhook, secret } = body(await createHook({ events: ['run.created'] }));
     const run = body(await call(admin, 'POST', `/api/v1/plans/${seed.planId}/runs`, { name: 'Nightly 1' })).run;
     expect(receiver.got).toHaveLength(0); // queued, not sent yet (deliverImmediately is off here)
@@ -130,17 +130,17 @@ describe('Webhooks', () => {
 
     const [hit] = receiver.got;
     expect(hit.headers['content-type']).toBe('application/json');
-    expect(hit.headers['x-testify-event']).toBe('run.created');
-    expect(hit.headers['user-agent']).toBe('Testify-Webhooks/1');
+    expect(hit.headers['x-tessick-event']).toBe('run.created');
+    expect(hit.headers['user-agent']).toBe('Tessick-Webhooks/1');
     const ts = hit.headers['x-signature-timestamp'] as string;
     expect(Math.abs(Number(ts) - Date.now() / 1000)).toBeLessThan(60);
     expect(hit.headers['x-signature-sha256']).toBe(signWebhook(secret, ts, hit.body));
     expect(hit.json).toMatchObject({
       event: 'run.created',
-      id: hit.headers['x-testify-event-id'],
+      id: hit.headers['x-tessick-event-id'],
       project: { id: seed.projectId, prefix: 'SHOP' },
       actor: { type: 'USER', name: 'admin' },
-      url: `https://testify.example/#/reports/run?project=${seed.projectId}&plan=${seed.planId}&run=${run.id}`,
+      url: `https://tessick.example/#/reports/run?project=${seed.projectId}&plan=${seed.planId}&run=${run.id}`,
       data: { run: { id: run.id, name: 'Nightly 1', status: 'OPEN' }, plan: { id: seed.planId } },
     });
 
@@ -170,7 +170,7 @@ describe('Webhooks', () => {
     await call(admin, 'PATCH', `/api/v1/webhooks/${webhook.id}`, { format: 'slack' });
     await call(admin, 'POST', `/api/v1/webhooks/${webhook.id}/ping`);
     const slack = receiver.got[3];
-    expect(slack.json.text).toContain('Testify webhook *Team chat* works.');
+    expect(slack.json.text).toContain('Tessick webhook *Team chat* works.');
     expect(Array.isArray(slack.json.blocks)).toBe(true);
     expect(slack.headers['x-signature-sha256']).toBe(signWebhook(secret, slack.headers['x-signature-timestamp'] as string, slack.body));
 

@@ -1,5 +1,5 @@
-import { CompatIdRepository, CompatPlatformRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
-import { TL_EXECUTION_STATUS, platformRunName } from '@testify/core';
+import { CompatIdRepository, CompatPlatformRepository, TestPlanRepository, TestRunRepository } from '@tessick/db';
+import { TL_EXECUTION_STATUS, platformRunName } from '@tessick/core';
 import type { CompatRoute } from '../index.js';
 import { ALL } from '../versions.js';
 import { tlKo, tlOk } from '../envelope.js';
@@ -9,9 +9,9 @@ const ID_FAIL = { id: -1 };
 
 /**
  * POST /executions: one result for a case in a (plan, build, platform). It's recorded as a CI
- * result (Testify's batch route, as the key's user), so it never auto-closes the run, as
+ * result (Tessick's batch route, as the key's user), so it never auto-closes the run, as
  * TestLink never closes a build. Re-recording a case that has a result needs EXECUTE_OVERWRITE,
- * as everywhere in Testify.
+ * as everywhere in Tessick.
  *
  * In a plan with platforms each (build, platform) has its own run, made on its first result.
  */

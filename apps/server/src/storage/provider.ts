@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
  * Where evidence files are kept (docs/rfc_03_api_and_xml_contracts.md §5): a directory
  * (LocalStorageProvider), an S3-compatible bucket (S3StorageProvider), or memory for the
  * in-memory database and tests (MemoryStorageProvider). The database keeps each file's key,
- * type, size and SHA-256; storage keeps only the bytes, under keys Testify makes.
+ * type, size and SHA-256; storage keeps only the bytes, under keys Tessick makes.
  */
 export interface StorageProvider {
   readonly name: 'local' | 's3' | 'memory';
@@ -19,7 +19,7 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
   /**
    * A URL a client can PUT the file to directly (S3), enforcing its length and checksum.
-   * Providers without it receive uploads through Testify's own upload links.
+   * Providers without it receive uploads through Tessick's own upload links.
    */
   presignPut?(key: string, opts: { size: number; sha256: string; expiresInSeconds: number }): Promise<{ url: string; headers: Record<string, string> }>;
   /** Startup check: the directory is writable, or the bucket reachable. Throws a message to show. */

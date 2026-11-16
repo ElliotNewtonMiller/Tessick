@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { CustomFieldRepository } from '@testify/db';
+import { CustomFieldRepository } from '@tessick/db';
 
 describe('Custom Fields: admin definition CRUD & Spec-mode value CRUD', () => {
   let serverInstance: any;
@@ -30,7 +30,7 @@ describe('Custom Fields: admin definition CRUD & Spec-mode value CRUD', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: 'Viewer' },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: 'Viewer' },
     });
     expect(createRes.statusCode).toBe(201);
     const userId = JSON.parse(createRes.payload).user.id as string;

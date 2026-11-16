@@ -1,4 +1,4 @@
-# Master Architecture Blueprint: Testify
+# Master Architecture Blueprint: Tessick
 
 **Document Status:** Overview of the architecture, updated 2026-10-11 to match what's built
 **Date:** September 8, 2026
@@ -15,7 +15,7 @@ This blueprint gives the whole picture in brief. It links to the RFCs for detail
 
 ## 1. Executive Summary & System Architecture
 
-Testify is a self-hosted test management and execution platform that replaces TestLink. It removes TestLink's frictions (slow page reloads, fragmented navigation, lost step history, clunky versioning, brittle migrations) while keeping its model: **Projects, Test Suites, Test Cases, Test Case Versions, Test Plans, Test Runs, Results and Custom Fields**.
+Tessick is a self-hosted test management and execution platform that replaces TestLink. It removes TestLink's frictions (slow page reloads, fragmented navigation, lost step history, clunky versioning, brittle migrations) while keeping its model: **Projects, Test Suites, Test Cases, Test Case Versions, Test Plans, Test Runs, Results and Custom Fields**.
 
 ```
 +---------------------------------------------------------------------------------------------------+
@@ -28,7 +28,7 @@ Testify is a self-hosted test management and execution platform that replaces Te
 +---------------------------------------------------------------------------------------------------+
 |                                   API SERVER (Fastify, apps/server)                               |
 |  One process: REST API (/api/v1), MCP endpoint (/mcp), and the built web app                     |
-|  Auth: server-side sessions | project-bound API tokens (tf_ci_...) | per-project permissions      |
+|  Auth: server-side sessions | project-bound API tokens (tk_ci_...) | per-project permissions      |
 |  Problem-details errors | rate limits | JSON request log | /api/v1/health | scheduled report email |
 |  +-------------------------------------+       +-----------------------------------------------+  |
 |  | Spec, plans, runs, results, reports |       | Import (TestLink XML, JUnit XML, JSON, CSV,   |  |
@@ -108,7 +108,7 @@ See [RFC 04](./rfc_04_rbac_security_matrix.md). In brief:
 - **Permissions:** 19 permission keys and six built-in, editable role templates (Admin, Test Lead, Tester, Automation Service, Viewer, No Access).
 - **Evaluation:** per project. A project role replaces the global role there, and overrides have the final say. Admin changes are guarded against escalation and against removing the last admin.
 - **Sign-ins:** server-side sessions (8 hours idle, 7 days at most), an HttpOnly cookie for the web app, account lockout and per-address limits.
-- **API tokens:** `tf_ci_...`, shown once, stored as a SHA-256 digest, bound to one project, and capped by the issuer's current permissions.
+- **API tokens:** `tk_ci_...`, shown once, stored as a SHA-256 digest, bound to one project, and capped by the issuer's current permissions.
 - **Audit log:** append-only, with the real client address and User-Agent.
 
 ---

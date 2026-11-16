@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { TestCaseRepository, TestSuiteRepository, TestCaseVersionRepository } from '@testify/db';
+import { TestCaseRepository, TestSuiteRepository, TestCaseVersionRepository } from '@tessick/db';
 
 /** Reading single items, version history, and readable case ids (SHOP-101) wherever a case id is taken. */
 describe('API reads: single items and readable case ids', () => {

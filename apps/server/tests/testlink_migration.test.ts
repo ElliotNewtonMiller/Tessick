@@ -5,7 +5,7 @@ import { testLinkSourceFixture, QA_KEY, PROJECT_KEY, PLAN_KEY, type TestLinkFixt
 
 /**
  * The migration from TestLink's database (phase 5): a TestLink (testlinkSourceFixture.ts) moved
- * into a fresh Testify, then read back through the TestLink-compatible API with a migrated
+ * into a fresh Tessick, then read back through the TestLink-compatible API with a migrated
  * user's own TestLink key, so ids, keys and history must have come across as TestLink had them.
  * With TESTLINK_SQL_DIR (TestLink's install/sql/postgres), the TestLink is built from TestLink's
  * own schema and default data.
@@ -63,7 +63,7 @@ describe('Migrating a TestLink database', () => {
     expect(report.warnings).toEqual(
       expect.arrayContaining([
         "Custom field 'colour' (TestLink type 9) became a SINGLE_SELECT field.",
-        "1 executions with the status code 'x' weren't migrated: Testify knows p, f and b.",
+        "1 executions with the status code 'x' weren't migrated: Tessick knows p, f and b.",
       ])
     );
     expect(await db.selectFrom('audit_logs').select('action').where('action', '=', 'TESTLINK_MIGRATED').execute()).toHaveLength(1);
@@ -184,16 +184,16 @@ describe('Migrating a TestLink database', () => {
     expect(later.counts.executions).toMatchObject({ created: 1, existing: 5 });
   });
 
-  it('a dry run writes nothing; a number Testify gave something else stops the migration', async () => {
+  it('a dry run writes nothing; a number Tessick gave something else stops the migration', async () => {
     const dry = await migrate({ dryRun: true });
     expect(dry.counts.cases.created).toBe(4);
     expect(await db.selectFrom('projects').select('prefix').where('prefix', '=', 'MA').execute()).toEqual([]);
     expect(await db.selectFrom('compat_ids').select('int_id').execute()).toEqual([]);
 
-    // Using the compatible API first numbers Testify's own project 1.
+    // Using the compatible API first numbers Tessick's own project 1.
     const key = (await api('POST', '/api/v1/auth/me/testlink-key')).plaintext;
     await get('/testprojects', key);
     await expect(migrate()).rejects.toThrow(MigrationError);
-    await expect(migrate()).rejects.toThrow(/number Testify already gave/);
+    await expect(migrate()).rejects.toThrow(/number Tessick already gave/);
   });
 });

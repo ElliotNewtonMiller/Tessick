@@ -7,10 +7,10 @@ import type { FastifyInstance } from 'fastify';
  *   <style> block and React sets style attributes. Every other reply (JSON, files) gets one that
  *   allows nothing to load. A reply that already has a policy keeps it (the /docs page sets its
  *   own, @fastify/swagger-ui's `staticCSP`).
- * - No other site may show Testify in a frame (clickjacking): `frame-ancestors 'none'` and
+ * - No other site may show Tessick in a frame (clickjacking): `frame-ancestors 'none'` and
  *   X-Frame-Options.
  * - Strict-Transport-Security only on replies sent over HTTPS (seen through the proxy's
- *   X-Forwarded-Proto when TRUST_PROXY=true): browsers then refuse plain HTTP to Testify for a
+ *   X-Forwarded-Proto when TRUST_PROXY=true): browsers then refuse plain HTTP to Tessick for a
  *   year. Subdomains are left alone, since they may be other services.
  */
 const WEB_APP_CSP = [

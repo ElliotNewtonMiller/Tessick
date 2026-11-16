@@ -75,7 +75,7 @@ describe('Project scoping on routes not nested under /projects/:projectId', () =
 
   it("a user's per-project role and overrides now apply on these routes", async () => {
     const created = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username: 'scoped', email: 'scoped@testify.local', password: 'Scoped-Pass-123', global_role: 'Tester',
+      username: 'scoped', email: 'scoped@tessick.local', password: 'Scoped-Pass-123', global_role: 'Tester',
     });
     const userId = body(created).user.id;
     const pc = await planCaseA();

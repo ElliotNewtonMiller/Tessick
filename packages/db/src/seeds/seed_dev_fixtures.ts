@@ -33,12 +33,12 @@ export async function seedDevFixtures(db: Kysely<Database>): Promise<void> {
   const passwordHash = await hashPassword(DEV_FIXTURE_PASSWORD);
 
   const users = [
-    { id: devId('u', 1), username: 'test_lead', email: 'test_lead@testify.local', role: 'Test Lead' },
-    { id: devId('u', 2), username: 'tester', email: 'tester@testify.local', role: 'Tester' },
-    { id: devId('u', 3), username: 'viewer', email: 'viewer@testify.local', role: 'Viewer' },
-    { id: devId('u', 4), username: 'automation_bot', email: 'automation_bot@testify.local', role: 'Automation Service' },
-    { id: devId('u', 5), username: 'project_admin', email: 'project_admin@testify.local', role: 'Tester' },
-    { id: devId('u', 6), username: 'override_tester', email: 'override_tester@testify.local', role: 'Tester' },
+    { id: devId('u', 1), username: 'test_lead', email: 'test_lead@tessick.local', role: 'Test Lead' },
+    { id: devId('u', 2), username: 'tester', email: 'tester@tessick.local', role: 'Tester' },
+    { id: devId('u', 3), username: 'viewer', email: 'viewer@tessick.local', role: 'Viewer' },
+    { id: devId('u', 4), username: 'automation_bot', email: 'automation_bot@tessick.local', role: 'Automation Service' },
+    { id: devId('u', 5), username: 'project_admin', email: 'project_admin@tessick.local', role: 'Tester' },
+    { id: devId('u', 6), username: 'override_tester', email: 'override_tester@tessick.local', role: 'Tester' },
   ];
 
   for (const u of users) {

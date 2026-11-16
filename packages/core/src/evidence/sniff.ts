@@ -1,6 +1,6 @@
 /**
  * What an evidence file is, decided from its contents, never from its name or the type the
- * uploader declared (docs/rfc_03_api_and_xml_contracts.md §5). Only what Testify can show safely
+ * uploader declared (docs/rfc_03_api_and_xml_contracts.md §5). Only what Tessick can show safely
  * is kept: PNG, JPEG, GIF and WebP images; MP4 and WebM videos; UTF-8 text logs; and Playwright
  * trace archives. Everything else (SVG, HTML, PDF, executables, other archives) is refused.
  */

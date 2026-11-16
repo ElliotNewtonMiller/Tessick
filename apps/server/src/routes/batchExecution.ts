@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import type { BatchResultsRequest } from '@testify/core';
+import type { Database } from '@tessick/db';
+import type { BatchResultsRequest } from '@tessick/core';
 import { requirePermission } from '../middleware/auth.js';
 import { sendError } from '../errors.js';
 import { BatchRecorded, recordResultsBatch } from '../services/batchResults.js';

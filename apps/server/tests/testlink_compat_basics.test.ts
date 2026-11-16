@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { CompatIdRepository, CompatApiKeyRepository } from '@testify/db';
+import { CompatIdRepository, CompatApiKeyRepository } from '@tessick/db';
 
 /**
  * The TestLink-compatible API, phase 1: the three version paths, TestLink's envelope and errors,
@@ -64,7 +64,7 @@ describe('TestLink-compatible API: paths, keys and envelope', () => {
     const second = await adminKey();
     expect((await tl('custom', '/whoAmI', { apikey: first })).statusCode).toBe(400);
     expect((await tl('custom', '/whoAmI', { apikey: second })).statusCode).toBe(200);
-    // Not a credential for Testify's own API.
+    // Not a credential for Tessick's own API.
     expect((await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { apikey: second } })).statusCode).toBe(401);
     expect((await call(second, 'GET', '/api/v1/auth/me')).statusCode).toBe(401);
 

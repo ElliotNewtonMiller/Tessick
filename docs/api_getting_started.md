@@ -1,12 +1,12 @@
-# Getting started with the Testify API
+# Getting started with the Tessick API
 
-This guide takes you from nothing to a CI pipeline that records its test results in Testify, and reads them back. Every example was run against a real server.
+This guide takes you from nothing to a CI pipeline that records its test results in Tessick, and reads them back. Every example was run against a real server.
 
 The full reference is on your server: **`/docs`** (for example `http://localhost:3001/docs`). It lists every route with its fields, their allowed values and its errors, and its "Try it out" button sends real requests. The spec behind it is at `/docs/json` (OpenAPI 3.1). The conventions are in [RFC 03 §1-4](rfc_03_api_and_xml_contracts.md).
 
 ## 1. What you need
 
-- **The server's address:** below it's in `$TESTIFY`, e.g. `export TESTIFY=https://testify.example.com`.
+- **The server's address:** below it's in `$TESSICK`, e.g. `export TESSICK=https://tessick.example.com`.
 - **A credential:**
   - For scripts and CI, an **API token**, made in the next step.
   - For a quick try, `POST /api/v1/auth/login` with `{"username": "...", "password": "..."}` returns a `token` you can use the same way. It ends after 8 hours without use, and after 7 days at most (`expires_at` in the answer).
@@ -14,7 +14,7 @@ The full reference is on your server: **`/docs`** (for example `http://localhost
 
 ## 2. Make an API token
 
-1. In Testify, open **Admin Panel → API Tokens** (it needs the `API_TOKEN_MANAGE` permission).
+1. In Tessick, open **Admin Panel → API Tokens** (it needs the `API_TOKEN_MANAGE` permission).
 2. Pick the **project** the token is for. A token works only in that one project.
 3. Give it a name, and tick its **capabilities**: what it may do. Pick only what the job needs:
 
@@ -28,12 +28,12 @@ The full reference is on your server: **`/docs`** (for example `http://localhost
    | Export | `SPEC_VIEW`, `EXPORT_DATA` |
 
 4. **Choose where it works:** the REST API and MCP (the default), the REST API only, or MCP only. For an AI agent, choose **MCP only**: the token is then refused on the REST API, where MCP's limits on agents don't apply. A token used where it doesn't work gets `403 TOKEN_INTERFACE_NOT_ALLOWED`.
-5. **Copy the token** (`tf_ci_…`). It's shown once. Store it as a secret in your CI system.
+5. **Copy the token** (`tk_ci_…`). It's shown once. Store it as a secret in your CI system.
 
 A token can never do more than you can: its capabilities are capped by your own permissions in the project. It stops working if your account is disabled or loses `API_TOKEN_MANAGE` there. You can revoke it at once from the same tab. Tokens can't use the admin routes (users, roles, custom field definitions, email settings).
 
 ```bash
-export TESTIFY_TOKEN=tf_ci_...
+export TESSICK_TOKEN=tk_ci_...
 ```
 
 ## 3. Your first call
@@ -41,7 +41,7 @@ export TESTIFY_TOKEN=tf_ci_...
 Every request sends the token as `Authorization: Bearer <token>`.
 
 ```bash
-curl -s "$TESTIFY/api/v1/auth/me" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '{token: .user.api_token, permissions: .user.permissions}'
+curl -s "$TESSICK/api/v1/auth/me" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '{token: .user.api_token, permissions: .user.permissions}'
 ```
 
 ```json
@@ -62,27 +62,27 @@ curl -s "$TESTIFY/api/v1/auth/me" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq
 
 ## 4. Find the ids you need
 
-Testify identifies everything by id (a UUID). Test cases also have a readable id like `SHOP-101`, which works anywhere a case id does: `GET /api/v1/cases/SHOP-101`, `"test_case_id": "SHOP-101"`, CI results.
+Tessick identifies everything by id (a UUID). Test cases also have a readable id like `SHOP-101`, which works anywhere a case id does: `GET /api/v1/cases/SHOP-101`, `"test_case_id": "SHOP-101"`, CI results.
 
 ```bash
 # Your project (a token sees only its own)
-curl -s "$TESTIFY/api/v1/projects" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.projects[] | {id, name, prefix}'
+curl -s "$TESSICK/api/v1/projects" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '.projects[] | {id, name, prefix}'
 
 # The project's test plans
-curl -s "$TESTIFY/api/v1/projects/$PROJECT_ID/plans" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.plans[] | {id, name, status}'
+curl -s "$TESSICK/api/v1/projects/$PROJECT_ID/plans" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '.plans[] | {id, name, status}'
 
 # A plan's test runs, newest first, 100 a page (next_cursor), each with its counts
-curl -s "$TESTIFY/api/v1/plans/$PLAN_ID/runs" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.runs[] | {id, name, status, pass_rate: .summary.pass_rate}'
+curl -s "$TESSICK/api/v1/plans/$PLAN_ID/runs" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '.runs[] | {id, name, status, pass_rate: .summary.pass_rate}'
 
 # One case, with its latest version and steps
-curl -s "$TESTIFY/api/v1/cases/SHOP-101" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '{case: .test_case.title, version: .latest_version.version_number}'
+curl -s "$TESSICK/api/v1/cases/SHOP-101" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '{case: .test_case.title, version: .latest_version.version_number}'
 
 # The project's cases, a page at a time
-curl -s "$TESTIFY/api/v1/projects/$PROJECT_ID/cases?version_status=APPROVED&limit=100" -H "Authorization: Bearer $TESTIFY_TOKEN" | jq '.cases[].external_id, .next_cursor'
+curl -s "$TESSICK/api/v1/projects/$PROJECT_ID/cases?version_status=APPROVED&limit=100" -H "Authorization: Bearer $TESSICK_TOKEN" | jq '.cases[].external_id, .next_cursor'
 
 # Cases matching words in their title or suite name
-curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/case-search" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/json' \
+curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT_ID/case-search" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/json' \
   -d '{"q": "checkout"}' | jq .case_ids
 ```
 
@@ -91,7 +91,7 @@ curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/case-search" \
 ```bash
 CURSOR=""
 while :; do
-  PAGE=$(curl -s "$TESTIFY/api/v1/projects/$PROJECT_ID/cases?limit=500${CURSOR:+&cursor=$CURSOR}" -H "Authorization: Bearer $TESTIFY_TOKEN")
+  PAGE=$(curl -s "$TESSICK/api/v1/projects/$PROJECT_ID/cases?limit=500${CURSOR:+&cursor=$CURSOR}" -H "Authorization: Bearer $TESSICK_TOKEN")
   echo "$PAGE" | jq -r '.cases[].external_id'
   CURSOR=$(echo "$PAGE" | jq -r '.next_cursor // empty')
   [ -z "$CURSOR" ] && break
@@ -111,8 +111,8 @@ A **test plan** is the set of cases to run. A **test run** is one go at them: ty
 Nearly every test runner can write a JUnit XML report. For example: pytest `--junitxml=report.xml`, Maven Surefire and Gradle (on by default), Jest `jest-junit`, Vitest `--reporter=junit`, Playwright `--reporter=junit`, Go `go-junit-report`. Send that file as it is, naming the run for this build:
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" --data-binary @report.xml
+curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" --data-binary @report.xml
 ```
 
 - **The run:** the plan's run named `run_name` is created the first time (the token needs `RUN_MANAGE` for that) and reused after, so a re-run job adds to the same run, and parallel jobs of one build can each send their own file. To send into a run you already have, use `POST /api/v1/runs/{runId}/results/junit` instead.
@@ -121,8 +121,8 @@ curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20buil
 - **Size:** up to 20,000 tests and 50 MB per file.
 - **Retries:** add `-H "Idempotency-Key: $BUILD_ID-$ATTEMPT-report.xml"` and a retry after a timeout gets the first answer back (marked `Idempotent-Replayed: true`) instead of recording every result again. `curl --retry 3` resends the same header. Use a new key for each file and each re-run of the build: the same key with a different file is refused (`422 IDEMPOTENCY_KEY_REUSED`). Keys are kept 24 hours.
 
-**Matching tests to Testify cases.** Each test in the file is matched to a case of the project, in this order:
-1. A `testify_id` property on the test. In pytest: `record_property("testify_id", "SHOP-101")`.
+**Matching tests to Tessick cases.** Each test in the file is matched to a case of the project, in this order:
+1. A `tessick_id` property on the test. In pytest: `record_property("tessick_id", "SHOP-101")`.
 2. A readable id in the test's name: `SHOP-101 logs in`, `[SHOP-101] logs in`, `logs in (SHOP-101)`.
 3. Its suite and title. A JUnit import of the same file creates cases this way: one suite per class (the last part of `classname`), one case per test, named after it. So the simplest setup is to **import your JUnit file once** (Import in the web app, or `POST /api/v1/projects/{projectId}/imports/execute` with `"format": "JUNIT_XML"`), add the cases to the plan if you like, and upload each build's file from then on.
 
@@ -134,8 +134,8 @@ The answer is **201** when every test was recorded, and **207** when some were r
 
 ```bash
 STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST \
-  "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" --data-binary @report.xml)
+  "$TESSICK/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" --data-binary @report.xml)
 jq -c '.summary // .' response.json
 jq -r '.results[]? | select(.status >= 400) | "\(.code): \(.test_name)"' response.json
 ```
@@ -163,16 +163,16 @@ What else to know:
 
 ### CI examples
 
-Each example sends the report even when tests failed, prints the refused tests, and fails the step only if the upload itself failed. A 207 for untracked tests doesn't fail the build; change the last check to `test "$STATUS" = 201` if it should. They need three settings: the token as a secret `TESTIFY_TOKEN`, and the server's address and the plan id as `TESTIFY_URL` and `TESTIFY_PLAN_ID`. They use `curl` and `jq`; `jq` also builds the query string, since build names and links need encoding.
+Each example sends the report even when tests failed, prints the refused tests, and fails the step only if the upload itself failed. A 207 for untracked tests doesn't fail the build; change the last check to `test "$STATUS" = 201` if it should. They need three settings: the token as a secret `TESSICK_TOKEN`, and the server's address and the plan id as `TESSICK_URL` and `TESSICK_PLAN_ID`. They use `curl` and `jq`; `jq` also builds the query string, since build names and links need encoding.
 
 **GitHub Actions** (`.github/workflows/test.yml`, after the step that runs the tests):
 
 ```yaml
-- name: Send results to Testify
+- name: Send results to Tessick
   if: ${{ !cancelled() }}
   env:
-    TESTIFY_TOKEN: ${{ secrets.TESTIFY_TOKEN }}
-    URL: ${{ vars.TESTIFY_URL }}/api/v1/plans/${{ vars.TESTIFY_PLAN_ID }}/results/junit
+    TESSICK_TOKEN: ${{ secrets.TESSICK_TOKEN }}
+    URL: ${{ vars.TESSICK_URL }}/api/v1/plans/${{ vars.TESSICK_PLAN_ID }}/results/junit
   run: |
     QUERY=$(jq -rn \
       --arg run_name "CI build ${{ github.run_number }}" --arg ci_name "GitHub Actions" \
@@ -180,14 +180,14 @@ Each example sends the report even when tests failed, prints the refused tests, 
       --arg ci_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
       '$ARGS.named | to_entries | map("\(.key)=\(.value | @uri)") | join("&")')
     STATUS=$(curl -s --retry 3 -o response.json -w '%{http_code}' -X POST "$URL?$QUERY" \
-      -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' \
+      -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/xml' \
       -H "Idempotency-Key: ${{ github.run_id }}-${{ github.run_attempt }}-report.xml" --data-binary @report.xml)
     jq -c '.summary // .' response.json
     jq -r '.results[]? | select(.status >= 400) | "\(.code): \(.test_name)"' response.json
     test "$STATUS" = 201 -o "$STATUS" = 207
 ```
 
-**GitLab CI** (`.gitlab-ci.yml`; set `TESTIFY_TOKEN` as a masked CI/CD variable). The upload is its own job, so a failed upload shows as a failed job:
+**GitLab CI** (`.gitlab-ci.yml`; set `TESSICK_TOKEN` as a masked CI/CD variable). The upload is its own job, so a failed upload shows as a failed job:
 
 ```yaml
 test:
@@ -200,7 +200,7 @@ test:
     reports:
       junit: report.xml
 
-testify:
+tessick:
   stage: .post
   when: always
   needs: [{ job: test, artifacts: true }]
@@ -210,27 +210,27 @@ testify:
         --arg run_name "CI pipeline $CI_PIPELINE_IID" --arg ci_name "GitLab CI" \
         --arg ci_run_id "$CI_PIPELINE_ID" --arg ci_url "$CI_PIPELINE_URL" --arg commit_sha "$CI_COMMIT_SHA" \
         '$ARGS.named | to_entries | map("\(.key)=\(.value | @uri)") | join("&")')
-      STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$TESTIFY_URL/api/v1/plans/$TESTIFY_PLAN_ID/results/junit?$QUERY" \
-        -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' --data-binary @report.xml)
+      STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$TESSICK_URL/api/v1/plans/$TESSICK_PLAN_ID/results/junit?$QUERY" \
+        -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/xml' --data-binary @report.xml)
       jq -c '.summary // .' response.json
       jq -r '.results[]? | select(.status >= 400) | "\(.code): \(.test_name)"' response.json
       test "$STATUS" = 201 -o "$STATUS" = 207
 ```
 
-**Jenkins** (`Jenkinsfile` with Maven; store the token as a "Secret text" credential with the id `testify-token`). Surefire writes one file per test class; each is sent, and they all land in the same run:
+**Jenkins** (`Jenkinsfile` with Maven; store the token as a "Secret text" credential with the id `tessick-token`). Surefire writes one file per test class; each is sent, and they all land in the same run:
 
 ```groovy
 post {
   always {
-    withCredentials([string(credentialsId: 'testify-token', variable: 'TESTIFY_TOKEN')]) {
+    withCredentials([string(credentialsId: 'tessick-token', variable: 'TESSICK_TOKEN')]) {
       sh '''
         QUERY=$(jq -rn \
           --arg run_name "CI build $BUILD_NUMBER" --arg ci_name "Jenkins" --arg ci_job_name "$JOB_NAME" \
           --arg ci_url "$BUILD_URL" --arg commit_sha "${GIT_COMMIT:-}" \
           '$ARGS.named | to_entries | map("\\(.key)=\\(.value | @uri)") | join("&")')
         for f in target/surefire-reports/TEST-*.xml; do
-          STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$TESTIFY_URL/api/v1/plans/$TESTIFY_PLAN_ID/results/junit?$QUERY" \
-            -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' --data-binary @"$f")
+          STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$TESSICK_URL/api/v1/plans/$TESSICK_PLAN_ID/results/junit?$QUERY" \
+            -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/xml' --data-binary @"$f")
           jq -c '.summary // .' response.json
           jq -r '.results[]? | select(.status >= 400) | "\\(.code): \\(.test_name)"' response.json
           test "$STATUS" = 201 -o "$STATUS" = 207 || exit 1
@@ -243,7 +243,7 @@ post {
 
 (In Groovy's `'''` strings a backslash must be doubled, hence `\\(`.)
 
-**Azure DevOps** (`azure-pipelines.yml`; add `TESTIFY_TOKEN` as a secret pipeline variable; secrets reach a script only when mapped into `env`):
+**Azure DevOps** (`azure-pipelines.yml`; add `TESSICK_TOKEN` as a secret pipeline variable; secrets reach a script only when mapped into `env`):
 
 ```yaml
 - script: |
@@ -252,15 +252,15 @@ post {
       --arg ci_run_id "$(Build.BuildId)" --arg commit_sha "$(Build.SourceVersion)" \
       --arg ci_url "$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)" \
       '$ARGS.named | to_entries | map("\(.key)=\(.value | @uri)") | join("&")')
-    STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$(TESTIFY_URL)/api/v1/plans/$(TESTIFY_PLAN_ID)/results/junit?$QUERY" \
-      -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/xml' --data-binary @report.xml)
+    STATUS=$(curl -s -o response.json -w '%{http_code}' -X POST "$(TESSICK_URL)/api/v1/plans/$(TESSICK_PLAN_ID)/results/junit?$QUERY" \
+      -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/xml' --data-binary @report.xml)
     jq -c '.summary // .' response.json
     jq -r '.results[]? | select(.status >= 400) | "\(.code): \(.test_name)"' response.json
     test "$STATUS" = 201 -o "$STATUS" = 207
-  displayName: Send results to Testify
+  displayName: Send results to Tessick
   condition: succeededOrFailed()
   env:
-    TESTIFY_TOKEN: $(TESTIFY_TOKEN)
+    TESSICK_TOKEN: $(TESSICK_TOKEN)
 ```
 
 ### Sending JSON instead
@@ -268,8 +268,8 @@ post {
 When your results aren't a JUnit file, or you want more than it holds (step results, `executed_at`, other verdicts such as `BLOCKED`), send them as JSON: up to 5,000 per request, saved in one transaction. `POST /api/v1/plans/{planId}/results/batch?run_name=...` creates or reuses the run, as above; `POST /api/v1/runs/{runId}/results/batch` sends into a run you have.
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/batch?run_name=CI%20build%20$BUILD_NUMBER" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/json' \
+curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/results/batch?run_name=CI%20build%20$BUILD_NUMBER" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/json' \
   -d '{
     "environment": "staging",
     "runner_info": { "name": "GitHub Actions", "run_id": "1234", "commit_sha": "a1b2c3d", "url": "https://github.com/acme/shop/actions/runs/1234" },
@@ -285,18 +285,18 @@ curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/batch?run_name=CI%20buil
 - **Which case:** `case_identifier` is usually `{ "external_id": "SHOP-101" }`; `{ "by_uuid": "<case id>" }` and `{ "by_path_title": { "suite_path": "Checkout", "title": "..." } }` (the suite's name and the case's title) also work.
 - **`verdict`:** one of `PASSED`, `FAILED`, `BLOCKED`, `SKIPPED`, `RETEST_REQUIRED`, `KNOWN_ISSUE`.
 - **Worth sending:** `failure_message` (the short error), `stack_trace` and `duration_ms`. They show up in run summaries, case history and the "slowest" and "flaky" reports.
-- **`runner_info`:** links each result back to your CI run. Its `run_id` is your CI system's id, not Testify's.
+- **`runner_info`:** links each result back to your CI run. Its `run_id` is your CI system's id, not Tessick's.
 - The response, refusals and `all_or_nothing` work as for JUnit files; refused results are identified by their `index` in `results`.
 
 ### Attach screenshots, videos and logs
 
-Each executed case can carry **evidence**: PNG, JPEG, GIF or WebP images, MP4 or WebM videos, UTF-8 text logs, and Playwright trace `.zip` files, up to 200 MB each (the server's `EVIDENCE_MAX_FILE_MB`). Testify recognises a file by its contents, not its name, and refuses anything else (415). Evidence goes on a case's result, so **record the result first**. Your token needs `EXECUTE_RUN`.
+Each executed case can carry **evidence**: PNG, JPEG, GIF or WebP images, MP4 or WebM videos, UTF-8 text logs, and Playwright trace `.zip` files, up to 200 MB each (the server's `EVIDENCE_MAX_FILE_MB`). Tessick recognises a file by its contents, not its name, and refuses anything else (415). Evidence goes on a case's result, so **record the result first**. Your token needs `EXECUTE_RUN`.
 
 **With the JUnit file, in one request.** Send the report as the `file` part and the files as other parts. Each file goes to the test that attaches it: `[[ATTACHMENT|path/to/file]]` in its `<system-out>` (many runners and plugins write this), or an `attachment` property. Files are matched by name:
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" \
+curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/results/junit?run_name=CI%20build%20$BUILD_NUMBER" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" \
   -F file=@report.xml -F shot1=@screenshots/login.png -F trace1=@traces/checkout.zip
 ```
 
@@ -305,15 +305,15 @@ The answer's `evidence` lists what was stored, and what was refused and why (`NO
 **For a whole run, by case.** Name each file part after its case:
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/evidence" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+curl -s -X POST "$TESSICK/api/v1/runs/$RUN_ID/evidence" -H "Authorization: Bearer $TESSICK_TOKEN" \
   -F "SHOP-101=@screenshots/login.png" -F "SHOP-102=@logs/checkout.log" -F "SHOP-102=@videos/checkout.webm"
 ```
 
 **One file for one case,** as the raw body (with its SHA-256, checked):
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence?filename=login.png" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" -H "X-Checksum-SHA256: $(sha256sum login.png | cut -d' ' -f1)" \
+curl -s -X POST "$TESSICK/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence?filename=login.png" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" -H "X-Checksum-SHA256: $(sha256sum login.png | cut -d' ' -f1)" \
   --data-binary @login.png
 ```
 
@@ -328,11 +328,11 @@ Each upload answers `{ "evidence": [...], "refused": [...] }`:
 **A very large file, or from an AI agent:** make an upload link, then PUT the file to it. No token is needed for the PUT: the link is used once, within 15 minutes, for that exact file.
 
 ```bash
-UPLOAD=$(curl -s -X POST "$TESTIFY/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence/uploads" \
-  -H "Authorization: Bearer $TESTIFY_TOKEN" -H 'content-type: application/json' \
+UPLOAD=$(curl -s -X POST "$TESSICK/api/v1/runs/$RUN_ID/cases/SHOP-101/evidence/uploads" \
+  -H "Authorization: Bearer $TESSICK_TOKEN" -H 'content-type: application/json' \
   -d "{\"filename\": \"run.webm\", \"size_bytes\": $(stat -c %s run.webm), \"sha256\": \"$(sha256sum run.webm | cut -d' ' -f1)\"}")
 curl -s -X PUT "$(echo "$UPLOAD" | jq -r .upload.url)" -H 'content-type: application/octet-stream' --data-binary @run.webm
-curl -s -X POST "$TESTIFY$(echo "$UPLOAD" | jq -r .upload.complete_url)" -H "Authorization: Bearer $TESTIFY_TOKEN"
+curl -s -X POST "$TESSICK$(echo "$UPLOAD" | jq -r .upload.complete_url)" -H "Authorization: Bearer $TESSICK_TOKEN"
 ```
 
 The last call is needed when the server keeps files in S3. Otherwise it repeats what the PUT answered.
@@ -343,7 +343,7 @@ The last call is needed when the server keeps files in S3. Otherwise it repeats 
 
 ```bash
 # What happened in the run, compared with the plan's previous run, as Markdown for a PR comment
-curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/reports/run_summary?format=markdown" \
+curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT_ID/reports/run_summary?format=markdown" \
   -H "$AUTH" -H 'content-type: application/json' -d "{\"test_run_id\": \"$RUN_ID\"}"
 ```
 
@@ -370,7 +370,7 @@ Every error is the same shape (`application/problem+json`). Read `code` in your 
 
 ```json
 {
-  "type": "https://api.testify.dev/errors/INVALID_RESULT",
+  "type": "https://api.tessick.dev/errors/INVALID_RESULT",
   "title": "Bad Request",
   "status": 400,
   "code": "INVALID_RESULT",
@@ -389,7 +389,7 @@ The ones you're most likely to meet:
 | 405 `METHOD_NOT_ALLOWED` | The address is right but the method isn't (e.g. `PUT` for `PATCH`) | Use one of the methods in `Allow` |
 | 401 `TOKEN_ISSUER_INACTIVE` | Whoever made the token was disabled or lost `API_TOKEN_MANAGE` | Ask someone who manages tokens for a new one |
 | 403 `FORBIDDEN` | The token lacks a capability; `required_permission` names it | Make a token with it |
-| 404 `NOT_FOUND` | Also an id from another project: to a token, the rest of Testify doesn't exist | Use that project's token |
+| 404 `NOT_FOUND` | Also an id from another project: to a token, the rest of Tessick doesn't exist | Use that project's token |
 | 403 `TOKEN_NOT_ALLOWED` | An admin route; tokens can't use them | Sign in as a user |
 | 422 `RUN_CLOSED`, `PLAN_LOCKED` | The run is closed, or the plan locked or archived | Reopen it, or use another run |
 | 422 `IDEMPOTENCY_KEY_REUSED` | This `Idempotency-Key` was already used for a different upload | Use a new key for each file and re-run |
@@ -407,26 +407,26 @@ The full list is in [RFC 03 §4.2](rfc_03_api_and_xml_contracts.md). An unexpect
 
 ## 9. Get notified: webhooks
 
-A webhook makes Testify send a project's events to another system as they happen: a run finishing (with its pass rate and new failures), tests failing, a case drafted by an AI agent waiting for review, an import finishing. Setting one up needs `WEBHOOK_MANAGE` in the project (Admin and Test Lead have it); API tokens can't. The easiest way is **Admin Panel → Webhooks** in the web app, which also shows each webhook's deliveries; the API below does the same. `GET /api/v1/webhook-events` lists the events.
+A webhook makes Tessick send a project's events to another system as they happen: a run finishing (with its pass rate and new failures), tests failing, a case drafted by an AI agent waiting for review, an import finishing. Setting one up needs `WEBHOOK_MANAGE` in the project (Admin and Test Lead have it); API tokens can't. The easiest way is **Admin Panel → Webhooks** in the web app, which also shows each webhook's deliveries; the API below does the same. `GET /api/v1/webhook-events` lists the events.
 
 **To a Slack channel.** In Slack, add an *Incoming Webhook* to the channel and copy its URL. Then:
 
 ```bash
-curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/webhooks" -H "Authorization: Bearer $LOGIN_TOKEN" \
+curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT_ID/webhooks" -H "Authorization: Bearer $LOGIN_TOKEN" \
   -H 'content-type: application/json' \
   -d '{"name": "QA channel", "url": "https://hooks.slack.com/services/T000/B000/XXXX", "format": "slack",
        "events": ["run.closed", "results.failed", "test_case.created"]}' | jq '{id: .webhook.id, secret}'
-curl -s -X POST "$TESTIFY/api/v1/webhooks/$WEBHOOK_ID/ping" -H "Authorization: Bearer $LOGIN_TOKEN" | jq '.delivery | {status, response_status, error}'
+curl -s -X POST "$TESSICK/api/v1/webhooks/$WEBHOOK_ID/ping" -H "Authorization: Bearer $LOGIN_TOKEN" | jq '.delivery | {status, response_status, error}'
 ```
 
-The `slack` format also suits Mattermost and Rocket.Chat, and Discord when its webhook URL ends in `/slack`. **For Microsoft Teams**, add the *Post to a channel when a webhook request is received* workflow to the channel (Workflows app), copy its URL, and use `"format": "teams"`. (`$LOGIN_TOKEN` is from `POST /api/v1/auth/login`; set the server's public address in Admin Panel → Email for the messages to link back to Testify.)
+The `slack` format also suits Mattermost and Rocket.Chat, and Discord when its webhook URL ends in `/slack`. **For Microsoft Teams**, add the *Post to a channel when a webhook request is received* workflow to the channel (Workflows app), copy its URL, and use `"format": "teams"`. (`$LOGIN_TOKEN` is from `POST /api/v1/auth/login`; set the server's public address in Admin Panel → Email for the messages to link back to Tessick.)
 
 **To your own code** (`"format": "json"`, the default), each event arrives as a signed JSON `POST`, described in [RFC 03 §7.3](rfc_03_api_and_xml_contracts.md). Check the signature before trusting it: the secret is answered once when the webhook is created (`secret`), or by `POST /api/v1/webhooks/{id}/rotate-secret`.
 
 ```js
-// Node (Express): app.post('/testify', express.raw({ type: 'application/json' }), handler)
+// Node (Express): app.post('/tessick', express.raw({ type: 'application/json' }), handler)
 import { createHmac, timingSafeEqual } from 'node:crypto';
-function fromTestify(req, secret) {
+function fromTessick(req, secret) {
   const ts = req.get('X-Signature-Timestamp');
   const expected = createHmac('sha256', secret).update(`${ts}.${req.body}`).digest('hex'); // req.body: the raw bytes
   const given = req.get('X-Signature-SHA256') ?? '';
@@ -438,7 +438,7 @@ function fromTestify(req, secret) {
 ```python
 # Python (Flask)
 import hmac, hashlib, time
-def from_testify(request, secret: str) -> bool:
+def from_tessick(request, secret: str) -> bool:
     ts = request.headers.get("X-Signature-Timestamp", "")
     expected = hmac.new(secret.encode(), f"{ts}.".encode() + request.get_data(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, request.headers.get("X-Signature-SHA256", "")) and abs(time.time() - float(ts or 0)) < 300
@@ -448,7 +448,7 @@ What to know:
 - **Answer quickly with a 2xx.** Anything else, no answer within 10 seconds, or a redirect, counts as a failure, retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 8 hours. A webhook that fails every attempt for 3 days is paused (the Webhooks tab says so); turn it back on once the receiver works.
 - **Events can arrive twice or out of order** (after a retry). Each has an `id` that stays the same: use it to ignore repeats.
 - **The delivery log** (`GET /api/v1/webhooks/{id}/deliveries`, then `GET /api/v1/webhook-deliveries/{id}`) shows each attempt and the start of your answer; `POST /api/v1/webhook-deliveries/{id}/redeliver` sends one again.
-- **Addresses:** webhooks can reach the internet and your private network, but not the Testify server's own machine (`localhost`) or link-local addresses, unless the server sets `WEBHOOK_ALLOW_LOCAL=true`.
+- **Addresses:** webhooks can reach the internet and your private network, but not the Tessick server's own machine (`localhost`) or link-local addresses, unless the server sets `WEBHOOK_ALLOW_LOCAL=true`.
 
 ## 10. Going further
 
@@ -458,21 +458,21 @@ What to know:
 
   ```bash
   # Deprecate three cases (needs SPEC_APPROVE); also: approve, restore, and update with "changes"
-  curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/cases/bulk" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT_ID/cases/bulk" -H "Authorization: Bearer $TESSICK_TOKEN" \
     -H 'content-type: application/json' -d '{"action": "deprecate", "case_ids": ["SHOP-12", "SHOP-14", "SHOP-15"]}' | jq -c '.summary'
 
   # Raise priority and set a custom field (by name or label) on many cases
-  curl -s -X POST "$TESTIFY/api/v1/projects/$PROJECT_ID/cases/bulk" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  curl -s -X POST "$TESSICK/api/v1/projects/$PROJECT_ID/cases/bulk" -H "Authorization: Bearer $TESSICK_TOKEN" \
     -H 'content-type: application/json' -d '{"action": "update", "case_ids": ["SHOP-12", "SHOP-14"], "changes": {"priority": "HIGH", "custom_fields": {"Component": "checkout"}}}'
 
   # Add many cases to a plan (or "remove"; add "retire_if_has_results": true to retire cases that have results)
-  curl -s -X POST "$TESTIFY/api/v1/plans/$PLAN_ID/cases/bulk" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/cases/bulk" -H "Authorization: Bearer $TESSICK_TOKEN" \
     -H 'content-type: application/json' -d '{"action": "add", "case_ids": ["SHOP-12", "SHOP-14"]}'
   ```
 - **Copying a case:** a new DRAFT case from an existing one, with its steps and custom fields; anything you send replaces what's copied (needs `SPEC_CREATE` and `SPEC_VIEW`):
 
   ```bash
-  curl -s -X POST "$TESTIFY/api/v1/cases/SHOP-12/duplicate" -H "Authorization: Bearer $TESTIFY_TOKEN" \
+  curl -s -X POST "$TESSICK/api/v1/cases/SHOP-12/duplicate" -H "Authorization: Bearer $TESSICK_TOKEN" \
     -H 'content-type: application/json' -d '{"title": "Pays with Apple Pay", "priority": "HIGH"}' | jq -c '{id: .test_case.external_id, status: .version.status}'
   ```
 - **AI agents:** connect them to the MCP endpoint at `/mcp` with a token made for the agent. With `SPEC_VIEW` alone it can read and run reports; add `SPEC_CREATE`, `SPEC_EDIT`, `PLAN_MANAGE`, `RUN_MANAGE` or `EXECUTE_RUN` to let it write cases (always as DRAFTs for you to approve), manage plans, start runs and record results. See [reports_api_and_mcp.md](reports_api_and_mcp.md).

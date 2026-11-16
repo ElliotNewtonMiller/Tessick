@@ -417,7 +417,7 @@ export default function App() {
           fontSize: "14px",
         }}
       >
-        ⚡ Initializing Testify...
+        ⚡ Initializing Tessick...
       </div>
     );
   }

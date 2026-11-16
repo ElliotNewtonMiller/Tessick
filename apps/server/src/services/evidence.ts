@@ -1,8 +1,8 @@
 import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4, v7 as uuidv7 } from 'uuid';
-import { EvidenceRepository, type Database, type Evidence } from '@testify/db';
-import { MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_PER_EXECUTION, cleanFilename, evidenceWindow } from '@testify/core';
+import { EvidenceRepository, type Database, type Evidence } from '@tessick/db';
+import { MAX_EVIDENCE_DESCRIPTION, MAX_EVIDENCE_PER_EXECUTION, cleanFilename, evidenceWindow } from '@tessick/core';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { actorType, requestOrigin } from '../audit.js';
 import { actorNames } from './actorNames.js';
@@ -124,7 +124,7 @@ export async function canAddEvidence(
 /** How a request came: the web app, MCP, or the API. */
 export function viaOf(request: FastifyRequest): 'UI' | 'MCP' | 'API' {
   if (internalVia(request) === 'mcp') return 'MCP';
-  return request.headers['x-testify-client'] === 'web' ? 'UI' : 'API';
+  return request.headers['x-tessick-client'] === 'web' ? 'UI' : 'API';
 }
 
 export function checkDescription(description: unknown): string | null {

@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { evidenceCount } from '../services/evidence.js';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { ProjectRepository, TestPlanRepository, TestRunRepository } from '@tessick/db';
 import { authenticateRequest, requirePermission, permissionsInProject, requireAnyPermission, EXECUTION_READ_PERMISSIONS, apiTokenScope } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sendPlanInUseError, sendRunInUseError, sendProjectInUseError, sendError } from '../errors.js';

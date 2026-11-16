@@ -13,7 +13,7 @@ import { startFakeS3, type FakeS3 } from './fakeS3.js';
 
 /**
  * Evidence, phase 3: S3 storage. The provider against an in-process S3 (fakeS3.ts), then the
- * routes on top of it: uploads through Testify, and presigned uploads straight to the bucket,
+ * routes on top of it: uploads through Tessick, and presigned uploads straight to the bucket,
  * completed and checked.
  */
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(300, 3)]);
@@ -26,7 +26,7 @@ describe('Evidence storage: S3', () => {
   beforeEach(async () => {
     s3 = await startFakeS3('evidence');
     provider = new S3StorageProvider(
-      { kind: 's3', bucket: 'evidence', region: 'us-east-1', endpoint: s3.endpoint, prefix: 'testify', forcePathStyle: true, sse: 'AES256' },
+      { kind: 's3', bucket: 'evidence', region: 'us-east-1', endpoint: s3.endpoint, prefix: 'tessick', forcePathStyle: true, sse: 'AES256' },
       { credentials }
     );
   });
@@ -36,10 +36,10 @@ describe('Evidence storage: S3', () => {
 
   it('stores an object with its checksum and encryption, reads it whole or in part, and deletes it', async () => {
     await provider.check();
-    const spooled = await spoolEvidence(Readable.from([PNG]), { dir: join(tmpdir(), 'testify-evidence'), maxBytes: 10_000 });
+    const spooled = await spoolEvidence(Readable.from([PNG]), { dir: join(tmpdir(), 'tessick-evidence'), maxBytes: 10_000 });
     const key = newStorageKey(uuidv7());
     await provider.putFile(key, spooled.path, { size: spooled.size, mediaType: 'image/png', sha256: spooled.sha256 });
-    const stored = s3.objects.get(`testify/${key}`);
+    const stored = s3.objects.get(`tessick/${key}`);
     expect(stored).toMatchObject({ contentType: 'image/png', sse: 'AES256' });
     expect(stored!.body.equals(PNG)).toBe(true);
     const read = async (range?: { start: number; end: number }) => Buffer.concat(await (await provider.read(key, range)).toArray());
@@ -54,7 +54,7 @@ describe('Evidence storage: S3', () => {
   it('signs a PUT that the bucket checks against the file it was made for', async () => {
     const key = newStorageKey(uuidv7());
     const link = await provider.presignPut(key, { size: PNG.length, sha256: sha(PNG), expiresInSeconds: 900 });
-    expect(link.url).toMatch(new RegExp(`^${s3.endpoint}/evidence/testify/evidence/`));
+    expect(link.url).toMatch(new RegExp(`^${s3.endpoint}/evidence/tessick/evidence/`));
     expect(link.url).toMatch(/X-Amz-Signature=/);
     expect(link.url).not.toMatch(/x-amz-checksum-crc32/i);
     expect(link.headers).toMatchObject({ 'x-amz-checksum-sha256': Buffer.from(sha(PNG), 'hex').toString('base64') });
@@ -62,7 +62,7 @@ describe('Evidence storage: S3', () => {
     expect(wrong.status).toBe(400);
     const ok = await fetch(link.url, { method: 'PUT', headers: link.headers, body: PNG });
     expect(ok.status).toBe(200);
-    expect(s3.objects.get(`testify/${key}`)!.body.equals(PNG)).toBe(true);
+    expect(s3.objects.get(`tessick/${key}`)!.body.equals(PNG)).toBe(true);
   });
 
   it("refuses to start without its bucket", async () => {
@@ -97,7 +97,7 @@ describe('Evidence API on S3', () => {
   const makeLink = async (size: number, digest: string, filename = 'big.png') =>
     body(await app.inject({ method: 'POST', url: `${execUrl()}/uploads`, headers: auth, payload: { filename, size_bytes: size, sha256: digest } })).upload;
 
-  it('uploads through Testify into the bucket, and serves them back from it', async () => {
+  it('uploads through Tessick into the bucket, and serves them back from it', async () => {
     const res = await app.inject({ method: 'POST', url: `${execUrl()}?filename=shot.png`, headers: { ...auth, 'content-type': 'application/octet-stream' }, payload: PNG });
     expect(res.statusCode, res.payload).toBe(201);
     const item = body(res).evidence[0];
@@ -109,7 +109,7 @@ describe('Evidence API on S3', () => {
     expect(s3.objects.size).toBe(0);
   });
 
-  it('a presigned upload: PUT straight to the bucket, then completed and checked by Testify', async () => {
+  it('a presigned upload: PUT straight to the bucket, then completed and checked by Tessick', async () => {
     const link = await makeLink(PNG.length, sha(PNG));
     expect(link.url).toMatch(new RegExp(`^${s3.endpoint}/evidence/evidence/`));
     // Not uploaded yet.
@@ -124,7 +124,7 @@ describe('Evidence API on S3', () => {
     expect(content.rawPayload.equals(PNG)).toBe(true);
   });
 
-  it("a presigned upload that isn't evidence Testify accepts is refused, and removed from the bucket", async () => {
+  it("a presigned upload that isn't evidence Tessick accepts is refused, and removed from the bucket", async () => {
     const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>\u0000');
     const link = await makeLink(svg.length, sha(svg), 'evil.png');
     expect((await fetch(link.url, { method: 'PUT', headers: link.headers, body: svg })).status).toBe(200);

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { v7 as uuidv7 } from 'uuid';
-import { EvidenceRepository, EvidenceUploadRepository, TestRunRepository, createDbClient } from '@testify/db';
+import { EvidenceRepository, EvidenceUploadRepository, TestRunRepository, createDbClient } from '@tessick/db';
 import { createServer } from '../src/server.js';
 import { ConfigError, resolveEvidenceConfig } from '../src/config.js';
 import { LocalStorageProvider, MemoryStorageProvider, newStorageKey } from '../src/storage/index.js';
@@ -25,12 +25,12 @@ describe('Evidence storage: configuration', () => {
     expect(() => resolveEvidenceConfig({ inMemory: false }, {})).toThrow(/Evidence storage isn't set/);
     expect(() => resolveEvidenceConfig({ inMemory: false }, { EVIDENCE_STORAGE: 'memory' })).toThrow(/only for the in-memory database/);
     expect(resolveEvidenceConfig({ inMemory: false }, { EVIDENCE_DIR: '/data/evidence' })).toEqual({ storage: { kind: 'local', dir: '/data/evidence' }, maxFileBytes: 200 * 1024 * 1024 });
-    expect(resolveEvidenceConfig({ inMemory: false }, { EVIDENCE_S3_BUCKET: 'qa', EVIDENCE_S3_REGION: 'eu-west-1', EVIDENCE_S3_PREFIX: '/testify/', EVIDENCE_S3_SSE: 'aws:kms' }).storage).toEqual({
+    expect(resolveEvidenceConfig({ inMemory: false }, { EVIDENCE_S3_BUCKET: 'qa', EVIDENCE_S3_REGION: 'eu-west-1', EVIDENCE_S3_PREFIX: '/tessick/', EVIDENCE_S3_SSE: 'aws:kms' }).storage).toEqual({
       kind: 's3',
       bucket: 'qa',
       region: 'eu-west-1',
       endpoint: undefined,
-      prefix: 'testify',
+      prefix: 'tessick',
       forcePathStyle: false,
       sse: 'aws:kms',
     });
@@ -45,7 +45,7 @@ describe('Evidence storage: configuration', () => {
   });
 
   it("a server whose evidence directory can't be written to won't start", async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'testify-evidence-'));
+    const dir = await mkdtemp(join(tmpdir(), 'tessick-evidence-'));
     const blocked = join(dir, 'file');
     await writeFile(blocked, 'not a directory');
     const db = createDbClient();
@@ -53,7 +53,7 @@ describe('Evidence storage: configuration', () => {
     process.env.JWT_SECRET = 'evidence-storage-test-secret-0123456789';
     process.env.EVIDENCE_DIR = blocked;
     try {
-      await expect(createServer('postgres://unused/testify', { db })).rejects.toThrow(/EVIDENCE_DIR .* isn't a directory Testify can write to/);
+      await expect(createServer('postgres://unused/tessick', { db })).rejects.toThrow(/EVIDENCE_DIR .* isn't a directory Tessick can write to/);
     } finally {
       for (const [k, v] of Object.entries(previous)) v === undefined ? delete process.env[k] : (process.env[k] = v);
       await db.destroy();
@@ -65,7 +65,7 @@ describe('Evidence storage: configuration', () => {
 describe('Evidence storage: the local provider and the spool', () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'testify-evidence-'));
+    dir = await mkdtemp(join(tmpdir(), 'tessick-evidence-'));
   });
   afterEach(async () => {
     await rm(dir, { recursive: true, force: true });
@@ -88,7 +88,7 @@ describe('Evidence storage: the local provider and the spool', () => {
     await storage.delete(key);
     await storage.delete(key); // gone already: fine
     expect(await storage.head(key)).toBeUndefined();
-    // Only keys Testify makes name a file.
+    // Only keys Tessick makes name a file.
     await expect(storage.read('../../etc/passwd')).rejects.toThrow(/Not a storage key/);
   });
 
@@ -148,7 +148,7 @@ describe('Evidence storage: files go with their rows', () => {
     });
     const resultId = JSON.parse(res.payload).results[0].test_result_id;
     const result = await db.selectFrom('test_results').selectAll().where('id', '=', resultId).executeTakeFirst();
-    const spooled = await spoolEvidence(chunks(PNG), { dir: join(tmpdir(), 'testify-evidence'), maxBytes: 1000 });
+    const spooled = await spoolEvidence(chunks(PNG), { dir: join(tmpdir(), 'tessick-evidence'), maxBytes: 1000 });
     const key = newStorageKey(seed.projectId);
     await storage.putFile(key, spooled.path);
     const evidence = await new EvidenceRepository(db).create({

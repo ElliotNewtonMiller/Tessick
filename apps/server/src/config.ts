@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePasswordPolicy } from '@testify/core';
+import { validatePasswordPolicy } from '@tessick/core';
 import { SecretBox } from './services/secrets.js';
 
 /**
@@ -30,7 +30,7 @@ export function resolveDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Dat
   if (!url) {
     throw new ConfigError(
       'DATABASE_URL is not set. Set it to your PostgreSQL connection string, ' +
-        'e.g. DATABASE_URL=postgres://user:password@localhost:5432/testify. ' +
+        'e.g. DATABASE_URL=postgres://user:password@localhost:5432/tessick. ' +
         `For a throwaway in-memory database (development only; all data is lost when the server stops), set DATABASE_URL=${IN_MEMORY_DATABASE_URL}.`
     );
   }
@@ -83,7 +83,7 @@ export function resolveInitialAdminPassword(
 
 /**
  * Which other web origins may call the API from a browser (CORS), from CORS_ORIGINS: a
- * comma-separated list of exact origins, e.g. "https://testify.example.com". Unset means none --
+ * comma-separated list of exact origins, e.g. "https://tessick.example.com". Unset means none --
  * the web app calls the API on its own address (Vite's proxy in development), so it needs no CORS,
  * and neither do API tokens, CI or MCP clients, which aren't browsers. Set it only when the web
  * app is served from a different address than the API. "*" is refused: any page could then read
@@ -95,16 +95,16 @@ export function resolveCorsOrigins(env: NodeJS.ProcessEnv = process.env): string
   const origins: string[] = [];
   for (const entry of raw.split(',').map((s) => s.trim()).filter(Boolean)) {
     if (entry === '*') {
-      throw new ConfigError('CORS_ORIGINS="*" isn\'t allowed: list the exact origins the web app is served from, e.g. CORS_ORIGINS=https://testify.example.com');
+      throw new ConfigError('CORS_ORIGINS="*" isn\'t allowed: list the exact origins the web app is served from, e.g. CORS_ORIGINS=https://tessick.example.com');
     }
     let url: URL;
     try {
       url = new URL(entry);
     } catch {
-      throw new ConfigError(`CORS_ORIGINS: "${entry}" isn't a valid origin. Use e.g. https://testify.example.com`);
+      throw new ConfigError(`CORS_ORIGINS: "${entry}" isn't a valid origin. Use e.g. https://tessick.example.com`);
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== entry.replace(/\/$/, '')) {
-      throw new ConfigError(`CORS_ORIGINS: "${entry}" must be just a scheme, host and optional port (no path), e.g. https://testify.example.com`);
+      throw new ConfigError(`CORS_ORIGINS: "${entry}" must be just a scheme, host and optional port (no path), e.g. https://tessick.example.com`);
     }
     origins.push(url.origin);
   }
@@ -248,7 +248,7 @@ export function resolveEvidenceConfig({ inMemory }: { inMemory: boolean }, env: 
   const bucket = env.EVIDENCE_S3_BUCKET?.trim();
   const kind = env.EVIDENCE_STORAGE?.trim().toLowerCase() || (dir ? 'local' : bucket ? 's3' : inMemory ? 'memory' : '');
   const howTo =
-    'Set EVIDENCE_DIR to a directory Testify can write to (EVIDENCE_STORAGE=local), or EVIDENCE_STORAGE=s3 with EVIDENCE_S3_BUCKET and EVIDENCE_S3_REGION (see docs/deployment.md).';
+    'Set EVIDENCE_DIR to a directory Tessick can write to (EVIDENCE_STORAGE=local), or EVIDENCE_STORAGE=s3 with EVIDENCE_S3_BUCKET and EVIDENCE_S3_REGION (see docs/deployment.md).';
   switch (kind) {
     case 'memory':
       if (!inMemory) throw new ConfigError(`EVIDENCE_STORAGE=memory is only for the in-memory database: evidence files would be lost when the server stops. ${howTo}`);

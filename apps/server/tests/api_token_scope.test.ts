@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
 import { tokenMayUseRoute } from '../src/middleware/auth.js';
-import { ApiTokenRepository } from '@testify/db';
-import { TOKEN_EXCLUDED_PERMISSIONS } from '@testify/core';
+import { ApiTokenRepository } from '@tessick/db';
+import { TOKEN_EXCLUDED_PERMISSIONS } from '@tessick/core';
 
 /**
  * API tokens stay inside their project: they're refused on routes that reach the whole system,

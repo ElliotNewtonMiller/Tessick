@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { SESSION_IDLE_SECONDS, SESSION_MAX_SECONDS } from '../sessionLifetime.js';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { UserRepository, RoleRepository, SessionRepository, UserApiKeyRepository } from '@testify/db';
-import { signJwt, verifyJwt } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { UserRepository, RoleRepository, SessionRepository, UserApiKeyRepository } from '@tessick/db';
+import { signJwt, verifyJwt } from '@tessick/core';
 import { authenticateRequest } from '../middleware/auth.js';
 import { clearSessionCookie, passesCsrfCheck, requestCredential, setSessionCookie } from '../sessionCookie.js';
 import {
@@ -69,7 +69,7 @@ export async function registerAuthRoutes(app: FastifyInstance, db: Kysely<Databa
     // cookie-authenticated changes, so another site can't sign a browser into an account.
     const useCookie = sessionMode === 'cookie';
     if (useCookie && !passesCsrfCheck(request)) {
-      return sendError(reply, 403, 'Cookie sign-in requires the X-Testify-Client header.', { code: 'CSRF_HEADER_MISSING' });
+      return sendError(reply, 403, 'Cookie sign-in requires the X-Tessick-Client header.', { code: 'CSRF_HEADER_MISSING' });
     }
 
     // Guessing limits (services/loginThrottle.ts): this address, then this account.
@@ -147,7 +147,7 @@ export async function registerAuthRoutes(app: FastifyInstance, db: Kysely<Databa
     return reply.status(200).send({ user });
   });
 
-  // Your TestLink API key: what Dave's TestLink REST API clients send as APIKEY to Testify's
+  // Your TestLink API key: what Dave's TestLink REST API clients send as APIKEY to Tessick's
   // TestLink-compatible API (testlinkCompat/). One per user, shown once when made; making a new
   // one replaces it. API tokens can't reach these routes (they're outside any project).
   const testLinkKeys = new UserApiKeyRepository(db);

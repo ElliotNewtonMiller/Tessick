@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { Writable } from 'node:stream';
 import net from 'node:net';
 import tls from 'node:tls';
-import { createDbClient } from '@testify/db';
+import { createDbClient } from '@tessick/db';
 import { createServer } from '../src/server.js';
 import { ConfigError, resolveJwtSecret, resolveLogLevel } from '../src/config.js';
 
@@ -58,7 +58,7 @@ describe('Startup configuration', () => {
     const db = createDbClient();
     try {
       await withEnv({ JWT_SECRET: undefined }, async () => {
-        await expect(createServer('postgres://unused/testify', { db })).rejects.toThrow(ConfigError);
+        await expect(createServer('postgres://unused/tessick', { db })).rejects.toThrow(ConfigError);
       });
     } finally {
       await db.destroy();
@@ -135,7 +135,7 @@ describe('Health check and request logging', () => {
 
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: 'admin', password: 'password' } });
     const token = JSON.parse(login.payload).token;
-    const me = await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { authorization: `Bearer ${token}`, cookie: 'testify_session=abc' } });
+    const me = await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { authorization: `Bearer ${token}`, cookie: 'tessick_session=abc' } });
     await app.inject({ method: 'GET', url: '/api/v1/health' });
     const boom = await app.inject({ method: 'GET', url: '/api/v1/test-only/boom' });
 
@@ -158,6 +158,6 @@ describe('Health check and request logging', () => {
     expect(boom.payload).not.toContain('secret internals');
 
     // No credentials anywhere in the log.
-    for (const secret of [token, 'password', 'testify_session=abc', 'Bearer']) expect(log.raw()).not.toContain(secret);
+    for (const secret of [token, 'password', 'tessick_session=abc', 'Bearer']) expect(log.raw()).not.toContain(secret);
   });
 });

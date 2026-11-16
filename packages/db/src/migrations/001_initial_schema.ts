@@ -392,7 +392,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .execute();
   await db.schema.createIndex('idx_report_schedules_due').on('report_schedules').columns(['enabled', 'next_run_at']).execute();
 
-  // 25. The last email Testify sent (or, with no SMTP server configured, only captured) --
+  // 25. The last email Tessick sent (or, with no SMTP server configured, only captured) --
   // a single row, replaced by each new email; not a log. Kept when its project or schedule
   // is deleted.
   await db.schema
@@ -410,7 +410,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('created_at', 'varchar(30)', (col) => col.notNull())
     .execute();
 
-  // Install the audit_logs append-only immutability trigger. Testify only targets
+  // Install the audit_logs append-only immutability trigger. Tessick only targets
   // Postgres-compatible SQL (PGlite locally, real Postgres in production), so there's a
   // single trigger implementation here rather than a per-dialect branch.
   await sql`

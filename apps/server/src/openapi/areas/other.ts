@@ -1,4 +1,4 @@
-import { REPORT_CATALOG, API_TOKEN_INTERFACES } from '@testify/core';
+import { REPORT_CATALOG, API_TOKEN_INTERFACES } from '@tessick/core';
 import { authedErrors, wrapped, list, NO_CONTENT, idParams, oneOf, handlerValidated, PERMISSIONS_LIST, errors } from '../schemas.js';
 
 /**
@@ -40,7 +40,7 @@ export const createTokenSchema = {
   tags: TOKENS,
   summary: 'Create an API token',
   description:
-    'A token for CI or scripts, bound to this project, sent as `Authorization: Bearer tf_ci_…`. The secret (`plaintext`) is in this response only. ' +
+    'A token for CI or scripts, bound to this project, sent as `Authorization: Bearer tk_ci_…`. The secret (`plaintext`) is in this response only. ' +
     "Capabilities can't exceed your own permissions here, and system-wide ones (SYSTEM_ADMIN, USER_MANAGE, CUSTOM_FIELD_MANAGE, PROJECT_CREATE, API_TOKEN_MANAGE) are never allowed. " +
     'The token works as long as you could still issue it: it stops if you are disabled or lose `API_TOKEN_MANAGE`. Needs `API_TOKEN_MANAGE`; not available to API tokens.',
   params: idParams('projectId'),
@@ -59,7 +59,7 @@ export const createTokenSchema = {
       description: 'Created',
       type: 'object',
       required: ['token', 'plaintext'],
-      properties: { token: { $ref: 'ApiToken#' }, plaintext: { type: 'string', description: 'tf_ci_…: shown only now; store it as a secret' } },
+      properties: { token: { $ref: 'ApiToken#' }, plaintext: { type: 'string', description: 'tk_ci_…: shown only now; store it as a secret' } },
     },
     ...authedErrors([400, 'A missing field, an unknown permission, or `CAPABILITY_NOT_GRANTABLE`'], [403, 'Missing permission, or `CAPABILITY_CEILING_EXCEEDED`'], 404),
   },

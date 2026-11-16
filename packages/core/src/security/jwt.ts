@@ -11,7 +11,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  */
 
 export interface JwtPayload {
-  /** Subject -- Testify uses this as the authenticated user's id. */
+  /** Subject -- Tessick uses this as the authenticated user's id. */
   sub: string;
   iat: number;
   exp: number;

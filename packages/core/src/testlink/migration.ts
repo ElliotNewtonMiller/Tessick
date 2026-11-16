@@ -9,11 +9,11 @@ import { TL_LIST_SEPARATOR, TL_STATUS } from './map.js';
 export const TL_NODE = { project: 1, suite: 2, case: 3, version: 4, plan: 5, step: 9 } as const;
 
 /**
- * The Testify role for a TestLink role, by what it may do: user management makes an admin,
+ * The Tessick role for a TestLink role, by what it may do: user management makes an admin,
  * planning a test lead, editing or executing a tester, viewing a viewer. TestLink's own
  * "admin" role is always Admin.
  */
-export function testifyRoleFor(description: string, rights: string[]): 'Admin' | 'Test Lead' | 'Tester' | 'Viewer' | 'No Access' {
+export function tessickRoleFor(description: string, rights: string[]): 'Admin' | 'Test Lead' | 'Tester' | 'Viewer' | 'No Access' {
   const has = (r: string) => rights.includes(r);
   if (description.trim().toLowerCase() === 'admin' || has('mgt_users') || has('role_management')) return 'Admin';
   if (has('testplan_planning') || has('mgt_testplan_create') || has('testplan_create_build')) return 'Test Lead';
@@ -23,7 +23,7 @@ export function testifyRoleFor(description: string, rights: string[]): 'Admin' |
 }
 
 /**
- * TestLink's custom field type (cfield_mgr) as one of Testify's six. TestLink's checkboxes are a
+ * TestLink's custom field type (cfield_mgr) as one of Tessick's six. TestLink's checkboxes are a
  * set of options, so they're a multi-select; radio buttons a single select; email, text area
  * and the script types text; datetime a date. The answer says when the type isn't kept exactly.
  */
@@ -59,20 +59,20 @@ export function optionsFrom(possibleValues: string | null | undefined): string[]
   return [...seen];
 }
 
-/** A TestLink version's status and active flag as Testify's: final approved, obsolete or inactive deprecated, the rest draft. */
+/** A TestLink version's status and active flag as Tessick's: final approved, obsolete or inactive deprecated, the rest draft. */
 export function versionStatusFromTestLink(status: number, active: number): 'DRAFT' | 'APPROVED' | 'DEPRECATED' {
   if (Number(active) === 0 || Number(status) === TL_STATUS.obsolete) return 'DEPRECATED';
   if (Number(status) === TL_STATUS.final) return 'APPROVED';
   return 'DRAFT';
 }
 
-/** A TestLink plan's flags as a Testify plan status: inactive archived, closed locked. */
+/** A TestLink plan's flags as a Tessick plan status: inactive archived, closed locked. */
 export function planStatusFromTestLink(active: number, isOpen: number): 'ACTIVE' | 'LOCKED' | 'ARCHIVED' {
   if (Number(active) === 0) return 'ARCHIVED';
   return Number(isOpen) === 0 ? 'LOCKED' : 'ACTIVE';
 }
 
-/** An execution's status code as a verdict; undefined for "not run" and codes Testify doesn't know. */
+/** An execution's status code as a verdict; undefined for "not run" and codes Tessick doesn't know. */
 export function verdictFromTestLink(code: string | null | undefined): 'PASSED' | 'FAILED' | 'BLOCKED' | undefined {
   const c = String(code ?? '').trim().toLowerCase();
   return c === 'p' ? 'PASSED' : c === 'f' ? 'FAILED' : c === 'b' ? 'BLOCKED' : undefined;
@@ -84,7 +84,7 @@ export function stepVerdictFromTestLink(code: string | null | undefined): 'PASSE
 }
 
 /**
- * A custom field value as TestLink stored it, for Testify's field: dates (kept by TestLink as
+ * A custom field value as TestLink stored it, for Tessick's field: dates (kept by TestLink as
  * Unix timestamps) as YYYY-MM-DD, lists split on "|", numbers parsed. Empty is null.
  */
 export function customFieldValueFromTestLink(fieldType: string, stored: string | null | undefined): unknown {

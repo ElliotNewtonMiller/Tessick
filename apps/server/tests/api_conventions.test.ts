@@ -29,7 +29,7 @@ describe('API conventions: one error format', () => {
     const login = async (username: string, password: string) =>
       body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password } })).token;
     admin = await login('admin', 'password');
-    await call(admin, 'POST', '/api/v1/admin/users', { username: 'conv_viewer', email: 'conv_viewer@testify.local', password: 'SecurePass123!', global_role: 'Viewer' });
+    await call(admin, 'POST', '/api/v1/admin/users', { username: 'conv_viewer', email: 'conv_viewer@tessick.local', password: 'SecurePass123!', global_role: 'Viewer' });
     viewer = await login('conv_viewer', 'SecurePass123!');
   });
   afterAll(async () => {
@@ -40,7 +40,7 @@ describe('API conventions: one error format', () => {
     expect(res.statusCode).toBe(status);
     expect(res.headers['content-type']).toMatch(/^application\/problem\+json/);
     const b = body(res);
-    expect(b).toMatchObject({ status, type: expect.stringMatching(/^https:\/\/api\.testify\.dev\/errors\/[A-Z_]+$/), title: expect.any(String) });
+    expect(b).toMatchObject({ status, type: expect.stringMatching(/^https:\/\/api\.tessick\.dev\/errors\/[A-Z_]+$/), title: expect.any(String) });
     expect(b.code).toMatch(/^[A-Z][A-Z0-9_]*$/);
     if (code) expect(b.code).toBe(code);
     expect(typeof b.detail).toBe('string');
@@ -66,7 +66,7 @@ describe('API conventions: one error format', () => {
     expectProblem(await call(null, 'GET', '/api/v1/projects'), 401);
     // Not "your sign-in has ended": it never was one (an ended sign-in is session_cookie.test.ts).
     const notAToken = expectProblem(await call('not-a-real-token', 'GET', '/api/v1/projects'), 401, 'INVALID_TOKEN');
-    expect(notAToken.detail).toMatch(/isn't a Testify API token \(tf_ci_\.\.\.\) or sign-in token/);
+    expect(notAToken.detail).toMatch(/isn't a Tessick API token \(tk_ci_\.\.\.\) or sign-in token/);
     const b = expectProblem(await call(viewer, 'POST', '/api/v1/projects', { name: 'Nope', prefix: 'NOPE' }), 403);
     expect(b.required_permission).toBe('PROJECT_CREATE');
   });
@@ -94,9 +94,9 @@ describe('API conventions: one error format', () => {
   });
 
   it('401 says how to authenticate (WWW-Authenticate), and a sign-in says when it ends', async () => {
-    expect((await call(null, 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify"');
-    expect((await call('not-a-real-token', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify", error="invalid_token"');
-    expect((await call('tf_ci_nope', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Testify", error="invalid_token"');
+    expect((await call(null, 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Tessick"');
+    expect((await call('not-a-real-token', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Tessick", error="invalid_token"');
+    expect((await call('tk_ci_nope', 'GET', '/api/v1/projects')).headers['www-authenticate']).toBe('Bearer realm="Tessick", error="invalid_token"');
     // Other statuses don't carry it.
     expect((await call(admin, 'GET', '/api/v1/no-such-route')).headers['www-authenticate']).toBeUndefined();
 
@@ -202,7 +202,7 @@ describe('API conventions: addresses, verbs and names', () => {
       }),
       'schedule'
     );
-    await created(await call('POST', '/api/v1/admin/users', { username: 'shape_u', email: 'shape_u@testify.local', password: 'SecurePass123!', global_role: 'Viewer' }), 'user');
+    await created(await call('POST', '/api/v1/admin/users', { username: 'shape_u', email: 'shape_u@tessick.local', password: 'SecurePass123!', global_role: 'Viewer' }), 'user');
 
     deleted(await call('DELETE', `/api/v1/report-schedules/${schedule.id}`));
     deleted(await call('DELETE', `/api/v1/api-tokens/${token.id}`));

@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 
 /**
  * EXECUTE_OVERWRITE: recording a result for a test case that already has one in the run.

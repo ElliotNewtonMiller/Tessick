@@ -41,7 +41,7 @@ describe('TestRailCsvParser', () => {
     expect(tc.custom_fields).toEqual({ cf_type: 'Regression', cf_references: 'JIRA-42' });
   });
 
-  it('maps every known TestRail priority label onto the four Testify priorities, defaulting to MEDIUM', async () => {
+  it('maps every known TestRail priority label onto the four Tessick priorities, defaulting to MEDIUM', async () => {
     const csv = [
       'Title,Priority',
       'A,Low',

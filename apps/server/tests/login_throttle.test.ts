@@ -32,7 +32,7 @@ describe('Sign-in limits', () => {
 
   async function createUser(adminToken: string, username: string) {
     const res = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username, email: `${username}@testify.local`, password: 'Right-Pass-123', global_role: 'Viewer',
+      username, email: `${username}@tessick.local`, password: 'Right-Pass-123', global_role: 'Viewer',
     });
     expect(res.statusCode).toBe(201);
     return body(res).user.id as string;

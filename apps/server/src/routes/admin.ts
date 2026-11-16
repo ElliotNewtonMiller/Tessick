@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { UserRepository, RoleRepository, SessionRepository, ApiTokenRepository, UserApiKeyRepository, RoleName, decodeCursor, toPage } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { UserRepository, RoleRepository, SessionRepository, ApiTokenRepository, UserApiKeyRepository, RoleName, decodeCursor, toPage } from '@tessick/db';
 import { commaList, readPage } from '../paging.js';
 import { authenticateRequest, requirePermission } from '../middleware/auth.js';
 import { sendRoleInUseError, sendError } from '../errors.js';

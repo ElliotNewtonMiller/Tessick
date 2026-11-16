@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 
 /** Who recorded something: user ids → usernames, API token ids → "<name> (API token)". */
 export async function actorNames(db: Kysely<Database>, ids: Iterable<string | null>): Promise<Map<string, string>> {

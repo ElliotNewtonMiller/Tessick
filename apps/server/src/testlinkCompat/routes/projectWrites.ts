@@ -1,5 +1,5 @@
-import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, TestRunRepository } from '@testify/db';
-import { platformRunName } from '@testify/core';
+import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, TestRunRepository } from '@tessick/db';
+import { platformRunName } from '@tessick/core';
 import { writeAudit } from '../../audit.js';
 import { permissionsInProject } from '../../middleware/auth.js';
 import type { CompatRoute } from '../index.js';
@@ -22,7 +22,7 @@ export const projectWriteRoutes: CompatRoute[] = [
     statuses: [400, 403, 500],
     versions: ALL,
     auth: true,
-    // Testify's projects are always active and public, and have no feature options.
+    // Tessick's projects are always active and public, and have no feature options.
     handle: async (request, reply, ctx) => {
       const b = bodyOf(request);
       if (!given(b.name)) return missing(reply, 'name');

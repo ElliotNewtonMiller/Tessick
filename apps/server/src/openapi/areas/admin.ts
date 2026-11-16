@@ -378,7 +378,7 @@ export const setDefinitionProjectsSchema = {
 export const getEmailSettingsSchema = {
   tags: EMAIL,
   summary: 'Email settings',
-  description: 'The mail server Testify sends report emails through. The password is never returned. Needs `SYSTEM_ADMIN`.' + NO_TOKENS,
+  description: 'The mail server Tessick sends report emails through. The password is never returned. Needs `SYSTEM_ADMIN`.' + NO_TOKENS,
   response: { 200: wrapped('settings', 'EmailSettings', 'The settings'), ...authedErrors() },
 };
 
@@ -396,7 +396,7 @@ export const putEmailSettingsSchema = {
       smtp_user: { type: ['string', 'null'] },
       smtp_password: { type: 'string' },
       from: { type: ['string', 'null'], description: 'An address, optionally "Name <address>"' },
-      public_url: { type: ['string', 'null'], description: 'Where links in emails point, e.g. https://testify.example.com' },
+      public_url: { type: ['string', 'null'], description: 'Where links in emails point, e.g. https://tessick.example.com' },
     },
   }),
   response: { 200: wrapped('settings', 'EmailSettings', 'Saved'), ...authedErrors([400, '`INVALID_PARAMS` or `SECRETS_KEY_REQUIRED`']) },

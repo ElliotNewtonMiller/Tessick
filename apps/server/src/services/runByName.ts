@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import { sendError, sendPlanLockedError } from '../errors.js';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 import { emitRunCreated, webhookActor } from './webhookEvents.js';
@@ -48,7 +48,7 @@ export async function findOrCreateRun(
     return null;
   }
   if (!user.permissions.includes('RUN_MANAGE') && !user.permissions.includes('SYSTEM_ADMIN')) {
-    sendError(reply, 403, `There's no run named "${name}" in this plan, and creating one needs RUN_MANAGE. Create it in Testify first, or use a token that has RUN_MANAGE.`, {
+    sendError(reply, 403, `There's no run named "${name}" in this plan, and creating one needs RUN_MANAGE. Create it in Tessick first, or use a token that has RUN_MANAGE.`, {
       required_permission: 'RUN_MANAGE',
     });
     return null;

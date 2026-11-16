@@ -1,4 +1,4 @@
-import type { CreateTestStepInput } from '@testify/db';
+import type { CreateTestStepInput } from '@tessick/db';
 import type { InvalidParam } from './resultValidation.js';
 
 /** Limits for a test case's steps, as sent when creating a case or saving a draft. */

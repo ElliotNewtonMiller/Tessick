@@ -30,7 +30,7 @@ describe('Admin routes: no privilege escalation, and never zero admins', () => {
     // A user manager: can manage users, but is no admin.
     expect((await call(adminToken, 'POST', '/api/v1/admin/roles', { name: 'User Manager', permission_keys: ['USER_MANAGE', 'SPEC_VIEW'] })).statusCode).toBe(201);
     const created = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username: 'manager', email: 'manager@testify.local', password: 'Manager-Pass-123', global_role: 'User Manager',
+      username: 'manager', email: 'manager@tessick.local', password: 'Manager-Pass-123', global_role: 'User Manager',
     });
     expect(created.statusCode).toBe(201);
     managerId = body(created).user.id;
@@ -64,7 +64,7 @@ describe('Admin routes: no privilege escalation, and never zero admins', () => {
 
     // 4. Creating a new admin account.
     res = await call(managerToken, 'POST', '/api/v1/admin/users', {
-      username: 'puppet', email: 'puppet@testify.local', password: 'Puppet-Pass-123', global_role: 'Admin',
+      username: 'puppet', email: 'puppet@tessick.local', password: 'Puppet-Pass-123', global_role: 'Admin',
     });
     expect(body(res).code).toBe('PERMISSION_CEILING');
 
@@ -101,7 +101,7 @@ describe('Admin routes: no privilege escalation, and never zero admins', () => {
 
     // Users with no more than the manager has are fine to manage.
     const viewer = await call(managerToken, 'POST', '/api/v1/admin/users', {
-      username: 'reader', email: 'reader@testify.local', password: 'Reader-Pass-123', global_role: 'User Manager',
+      username: 'reader', email: 'reader@tessick.local', password: 'Reader-Pass-123', global_role: 'User Manager',
     });
     expect(viewer.statusCode).toBe(201);
     expect((await call(managerToken, 'PATCH', `/api/v1/admin/users/${body(viewer).user.id}`, { status: 'DISABLED' })).statusCode).toBe(200);

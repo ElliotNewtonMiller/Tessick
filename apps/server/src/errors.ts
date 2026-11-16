@@ -60,7 +60,7 @@ export function problemBody(
   const { code: givenCode, type, title, instance, invalid_params, ...extensions } = options;
   const code = givenCode || defaultErrorCode(status);
   const body: Record<string, unknown> = {
-    type: type || `https://api.testify.dev/errors/${code}`,
+    type: type || `https://api.tessick.dev/errors/${code}`,
     title: title || STATUS_CODES[status] || 'Error',
     status,
     code,
@@ -96,7 +96,7 @@ export function sendError(
   reply.header('content-type', 'application/problem+json');
   // A 401 says how to authenticate (RFC 9110 requires it): a bearer token.
   if (status === 401) {
-    reply.header('WWW-Authenticate', `Bearer realm="Testify"${options.code && INVALID_TOKEN_CODES.has(options.code) ? ', error="invalid_token"' : ''}`);
+    reply.header('WWW-Authenticate', `Bearer realm="Tessick"${options.code && INVALID_TOKEN_CODES.has(options.code) ? ', error="invalid_token"' : ''}`);
   }
   return reply.status(status).send(problemBody(status, detail, { ...options, instance: (options.instance as string | undefined) || requestPath(reply) }));
 }
@@ -498,7 +498,7 @@ export function logServerError(
   }
   if (process.env.NODE_ENV === 'test') return;
   const where = request ? ` ${request.method ?? ''} ${loggableUrl(request.url ?? '')} (request ${request.id ?? '?'})` : '';
-  console.error(`[testify] Unexpected error${where}:`, err);
+  console.error(`[tessick] Unexpected error${where}:`, err);
 }
 
 /** The generic reply for an unexpected error. The request id lets an admin find it in the log. */

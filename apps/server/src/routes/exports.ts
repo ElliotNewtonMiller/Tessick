@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { withinRateLimit } from '../services/rateLimits.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database, TestSuiteNode } from '@testify/db';
+import type { Database, TestSuiteNode } from '@tessick/db';
 import {
   ProjectRepository,
   TestSuiteRepository,
@@ -13,7 +13,7 @@ import {
   TestResultRepository,
   CustomFieldRepository,
   UserRepository,
-} from '@testify/db';
+} from '@tessick/db';
 import {
   JsonExportSerializer,
   CsvExportSerializer,
@@ -25,7 +25,7 @@ import {
   type ExportableCase,
   type TestResultsExportBundle,
   type ExportableTestResult,
-} from '@testify/core';
+} from '@tessick/core';
 import { requirePermission, authenticateRequest, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { requestOrigin } from '../audit.js';
 
@@ -293,7 +293,7 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
         })
         .execute();
 
-      const filename = `testify_definitions_export_${projectId}_${Date.now()}.${serializer.fileExtension}`;
+      const filename = `tessick_definitions_export_${projectId}_${Date.now()}.${serializer.fileExtension}`;
       return reply
         .header('Content-Type', serializer.contentType)
         .header('Content-Disposition', `attachment; filename="${filename}"`)
@@ -436,7 +436,7 @@ export async function registerExportRoutes(app: FastifyInstance, db: Kysely<Data
         })
         .execute();
 
-      const filename = `testify_execution_results_${runId}_${Date.now()}.${serializer.fileExtension}`;
+      const filename = `tessick_execution_results_${runId}_${Date.now()}.${serializer.fileExtension}`;
       return reply
         .header('Content-Type', serializer.contentType)
         .header('Content-Disposition', `attachment; filename="${filename}"`)

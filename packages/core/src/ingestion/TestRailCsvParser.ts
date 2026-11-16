@@ -57,7 +57,7 @@ const INDEXED_EXPECTED = /^steps?\s*\(\s*expected\s*results?\s*(\d+)\s*\)$/i;
  * - one row per case with indexed columns, `Steps (Step 1)`, `Steps (Expected Result 1)`, ...;
  * - one row per step: the case's fields on its first row, then rows with no ID or title that add
  *   a step each.
- * `Section` ("Parent > Child") becomes the suite tree, `Priority` maps onto Testify's four, and
+ * `Section` ("Parent > Child") becomes the suite tree, `Priority` maps onto Tessick's four, and
  * a `Type` of "Automated" makes the case AUTOMATED. Other columns become custom fields.
  */
 export class TestRailCsvParser implements IFileParser {

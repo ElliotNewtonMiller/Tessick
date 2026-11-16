@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { signJwt } from '@testify/core';
+import { signJwt } from '@tessick/core';
 import { createServer } from '../src/server.js';
 
 /** Sign-ins are server-side sessions: sign-out ends one, a password change ends the others. */
@@ -67,7 +67,7 @@ describe('Sessions', () => {
 
     // Changing only the email doesn't need the password, and ends nothing.
     const tablet = await login('admin', 'a-brand-new-passphrase');
-    expect((await call(laptop, 'PATCH', '/api/v1/auth/me', { email: 'root@testify.local' })).statusCode).toBe(200);
+    expect((await call(laptop, 'PATCH', '/api/v1/auth/me', { email: 'root@tessick.local' })).statusCode).toBe(200);
     expect(await me(tablet)).toBe(200);
   });
 
@@ -80,7 +80,7 @@ describe('Sessions', () => {
     const token = await login('admin', 'password');
     const sid = (await db.selectFrom('sessions').select('id').executeTakeFirstOrThrow()).id;
     const created = await call(token, 'POST', '/api/v1/admin/users', {
-      username: 'other', email: 'other@testify.local', password: 'Other-Pass-123', global_role: 'Viewer',
+      username: 'other', email: 'other@tessick.local', password: 'Other-Pass-123', global_role: 'Viewer',
     });
     expect(await me(signJwt({ sub: body(created).user.id, sid }, SECRET))).toBe(401);
   });
@@ -88,7 +88,7 @@ describe('Sessions', () => {
   it('disabling a user ends their sessions, and re-enabling does not revive them', async () => {
     const adminToken = await login('admin', 'password');
     const created = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username: 'reader', email: 'reader@testify.local', password: 'Reader-Pass-123', global_role: 'Viewer',
+      username: 'reader', email: 'reader@tessick.local', password: 'Reader-Pass-123', global_role: 'Viewer',
     });
     const userId = body(created).user.id;
     const readerToken = await login('reader', 'Reader-Pass-123');

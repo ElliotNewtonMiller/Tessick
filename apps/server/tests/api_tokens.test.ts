@@ -29,7 +29,7 @@ describe('Machine API tokens: definition CRUD, capability ceiling, and audit tra
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(createRes.statusCode).toBe(201);
     const userId = JSON.parse(createRes.payload).user.id as string;
@@ -77,7 +77,7 @@ describe('Machine API tokens: definition CRUD, capability ceiling, and audit tra
     });
     expect(okRes.statusCode).toBe(201);
     const body = JSON.parse(okRes.payload);
-    expect(body.plaintext).toMatch(/^tf_ci_[0-9a-f]{64}$/);
+    expect(body.plaintext).toMatch(/^tk_ci_[0-9a-f]{64}$/);
     expect(body.token.capabilities).toEqual(['EXECUTE_RUN', 'SPEC_VIEW']);
 
     // Even a SYSTEM_ADMIN-holding Admin can never grant SYSTEM_ADMIN itself to a token --

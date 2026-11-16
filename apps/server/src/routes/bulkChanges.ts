@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { CustomFieldRepository, TestCaseVersionRepository, TestPlanRepository } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { CustomFieldRepository, TestCaseVersionRepository, TestPlanRepository } from '@tessick/db';
 import { requireAnyPermission, requirePermission } from '../middleware/auth.js';
 import { sendError, sendPlanLockedError } from '../errors.js';
 import { innerRequest, internalVia, type InnerResponse, type InternalVia } from '../internalRequests.js';

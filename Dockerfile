@@ -1,6 +1,6 @@
-# Testify: one image with the API server and the built web app, served together on port 3001.
+# Tessick: one image with the API server and the built web app, served together on port 3001.
 # Needs a PostgreSQL database (DATABASE_URL) and JWT_SECRET -- see docs/deployment.md, or
-# docker-compose.yml for Testify plus Postgres in one go.
+# docker-compose.yml for Tessick plus Postgres in one go.
 
 # --- Build: install everything, then build the web app and bundle the server. ---
 FROM node:22-slim AS build
@@ -30,7 +30,7 @@ COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
 
 # Evidence files (screenshots, videos, logs) when they're kept on disk: docker-compose.yml mounts
-# a volume here and sets EVIDENCE_DIR. Owned by the user Testify runs as.
+# a volume here and sets EVIDENCE_DIR. Owned by the user Tessick runs as.
 RUN mkdir -p /data/evidence && chown node:node /data/evidence && chmod 700 /data/evidence
 
 USER node

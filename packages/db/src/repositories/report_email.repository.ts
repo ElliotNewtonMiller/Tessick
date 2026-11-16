@@ -208,7 +208,7 @@ export class ReportScheduleRepository {
 
 export type LastEmail = Omit<Selectable<LastEmailTable>, 'recipients'> & { recipients: string[] };
 
-/** The last email Testify sent (or captured): one row, replaced by each new email. */
+/** The last email Tessick sent (or captured): one row, replaced by each new email. */
 export class LastEmailRepository {
   constructor(private db: Kysely<Database>) {}
 

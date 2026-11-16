@@ -2,9 +2,9 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { withinRateLimit } from '../services/rateLimits.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database, ReportScheduleInput } from '@testify/db';
-import { ProjectRepository, ReportScheduleRepository } from '@testify/db';
-import { MAX_RECIPIENTS, isValidEmail, nextRunAt, parseRecipients, validateScheduleTiming } from '@testify/core';
+import type { Database, ReportScheduleInput } from '@tessick/db';
+import { ProjectRepository, ReportScheduleRepository } from '@tessick/db';
+import { MAX_RECIPIENTS, isValidEmail, nextRunAt, parseRecipients, validateScheduleTiming } from '@tessick/core';
 import { requirePermission, type AuthenticatedUser } from '../middleware/auth.js';
 import { ReportError } from '../services/reportService.js';
 import { ReportEmailService, parseScheduleSections, type EmailReportRequest } from '../services/reportEmailService.js';
@@ -14,7 +14,7 @@ import { requestOrigin, type RequestOrigin } from '../audit.js';
 import { sendError, reportErrorParams } from '../errors.js';
 import * as O from '../openapi/areas/other.js';
 /**
- * Emailing reports, all gated on REPORT_EMAIL (sending project data outside Testify) and
+ * Emailing reports, all gated on REPORT_EMAIL (sending project data outside Tessick) and
  * nested under :projectId so project role overrides and API-token scoping apply:
  *
  * POST /api/v1/projects/:projectId/report-emails  { sections: [{report_id, params}], recipients, message?, preview? }

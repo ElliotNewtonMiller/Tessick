@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Selectable } from 'kysely';
-import type { Database, AuditLogsTable } from '@testify/db';
+import type { Database, AuditLogsTable } from '@tessick/db';
 
 /** An audit entry standing for several evidence additions: one uploader, one run, one hour. */
 export type AuditEntry = Selectable<AuditLogsTable> & { grouped_count?: number; first_created_at?: string };

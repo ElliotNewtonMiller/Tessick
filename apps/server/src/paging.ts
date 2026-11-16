@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { decodeCursor } from '@testify/db';
+import { decodeCursor } from '@tessick/db';
 import { sendError } from './errors.js';
 
 /**

@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely';
-import { createDbClient } from '@testify/db';
+import { createDbClient } from '@tessick/db';
 
 /**
  * Where the migration reads TestLink from: a function that runs one SELECT. TestLink keeps its
@@ -22,8 +22,8 @@ export function kyselySource(db: Kysely<any>, opts: { closeWith?: () => Promise<
 }
 
 /**
- * Connects to a TestLink database by URL: `postgres://…` (read with Testify's own driver) or
- * `mysql://…` (needs the mysql2 package, which Testify doesn't install by default).
+ * Connects to a TestLink database by URL: `postgres://…` (read with Tessick's own driver) or
+ * `mysql://…` (needs the mysql2 package, which Tessick doesn't install by default).
  */
 export async function connectTestLink(url: string): Promise<TestLinkSource> {
   if (/^postgres(ql)?:\/\//i.test(url)) {

@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 
 /**
- * Testify's values as TestLink's REST API shows them (docs/testlink_compat_api.md, "How
- * Testify's model maps"), and back. Pure, so the TestLink-compatible API, its migration and its
+ * Tessick's values as TestLink's REST API shows them (docs/testlink_compat_api.md, "How
+ * Tessick's model maps"), and back. Pure, so the TestLink-compatible API, its migration and its
  * tests share one table.
  */
 
@@ -27,7 +27,7 @@ export function executionTypeCode(executionType: string): 1 | 2 {
 }
 
 /**
- * TestLink's workflow status codes (tcversions.status). TestLink has seven; Testify keeps three,
+ * TestLink's workflow status codes (tcversions.status). TestLink has seven; Tessick keeps three,
  * so TestLink's review states read back as draft.
  */
 export const TL_STATUS = {
@@ -57,7 +57,7 @@ export function buildFlags(status: string): { active: 1; is_open: 0 | 1 } {
   return { active: 1, is_open: status === 'CLOSED' ? 0 : 1 };
 }
 
-/** TestLink's custom field types (cfield_mgr) for each of Testify's six. */
+/** TestLink's custom field types (cfield_mgr) for each of Tessick's six. */
 export const TL_CUSTOM_FIELD_TYPES: Record<string, { type: number; type_name: string }> = {
   TEXT: { type: 0, type_name: 'string' },
   NUMBER: { type: 1, type_name: 'numeric' },
@@ -103,7 +103,7 @@ export function keywordKey(fieldId: string, keyword: string): string {
 }
 
 /**
- * The run a TestLink build's results on one platform go in (Testify has no platforms: a plan
+ * The run a TestLink build's results on one platform go in (Tessick has no platforms: a plan
  * with platforms keeps one plain run per build and platform).
  */
 export const platformRunName = (build: string, platform: string) => `${build} — ${platform}`;
@@ -116,13 +116,13 @@ export function externalIdNumber(externalId: string): string {
 
 // --- From TestLink's values (the compatible API's writes) -----------------------------------
 
-/** TestLink's importance (1-3) as a Testify priority; anything else is left unset. */
+/** TestLink's importance (1-3) as a Tessick priority; anything else is left unset. */
 export function priorityFromImportance(importance: unknown): 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
   const n = Number(importance);
   return n === 1 ? 'LOW' : n === 2 ? 'MEDIUM' : n === 3 ? 'HIGH' : undefined;
 }
 
-/** TestLink's execution_type (1, 2) as Testify's. */
+/** TestLink's execution_type (1, 2) as Tessick's. */
 export function executionTypeFromCode(code: unknown): 'MANUAL' | 'AUTOMATED' | undefined {
   const n = Number(code);
   return n === 1 ? 'MANUAL' : n === 2 ? 'AUTOMATED' : undefined;
@@ -142,14 +142,14 @@ export function statusTarget(status: unknown, active: unknown): { target?: 'DRAF
   return { reactivate: a === 1 };
 }
 
-/** TestLink's execution status codes, as Testify verdicts ("n", not run, isn't a result). */
+/** TestLink's execution status codes, as Tessick verdicts ("n", not run, isn't a result). */
 export const TL_EXECUTION_STATUS: Record<string, 'PASSED' | 'FAILED' | 'BLOCKED'> = { p: 'PASSED', f: 'FAILED', b: 'BLOCKED' };
 
 /**
  * A custom field value a TestLink client sent (a string, as TestLink stores it) as the value
- * Testify's field takes: lists split on "|", numbers and checkboxes parsed, and a date given as
+ * Tessick's field takes: lists split on "|", numbers and checkboxes parsed, and a date given as
  * a Unix timestamp (as TestLink keeps dates) turned into YYYY-MM-DD. What doesn't parse is
- * passed on as given, for Testify's validation to refuse with its own message.
+ * passed on as given, for Tessick's validation to refuse with its own message.
  */
 export function customFieldValueFromString(fieldType: string, raw: unknown): unknown {
   if (raw === null || raw === undefined) return null;

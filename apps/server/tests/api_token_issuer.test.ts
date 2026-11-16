@@ -23,7 +23,7 @@ describe('API tokens are bound to their issuer', () => {
     ({ app, db, seed } = await createServer());
     adminToken = await login('admin', 'password');
     const created = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username: 'lead', email: 'lead@testify.local', password: 'Lead-Pass-1234', global_role: 'Test Lead',
+      username: 'lead', email: 'lead@tessick.local', password: 'Lead-Pass-1234', global_role: 'Test Lead',
     });
     leadId = body(created).user.id;
     const leadToken = await login('lead', 'Lead-Pass-1234');

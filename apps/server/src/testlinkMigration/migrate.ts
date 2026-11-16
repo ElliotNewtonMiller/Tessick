@@ -10,7 +10,7 @@ import {
   type CompatEntityType,
   type CustomFieldDefinition,
   type Database,
-} from '@testify/db';
+} from '@tessick/db';
 import {
   MAX_DB_INTEGER,
   TL_DURATION_FIELD,
@@ -31,16 +31,16 @@ import {
   priorityFromImportance,
   resolveDefaultValue,
   stepVerdictFromTestLink,
-  testifyRoleFor,
+  tessickRoleFor,
   verdictFromTestLink,
   versionStatusFromTestLink,
   type CustomFieldType,
-} from '@testify/core';
+} from '@tessick/core';
 import { TestLinkReader, type TestLinkData, type TlNode } from './read.js';
 import type { TestLinkSource } from './source.js';
 
 /**
- * Moves a TestLink 1.9 database into Testify, keeping TestLink's ids (compat_ids), API keys and
+ * Moves a TestLink 1.9 database into Tessick, keeping TestLink's ids (compat_ids), API keys and
  * history, so clients of the TestLink-compatible API (testlinkCompat/) and Dave's tools see the
  * same numbers after the move. docs/testlink_compat_api.md, "Migration", describes what it
  * brings and what it can't.
@@ -56,7 +56,7 @@ import type { TestLinkSource } from './source.js';
  */
 
 export interface MigrationOptions {
-  /** The Testify user recorded as making the migration, and as author or tester where TestLink's is unknown. */
+  /** The Tessick user recorded as making the migration, and as author or tester where TestLink's is unknown. */
   actor: string;
   dryRun?: boolean;
   /** TestLink's table prefix (DB_TABLE_PREFIX), if it has one. */
@@ -153,7 +153,7 @@ class Migration {
   private createdUsers = new Set<string>();
   private roleNames = new Map<number, string>();
   private projects = new Map<number, { id: string; prefix: string; created: boolean }>();
-  /** TestLink field → its Testify definitions, per entity type. */
+  /** TestLink field → its Tessick definitions, per entity type. */
   private fields = new Map<number, { TestCase?: CustomFieldDefinition; TestSuite?: CustomFieldDefinition; tlType: number }>();
   private versionCase = new Map<number, number>();
   private versionIds = new Map<number, string>();
@@ -205,14 +205,14 @@ class Migration {
     }
   }
 
-  /** The Testify row a TestLink id is already migrated as; refuses a number Testify gave something else. */
+  /** The Tessick row a TestLink id is already migrated as; refuses a number Tessick gave something else. */
   private claimed(type: CompatEntityType, intId: number): string | undefined {
     const row = this.compat.get(COMPAT_ID_SPACES[type])?.get(intId);
     if (!row) return undefined;
-    // Only a number this migration kept means "already migrated": one Testify gave is another row.
+    // Only a number this migration kept means "already migrated": one Tessick gave is another row.
     if (row.type !== type || row.origin !== 'testlink') {
       throw new MigrationError(
-        `TestLink's ${type} ${intId} has a number Testify already gave a ${row.type}. Migrate into a Testify whose TestLink-compatible API hasn't been used yet.`
+        `TestLink's ${type} ${intId} has a number Tessick already gave a ${row.type}. Migrate into a Tessick whose TestLink-compatible API hasn't been used yet.`
       );
     }
     return row.id;
@@ -241,7 +241,7 @@ class Migration {
 
   async run() {
     const actor = await this.db.selectFrom('users').select('id').where('username', '=', this.opts.actor).executeTakeFirst();
-    if (!actor) throw new MigrationError(`No Testify user named '${this.opts.actor}' to record the migration as`);
+    if (!actor) throw new MigrationError(`No Tessick user named '${this.opts.actor}' to record the migration as`);
     this.actorId = actor.id;
     await this.loadCompat();
     for (const v of this.data.versions) {
@@ -257,8 +257,8 @@ class Migration {
     }
     await this.migrateProjectRoles();
     await this.flushCompat();
-    if (this.data.notMigrated.requirements > 0) this.warn(`${this.data.notMigrated.requirements} requirements and requirement specifications weren't migrated: Testify has none.`);
-    if (this.data.notMigrated.attachments > 0) this.warn(`${this.data.notMigrated.attachments} attachments weren't migrated: Testify has no file storage.`);
+    if (this.data.notMigrated.requirements > 0) this.warn(`${this.data.notMigrated.requirements} requirements and requirement specifications weren't migrated: Tessick has none.`);
+    if (this.data.notMigrated.attachments > 0) this.warn(`${this.data.notMigrated.attachments} attachments weren't migrated: Tessick has no file storage.`);
   }
 
   // --- Users and roles ----------------------------------------------------------------------
@@ -266,7 +266,7 @@ class Migration {
   private async migrateUsers() {
     const rights = new Map<number, string[]>();
     for (const rr of this.data.roleRights) rights.set(rr.role_id, [...(rights.get(rr.role_id) ?? []), rr.right]);
-    for (const r of this.data.roles) this.roleNames.set(r.id, testifyRoleFor(r.description, rights.get(r.id) ?? []));
+    for (const r of this.data.roles) this.roleNames.set(r.id, tessickRoleFor(r.description, rights.get(r.id) ?? []));
 
     const existing = await this.db.selectFrom('users').select(['id', 'username', 'email']).execute();
     const byName = new Map(existing.map((u) => [u.username.toLowerCase(), u.id]));
@@ -284,7 +284,7 @@ class Migration {
       }
       const found = byName.get(login.toLowerCase());
       if (found) {
-        // A Testify user of that name is taken as the same person, as they are.
+        // A Tessick user of that name is taken as the same person, as they are.
         this.users.set(u.id, found);
         this.tally('users', 'existing');
         continue;
@@ -325,7 +325,7 @@ class Migration {
       const user = this.users.get(r.user_id);
       const project = this.projects.get(r.testproject_id);
       const role = this.roleNames.get(r.role_id);
-      // Only migrated users' roles: an existing Testify user's access is left as it is.
+      // Only migrated users' roles: an existing Tessick user's access is left as it is.
       if (!user || !project || !role || !this.createdUsers.has(user)) {
         this.tally('project_roles', 'skipped');
         continue;
@@ -350,7 +350,7 @@ class Migration {
       }
       const projectName = name(this.data.nodes.get(p.id)?.name ?? `TestLink project ${p.id}`);
       if (prefixes.has(p.prefix.toUpperCase())) {
-        throw new MigrationError(`Testify already has a project with the prefix ${p.prefix} (not one migrated from this TestLink); TestLink's project '${projectName}' needs it.`);
+        throw new MigrationError(`Tessick already has a project with the prefix ${p.prefix} (not one migrated from this TestLink); TestLink's project '${projectName}' needs it.`);
       }
       const id = uuidv7();
       await this.db
@@ -359,7 +359,7 @@ class Migration {
         .execute();
       this.record('project', p.id, id);
       if (p.api_key) await keys.assign('project', id, p.api_key);
-      if (!p.active) this.warn(`Project ${p.prefix} is inactive in TestLink; Testify's projects are always active.`);
+      if (!p.active) this.warn(`Project ${p.prefix} is inactive in TestLink; Tessick's projects are always active.`);
       this.projects.set(p.id, { id, prefix: p.prefix, created: true });
       prefixes.add(p.prefix.toUpperCase());
       this.tally('projects', 'created');
@@ -399,7 +399,7 @@ class Migration {
       const defaultValue = fallback === null ? null : f.default_value;
       const wantsRequired = this.data.fieldProjects.some((fp) => fp.field_id === f.id && fp.required === 1);
       const required = wantsRequired && defaultValue !== null && type !== 'CHECKBOX';
-      if (wantsRequired && !required) this.warn(`Custom field '${f.name}' is required in TestLink, but has no default Testify can use, so it isn't required in Testify.`);
+      if (wantsRequired && !required) this.warn(`Custom field '${f.name}' is required in TestLink, but has no default Tessick can use, so it isn't required in Tessick.`);
 
       const entry: { TestCase?: CustomFieldDefinition; TestSuite?: CustomFieldDefinition; tlType: number } = { tlType: f.type };
       let created = false;
@@ -407,7 +407,7 @@ class Migration {
         const same = (await repo.listAllScopes(entity)).find((d) => d.name === f.name);
         if (same) {
           if (same.field_type !== type) {
-            throw new MigrationError(`Testify already has a ${entity} field '${f.name}' of type ${same.field_type}; TestLink's is ${type}. Rename one before migrating.`);
+            throw new MigrationError(`Tessick already has a ${entity} field '${f.name}' of type ${same.field_type}; TestLink's is ${type}. Rename one before migrating.`);
           }
           if (!same.all_projects) {
             const missing = projectIds.filter((id) => !same.project_ids.includes(id));
@@ -440,7 +440,7 @@ class Migration {
     const repo = new CustomFieldRepository(this.db);
     const found = (await repo.listVisibleToProject(projectId, 'TestCase')).find((d) => d.name === fieldName);
     if (found) {
-      if (found.field_type !== type) throw new MigrationError(`Testify already has a case field '${fieldName}' of type ${found.field_type}; the migration needs it to be ${type}.`);
+      if (found.field_type !== type) throw new MigrationError(`Tessick already has a case field '${fieldName}' of type ${found.field_type}; the migration needs it to be ${type}.`);
       const missing = options.filter((o) => !found.options.some((x) => x.option_value === o));
       if (missing.length === 0) return found;
       return (await repo.updateDefinition(found.id, { options: [...found.options, ...missing.map((v) => ({ option_value: v }))].map((o) => ({ option_label: o.option_value, option_value: o.option_value })) }))!;
@@ -493,7 +493,7 @@ class Migration {
       } else {
         const id = uuidv7();
         const depth = (parent?.depth ?? 0) + 1;
-        if (depth > MAX_SUITE_DEPTH) throw new MigrationError(`Suite '${node.name}' (TestLink ${node.id}) is nested ${depth} levels deep; Testify allows ${MAX_SUITE_DEPTH}.`);
+        if (depth > MAX_SUITE_DEPTH) throw new MigrationError(`Suite '${node.name}' (TestLink ${node.id}) is nested ${depth} levels deep; Tessick allows ${MAX_SUITE_DEPTH}.`);
         suite = { id, path: parent ? `${parent.path}/${id}` : `/${id}`, depth };
         suiteRows.push({
           id,
@@ -571,7 +571,7 @@ class Migration {
         const number = latest.tc_external_id ?? versions.map((v) => v.tc_external_id).find((x) => x !== null) ?? null;
         const externalId = number !== null ? `${project.prefix}-${number}` : `${project.prefix}-TL${c.id}`;
         if (number === null) this.warn(`Test case '${c.name}' (TestLink ${c.id}) has no external id; it's ${externalId}.`);
-        if (externalIds.has(externalId)) throw new MigrationError(`Testify's project ${project.prefix} already has a case ${externalId} that isn't TestLink's.`);
+        if (externalIds.has(externalId)) throw new MigrationError(`Tessick's project ${project.prefix} already has a case ${externalId} that isn't TestLink's.`);
         externalIds.add(externalId);
         caseRows.push({
           id: caseId,
@@ -639,7 +639,7 @@ class Migration {
         }
       }
 
-      // Values only for a case this run made: one migrated earlier may have been changed in Testify.
+      // Values only for a case this run made: one migrated earlier may have been changed in Tessick.
       if (newCase) {
         const label = `Test case ${project.prefix} '${c.name}'`;
         for (const [fieldId, e] of projectFields) {
@@ -681,7 +681,7 @@ class Migration {
         project_id: project.id,
         diff: JSON.stringify({ testlink_project_id: tlProjectId, created: made, dry_run: Boolean(this.opts.dryRun) }),
         ip_address: null,
-        user_agent: 'testify migrate-testlink',
+        user_agent: 'tessick migrate-testlink',
         created_at: this.now,
       })
       .execute();
@@ -744,7 +744,7 @@ class Migration {
     }
     await this.insertMany('test_plan_cases', linkRows);
 
-    // Platforms: TestLink's, kept for its API; Testify itself has none.
+    // Platforms: TestLink's, kept for its API; Tessick itself has none.
     const platformIds = new Map<number, { id: string; name: string }>();
     for (const pl of this.data.platforms.filter((x) => x.testproject_id === tlProjectId)) {
       this.tally('platforms', 'testlink');
@@ -911,6 +911,6 @@ class Migration {
     await this.insertMany('test_plan_cases', linkRows);
     await this.insertMany('test_results', resultRows);
     await this.insertMany('test_step_results', stepRows);
-    for (const [code, count] of unknownCodes) this.warn(`${count} executions with the status code '${code}' weren't migrated: Testify knows p, f and b.`);
+    for (const [code, count] of unknownCodes) this.warn(`${count} executions with the status code '${code}' weren't migrated: Tessick knows p, f and b.`);
   }
 }

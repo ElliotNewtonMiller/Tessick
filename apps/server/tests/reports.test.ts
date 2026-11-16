@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { createServer } from '../src/server.js';
-import { ProjectRepository, TestPlanRepository } from '@testify/db';
+import { ProjectRepository, TestPlanRepository } from '@tessick/db';
 
 describe('Reports: catalog-driven report API', () => {
   let serverInstance: any;
@@ -27,7 +27,7 @@ describe('Reports: catalog-driven report API', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(createRes.statusCode).toBe(201);
     const loginRes = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } });

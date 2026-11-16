@@ -141,12 +141,12 @@ export function parseJUnitResults(xml: string): JUnitTestResult[] {
 const READABLE_ID = /(?<![A-Za-z0-9-])([A-Z][A-Z0-9]{0,9}-\d+)(?![A-Za-z0-9-])/;
 
 /**
- * The readable case id a test names, if any: a `testify_id` property first (pytest:
- * `record_property("testify_id", "SHOP-101")`), then an id in the test's name (`test_SHOP_101`
+ * The readable case id a test names, if any: a `tessick_id` property first (pytest:
+ * `record_property("tessick_id", "SHOP-101")`), then an id in the test's name (`test_SHOP_101`
  * doesn't count; `SHOP-101 logs in` and `[SHOP-101] logs in` do).
  */
 export function junitCaseId(test: JUnitTestResult): string | null {
-  const property = test.properties.testify_id?.trim();
+  const property = test.properties.tessick_id?.trim();
   if (property) return property;
   return READABLE_ID.exec(test.name)?.[1] ?? null;
 }

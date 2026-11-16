@@ -8,7 +8,7 @@ import {
   seedRbacRegistry,
   seedDevFixtures,
   type Database,
-} from '@testify/db';
+} from '@tessick/db';
 import type { Kysely } from 'kysely';
 import { registerIngestionRoutes, IMPORT_FIELD_LIMIT_BYTES, IMPORT_MAX_FILE_BYTES } from './routes/ingestion.js';
 import { registerBatchExecutionRoutes } from './routes/batchExecution.js';
@@ -44,14 +44,14 @@ import { setSecretBox } from './services/secrets.js';
 import { configureWebhooks, runDueWebhookDeliveries } from './services/webhooks.js';
 import { purgeExpiredIdempotencyKeys } from './services/idempotency.js';
 import { encryptStoredSmtpPassword } from './services/mailer.js';
-import { UserRepository } from '@testify/db';
+import { UserRepository } from '@tessick/db';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStorage, type StorageProvider } from './storage/index.js';
 import { registerEvidenceRoutes } from './routes/evidence.js';
 import { runStorageSweep } from './services/storageSweeper.js';
 
-// Testify only targets Postgres-compatible SQL. With no connectionString this routes to an
+// Tessick only targets Postgres-compatible SQL. With no connectionString this routes to an
 // ephemeral, zero-config PGlite (WASM Postgres) instance -- no server, no native bindings,
 // works identically on every machine; tests rely on that. Pass a real connectionString to
 // connect to a real Postgres server. The startup code at the bottom of this file decides which
@@ -83,11 +83,11 @@ export async function createServer(
   registerNulGuard(app);
   // Per-process rate limits for API tokens, exports and report emails (services/rateLimits.ts).
   app.decorate('rateLimits', createRateLimits());
-  // Evidence storage (storage/; EVIDENCE_* in config.ts), checked now so a directory Testify
+  // Evidence storage (storage/; EVIDENCE_* in config.ts), checked now so a directory Tessick
   // can't write to, or a bucket it can't reach, stops startup rather than the first upload.
   const evidenceConfig = options.evidence?.storage ? undefined : resolveEvidenceConfig({ inMemory: !connectionString });
   const evidenceStorage = options.evidence?.storage
-    ? { storage: options.evidence.storage, spoolDir: join(tmpdir(), 'testify-evidence') }
+    ? { storage: options.evidence.storage, spoolDir: join(tmpdir(), 'tessick-evidence') }
     : await createStorage(evidenceConfig!.storage);
   await evidenceStorage.storage.check().catch((err) => {
     throw new ConfigError(String(err?.message ?? err));
@@ -185,13 +185,13 @@ export async function createServer(
       console.warn(
         [
           '',
-          '[testify] ============================================================',
-          '[testify] Created the first admin user. Sign in with:',
-          '[testify]   username: admin',
-          `[testify]   password: ${initialAdmin.password}`,
-          '[testify] This is shown only once. You will be asked to choose a new',
-          '[testify] password at first sign-in. (Set ADMIN_PASSWORD to choose it yourself.)',
-          '[testify] ============================================================',
+          '[tessick] ============================================================',
+          '[tessick] Created the first admin user. Sign in with:',
+          '[tessick]   username: admin',
+          `[tessick]   password: ${initialAdmin.password}`,
+          '[tessick] This is shown only once. You will be asked to choose a new',
+          '[tessick] password at first sign-in. (Set ADMIN_PASSWORD to choose it yourself.)',
+          '[tessick] ============================================================',
           '',
         ].join('\n')
       );
@@ -250,7 +250,7 @@ if (process.env.NODE_ENV !== 'test') {
   // throwaway one.
   const exitOnConfigError = (err: unknown): never => {
     if (!(err instanceof ConfigError)) throw err;
-    console.error(`[testify] ${err.message}`);
+    console.error(`[tessick] ${err.message}`);
     process.exit(1);
   };
   let dbConfig: ReturnType<typeof resolveDatabaseConfig>;
@@ -261,7 +261,7 @@ if (process.env.NODE_ENV !== 'test') {
   }
   if (dbConfig.inMemory) {
     console.warn(
-      '[testify] Using a throwaway in-memory database (DATABASE_URL=memory). All data is lost when the server stops. ' +
+      '[tessick] Using a throwaway in-memory database (DATABASE_URL=memory). All data is lost when the server stops. ' +
         'Set DATABASE_URL to a PostgreSQL connection string to keep your data.'
     );
   }
@@ -275,15 +275,15 @@ if (process.env.NODE_ENV !== 'test') {
   const port = Number(process.env.PORT) || 3001;
   console.log(
     webDistDir
-      ? `[testify] Serving the web app from ${webDistDir}`
-      : '[testify] No built web app found (run `npm run build`), so only the API is served.'
+      ? `[tessick] Serving the web app from ${webDistDir}`
+      : '[tessick] No built web app found (run `npm run build`), so only the API is served.'
   );
   app.listen({ port, host: '0.0.0.0' }, (err, address) => {
     if (err) {
       console.error(err);
       process.exit(1);
     }
-    console.log(`[testify] Listening on ${address}`);
+    console.log(`[tessick] Listening on ${address}`);
   });
 
   // Scheduled report emails: check for due schedules once a minute. (Tests call

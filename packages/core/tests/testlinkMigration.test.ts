@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  testifyRoleFor,
+  tessickRoleFor,
   customFieldTypeFromTestLink,
   optionsFrom,
   versionStatusFromTestLink,
@@ -15,17 +15,17 @@ import {
 
 /** How the migration from TestLink's database reads TestLink's values. */
 describe('TestLink migration mapping', () => {
-  it('gives each TestLink role the Testify role its rights call for', () => {
-    expect(testifyRoleFor('admin', [])).toBe('Admin');
-    expect(testifyRoleFor('custom', ['mgt_users'])).toBe('Admin');
-    expect(testifyRoleFor('leader', ['testplan_planning', 'mgt_view_tc'])).toBe('Test Lead');
-    expect(testifyRoleFor('tester', ['testplan_execute', 'mgt_view_tc'])).toBe('Tester');
-    expect(testifyRoleFor('test designer', ['mgt_modify_tc'])).toBe('Tester');
-    expect(testifyRoleFor('guest', ['mgt_view_tc'])).toBe('Viewer');
-    expect(testifyRoleFor('<no rights>', [])).toBe('No Access');
+  it('gives each TestLink role the Tessick role its rights call for', () => {
+    expect(tessickRoleFor('admin', [])).toBe('Admin');
+    expect(tessickRoleFor('custom', ['mgt_users'])).toBe('Admin');
+    expect(tessickRoleFor('leader', ['testplan_planning', 'mgt_view_tc'])).toBe('Test Lead');
+    expect(tessickRoleFor('tester', ['testplan_execute', 'mgt_view_tc'])).toBe('Tester');
+    expect(tessickRoleFor('test designer', ['mgt_modify_tc'])).toBe('Tester');
+    expect(tessickRoleFor('guest', ['mgt_view_tc'])).toBe('Viewer');
+    expect(tessickRoleFor('<no rights>', [])).toBe('No Access');
   });
 
-  it("maps TestLink's twelve custom field types to Testify's six, saying when it isn't exact", () => {
+  it("maps TestLink's twelve custom field types to Tessick's six, saying when it isn't exact", () => {
     expect([0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 20, 500].map((t) => customFieldTypeFromTestLink(t).field_type)).toEqual([
       'TEXT', 'NUMBER', 'NUMBER', 'TEXT', 'MULTI_SELECT', 'SINGLE_SELECT', 'MULTI_SELECT', 'DATE', 'SINGLE_SELECT', 'DATE', 'TEXT', 'TEXT',
     ]);

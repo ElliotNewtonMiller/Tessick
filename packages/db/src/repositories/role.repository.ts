@@ -7,7 +7,7 @@ import {
   applyPermissionOverrides,
   type PermissionDefinition,
   type PermissionOverride,
-} from '@testify/core';
+} from '@tessick/core';
 
 /** Role names are now arbitrary strings backed by the `roles` table, not a closed set --
  * admins can create/rename/delete templates freely. Kept as a named type (rather than

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { CompatIdRepository, CustomFieldRepository } from '@testify/db';
-import { TL_KEYWORDS_FIELD, executionTypeFromCode, keywordKey, priorityFromImportance, statusTarget } from '@testify/core';
+import { CompatIdRepository, CustomFieldRepository } from '@tessick/db';
+import { TL_KEYWORDS_FIELD, executionTypeFromCode, keywordKey, priorityFromImportance, statusTarget } from '@tessick/core';
 import type { CompatContext, CompatRoute } from '../index.js';
 import { ALL, CUSTOM, V2_UP } from '../versions.js';
 import { INSUFFICIENT_RIGHTS, tlError, tlKo, tlOk } from '../envelope.js';
@@ -29,7 +29,7 @@ import { noProject } from './projects.js';
 
 /**
  * Suites, cases and keywords. A case's content (summary, preconditions, steps) is versioned in
- * Testify and editable only in a draft, so changing an approved case through this API makes a
+ * Tessick and editable only in a draft, so changing an approved case through this API makes a
  * new DRAFT, as MCP does (decided with Elliot); `status: 7` approves it in the same request
  * (needs SPEC_APPROVE). Title, importance, execution type, custom fields and keywords change in
  * place, as in TestLink.
@@ -102,8 +102,8 @@ export const specWriteRoutes: CompatRoute[] = [
     statuses: [409, 500],
     versions: ALL,
     auth: true,
-    // The author is always the key's user (Testify records who made each version). `order`
-    // isn't kept: Testify's cases have no order within a suite.
+    // The author is always the key's user (Tessick records who made each version). `order`
+    // isn't kept: Tessick's cases have no order within a suite.
     handle: async (request, reply, ctx) => {
       const b = bodyOf(request);
       if (!given(b.name)) return missing(reply, 'name');
@@ -141,7 +141,7 @@ export const specWriteRoutes: CompatRoute[] = [
           preconditions: textOf(b.preconditions) ?? '',
           steps: stepsFrom(b.steps) ?? [],
         },
-        // TestLink's default status is draft: only status 7 (or none) lets Testify auto-approve.
+        // TestLink's default status is draft: only status 7 (or none) lets Tessick auto-approve.
         { startDraft: target === 'DRAFT' || (given(b.status) && target !== 'APPROVED') }
       );
       if (!res.ok) return refuse(reply, res, ID_FAIL);
@@ -279,7 +279,7 @@ export const specWriteRoutes: CompatRoute[] = [
     versions: V2_UP,
     auth: true,
     // A keyword is an option of the project's `keywords` field, made with the first keyword.
-    // Changing that field is an admin's change in Testify (CUSTOM_FIELD_MANAGE). Notes aren't kept.
+    // Changing that field is an admin's change in Tessick (CUSTOM_FIELD_MANAGE). Notes aren't kept.
     handle: async (request, reply, ctx) => {
       const b = bodyOf(request);
       const keyword = given(b.keyword) ? String(b.keyword).trim() : '';

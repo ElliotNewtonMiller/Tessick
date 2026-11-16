@@ -16,7 +16,7 @@ export const loginSchema = {
   summary: 'Sign in',
   description:
     'Checks a username (or email) and password and starts a sign-in. Without `session`, the response has a `token` to send as `Authorization: Bearer <token>`. ' +
-    'With `session: "cookie"` (the web app), the token goes into an HttpOnly cookie instead and is left out of the response; that also needs the `X-Testify-Client: web` header. ' +
+    'With `session: "cookie"` (the web app), the token goes into an HttpOnly cookie instead and is left out of the response; that also needs the `X-Tessick-Client: web` header. ' +
     'A sign-in lasts while it is used: 8 hours without a request, 7 days at most. 20 wrong passwords lock the account for 15 minutes.',
   security: [],
   body: {
@@ -41,7 +41,7 @@ export const loginSchema = {
         user: { $ref: 'User#' },
       },
     },
-    ...errors(400, [401, 'Wrong username or password, or the account is disabled'], [403, 'Cookie sign-in without the X-Testify-Client header (`CSRF_HEADER_MISSING`)'], [429, 'Account locked (`ACCOUNT_LOCKED`) or too many failures from this address (`TOO_MANY_ATTEMPTS`)']),
+    ...errors(400, [401, 'Wrong username or password, or the account is disabled'], [403, 'Cookie sign-in without the X-Tessick-Client header (`CSRF_HEADER_MISSING`)'], [429, 'Account locked (`ACCOUNT_LOCKED`) or too many failures from this address (`TOO_MANY_ATTEMPTS`)']),
   },
 };
 
@@ -56,7 +56,7 @@ export const logoutSchema = {
 };
 
 const TESTLINK_KEY_TEXT =
-  "Your TestLink API key works only on Testify's TestLink-compatible API (`/lib/api/rest/{v1,v2,custom}/...`, docs/testlink_compat_api.md), sent as the `APIKEY` header (or the HTTP Basic user name) as TestLink takes it, with your own permissions in each project. Not available to API tokens.";
+  "Your TestLink API key works only on Tessick's TestLink-compatible API (`/lib/api/rest/{v1,v2,custom}/...`, docs/testlink_compat_api.md), sent as the `APIKEY` header (or the HTTP Basic user name) as TestLink takes it, with your own permissions in each project. Not available to API tokens.";
 
 export const getTestLinkKeySchema = {
   tags: TAGS,

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { ApiTokenRepository } from '@testify/db';
+import { ApiTokenRepository } from '@tessick/db';
 
 describe('Dual-mode auth dispatch: machine API tokens vs. JWTs', () => {
   let serverInstance: any;
@@ -55,13 +55,13 @@ describe('Dual-mode auth dispatch: machine API tokens vs. JWTs', () => {
     expect(after?.last_used_at).not.toBeNull();
   });
 
-  it('a garbage tf_ci_-prefixed token that matches no row returns 401 INVALID_TOKEN', async () => {
+  it('a garbage tk_ci_-prefixed token that matches no row returns 401 INVALID_TOKEN', async () => {
     const { app, seed } = serverInstance;
 
     const res = await app.inject({
       method: 'GET',
       url: `/api/v1/projects/${seed.projectId}/api-tokens`,
-      headers: { authorization: 'Bearer tf_ci_0000000000000000000000000000000000000000000000000000000000000000' },
+      headers: { authorization: 'Bearer tk_ci_0000000000000000000000000000000000000000000000000000000000000000' },
     });
     expect(res.statusCode).toBe(401);
     expect(JSON.parse(res.payload).code).toBe('INVALID_TOKEN');

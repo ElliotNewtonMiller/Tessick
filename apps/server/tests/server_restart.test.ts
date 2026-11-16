@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDbClient } from '@testify/db';
+import { createDbClient } from '@tessick/db';
 import { createServer } from '../src/server.js';
 
 describe('Server restart against the same database', () => {

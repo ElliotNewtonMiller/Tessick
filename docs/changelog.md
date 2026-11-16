@@ -4027,3 +4027,41 @@ Elliot asked for a simple **duplicate + edit**, so a person can make a similar t
   - **⧉ Duplicate** on CHK-1 selected the copy (CHK-7, v1 DRAFT), with its title focused and selected;
   - typing a new name and pressing Enter saved it, and **✓ Approve** approved it;
   - read back through the API: the new title, v1 APPROVED, its step and the custom field.
+
+## Renamed: Testify is now Tessick (2026-11-15)
+
+Elliot renamed the project from **Testify** to **Tessick**: the old name clashed with a popular Go testing library. Nothing is deployed, so nothing keeps working under the old names.
+
+**Decided with Elliot:**
+- **Everything is renamed**, not only the visible name.
+- **API tokens start `tk_ci_`** (were `tf_ci_`, "tf" for Testify).
+- **History keeps the old name:** the entries above this one, and the original planning briefs in `.antigravity/agents/`, say Testify, as they were written. CLAUDE.md says so.
+- **Elliot renames the GitHub repo and the local folder himself**, afterwards.
+
+**What changed** (218 files; case kept: `Testify`/`testify`/`TESTIFY` → `Tessick`/`tessick`/`TESSICK`):
+- **npm workspaces:** `tessick`, `@tessick/core`, `@tessick/db`, `@tessick/server`, `@tessick/web`, with imports and the lockfile. `node_modules` was relinked offline (no downloads).
+- **What browsers and clients see:**
+  - the session cookie `tessick_session`; the web app's header `X-Tessick-Client`; the internal request headers;
+  - the webhook headers `X-Tessick-Event`, `X-Tessick-Event-Id`, `X-Tessick-Delivery` and the `Tessick-Webhooks/1` User-Agent;
+  - error type URLs `https://api.tessick.dev/errors/...`;
+  - the `Bearer realm`;
+  - the MCP server name `tessick`, its instructions, and "(via Tessick MCP)" in audit User-Agents.
+- **Running it:** the Docker image, the Compose services, the database name, volumes and paths. The guides' shell variables are now `TESSICK`, `TESSICK_TOKEN` and so on.
+- **What people read:** the page title, the sign-in screen and the header logo, plus every current doc. That covers the README, CLAUDE.md = AGENTS.md, the deployment and API guides, the RFCs, the blueprint, the roadmaps, the TestLink compatibility doc and the manual test backlog.
+- **Dev data:** the dev fixture e-mail addresses (`@tessick.local`), the example hosts, and test fixtures.
+
+**What anyone using Testify must redo:**
+- **Sign in again:** the cookie has a new name.
+- **Make new API tokens:** `tf_ci_` tokens no longer match the prefix. On the dev server they go anyway at every restart.
+- **Point MCP clients at `tessick`,** e.g. `claude mcp add --transport http tessick …`, replacing a `testify` entry.
+- **With Docker Compose,** expect a new, empty database and evidence volume under the new names.
+
+**Verified:**
+- The type check is clean, and every test passes.
+- **Live on the restarted dev servers:**
+  - signing in sets `tessick_session`;
+  - a new API token starts `tk_ci_` and works;
+  - an error's `type` is `https://api.tessick.dev/errors/NOT_FOUND`;
+  - MCP `initialize` names the server `tessick`, with instructions that begin "Tessick is a test case management system";
+  - the web page's title is "Tessick - High-Density Test Management Workspace".
+- Outside the history files, no "testify" is left in any case.

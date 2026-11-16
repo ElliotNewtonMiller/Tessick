@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { CustomFieldRepository, TestSuiteRepository, TestCaseRepository, ProjectRepository, TestPlanRepository } from '@testify/db';
+import { CustomFieldRepository, TestSuiteRepository, TestCaseRepository, ProjectRepository, TestPlanRepository } from '@tessick/db';
 
 describe('Case search & filter: POST /api/v1/projects/:projectId/case-search', () => {
   let serverInstance: any;
@@ -53,7 +53,7 @@ describe('Case search & filter: POST /api/v1/projects/:projectId/case-search', (
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: roleName },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: roleName },
     });
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } });
     const res = await search(app, JSON.parse(login.payload).token, seed.projectId, {});

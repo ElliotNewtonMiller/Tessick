@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { withinRateLimit } from '../services/rateLimits.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
-import { LastEmailRepository, SystemSettingsRepository } from '@testify/db';
-import { escapeHtml, isValidEmail } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { LastEmailRepository, SystemSettingsRepository } from '@tessick/db';
+import { escapeHtml, isValidEmail } from '@tessick/core';
 import { requirePermission } from '../middleware/auth.js';
 import { EMAIL_SETTING_KEYS, loadEmailSettings, sendEmail } from '../services/mailer.js';
 import { getSecretBox } from '../services/secrets.js';
@@ -117,9 +117,9 @@ export async function registerEmailAdminRoutes(app: FastifyInstance, db: Kysely<
     const where = settings.smtp_host ? `via ${settings.smtp_host}` : 'with no SMTP server configured, so it was only captured, not sent';
     const sent = await sendEmail(db, {
       to: [to],
-      subject: 'Testify test email',
-      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#0f172a"><h2>Testify can send email</h2><p>This test was sent ${escapeHtml(where)}.</p></body></html>`,
-      text: `Testify can send email. This test was sent ${where}.`,
+      subject: 'Tessick test email',
+      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#0f172a"><h2>Tessick can send email</h2><p>This test was sent ${escapeHtml(where)}.</p></body></html>`,
+      text: `Tessick can send email. This test was sent ${where}.`,
       projectId: null,
       sentBy: request.user!.id,
     });

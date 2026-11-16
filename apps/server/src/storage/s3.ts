@@ -27,7 +27,7 @@ const base64Sha256 = (hex: string) => Buffer.from(hex, 'hex').toString('base64')
  *
  * Large files can go straight to the bucket: `presignPut` signs a PUT for one object of an exact
  * length and SHA-256 (the checksum is a signed header, so S3 enforces it), valid for the link's
- * lifetime. Reads always go through Testify, so permissions are checked on each.
+ * lifetime. Reads always go through Tessick, so permissions are checked on each.
  */
 export class S3StorageProvider implements StorageProvider {
   readonly name = 's3' as const;
@@ -42,7 +42,7 @@ export class S3StorageProvider implements StorageProvider {
       region: config.region,
       ...(config.endpoint ? { endpoint: config.endpoint } : {}),
       forcePathStyle: config.forcePathStyle,
-      // Only the checksums Testify asks for: the SDK's default CRC32 on every request would also
+      // Only the checksums Tessick asks for: the SDK's default CRC32 on every request would also
       // be signed into presigned URLs, which then fail for the file sent to them.
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',

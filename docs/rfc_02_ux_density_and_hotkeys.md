@@ -3,7 +3,7 @@
 | Metadata | Value |
 | :--- | :--- |
 | **Status** | Design document, updated 2026-10-11 to match what's built |
-| **Author** | Testify Architecture Team |
+| **Author** | Tessick Architecture Team |
 | **Date** | September 8, 2026 |
 | **Target Release** | v1.0 Enterprise Baseline |
 | **Upstream Requirements** | [`00_requirements_alignment.md`](00_requirements_alignment.md), [UX Ergonomics Spec](../.antigravity/agents/ux_ergonomics.md) |
@@ -14,7 +14,7 @@
 
 TestLink's primary operational flaw is fragmented navigation requiring multi-page frame reloads to view steps or log execution outcomes. For QA engineers running hundreds of repetitive tests daily, mouse dependency and slow UI response create severe bottlenecks.
 
-**RFC 02** defines the UI/UX design tokens, layout topology, data-density guidelines, keyboard-first navigation model, focus state machine, and collision-free hotkey architecture for Testify. 
+**RFC 02** defines the UI/UX design tokens, layout topology, data-density guidelines, keyboard-first navigation model, focus state machine, and collision-free hotkey architecture for Tessick. 
 
 ### Core Objectives
 1. **Zero-Latency Execution:** Instantaneous (<50ms) UI updates upon keypress with optimistic local state rendering.

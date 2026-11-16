@@ -1,6 +1,6 @@
 // `npm run build --workspace=apps/server`: bundles the server into dist/server.js, which
-// `npm start` runs with plain Node (no tsx). Our workspace packages (@testify/core,
-// @testify/db) are TypeScript source, so they're bundled in; every other dependency stays
+// `npm start` runs with plain Node (no tsx). Our workspace packages (@tessick/core,
+// @tessick/db) are TypeScript source, so they're bundled in; every other dependency stays
 // external and is loaded from node_modules at run time.
 import { build } from 'esbuild';
 import { rmSync } from 'node:fs';
@@ -26,7 +26,7 @@ await build({
       setup(b) {
         // Bare imports (packages): external, except our own workspace packages.
         b.onResolve({ filter: /^[^./]/ }, (args) =>
-          args.path.startsWith('@testify/') ? undefined : { path: args.path, external: true }
+          args.path.startsWith('@tessick/') ? undefined : { path: args.path, external: true }
         );
       },
     },

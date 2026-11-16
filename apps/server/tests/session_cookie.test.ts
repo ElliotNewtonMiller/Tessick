@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { signJwt } from '@testify/core';
+import { signJwt } from '@tessick/core';
 import { createServer } from '../src/server.js';
 
 /** The web app signs in with an HttpOnly cookie instead of keeping a token in localStorage. */
 describe('Session cookie (web sign-in)', () => {
   let app: any;
   const body = (res: any) => JSON.parse(res.payload || '{}');
-  const CLIENT = { 'x-testify-client': 'web' };
+  const CLIENT = { 'x-tessick-client': 'web' };
 
   const cookieLogin = async () => {
     const res = await app.inject({
@@ -32,7 +32,7 @@ describe('Session cookie (web sign-in)', () => {
     expect(body(res).token).toBeUndefined();
     expect(body(res).user.username).toBe('admin');
     const setCookie = String(res.headers['set-cookie']);
-    expect(setCookie).toMatch(/^testify_session=[^;]+;/);
+    expect(setCookie).toMatch(/^tessick_session=[^;]+;/);
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('SameSite=Strict');
     expect(setCookie).toContain('Path=/api');
@@ -77,7 +77,7 @@ describe('Session cookie (web sign-in)', () => {
     const wrongValue = await app.inject({
       method: 'POST',
       url: '/api/v1/projects',
-      headers: { cookie, 'x-testify-client': 'other' },
+      headers: { cookie, 'x-tessick-client': 'other' },
       payload: { name: 'Forged', prefix: 'FRG' },
     });
     expect(wrongValue.statusCode).toBe(403);
@@ -93,7 +93,7 @@ describe('Session cookie (web sign-in)', () => {
     const bearer = await app.inject({
       method: 'POST',
       url: '/api/v1/projects',
-      headers: { authorization: `Bearer ${adminToken}`, cookie: 'testify_session=garbage' },
+      headers: { authorization: `Bearer ${adminToken}`, cookie: 'tessick_session=garbage' },
       payload: { name: 'Via token', prefix: 'TOK' },
     });
     expect(bearer.statusCode).toBe(201);
@@ -105,15 +105,15 @@ describe('Session cookie (web sign-in)', () => {
     expect(body(res).code).toBe('CSRF_HEADER_MISSING');
     expect(res.headers['set-cookie']).toBeUndefined();
 
-    const viaCookie = await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie: 'testify_session=tf_ci_abc' } });
+    const viaCookie = await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie: 'tessick_session=tk_ci_abc' } });
     expect(viaCookie.statusCode).toBe(401);
-    expect((await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie: 'testify_session=not-a-jwt' } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie: 'tessick_session=not-a-jwt' } })).statusCode).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/api/v1/auth/me', headers: { cookie: 'other=1' } })).statusCode).toBe(401);
   });
 
   it('a sign-in signed with another key (e.g. from before a server restart) says it has ended', async () => {
     const stale = signJwt({ sub: 'someone', sid: 'old' }, 'the-previous-servers-key', 3600);
-    const res = await app.inject({ method: 'POST', url: "/api/v1/projects/any-project/imports/dry-run", headers: { cookie: `testify_session=${stale}`, 'x-testify-client': 'web' } });
+    const res = await app.inject({ method: 'POST', url: "/api/v1/projects/any-project/imports/dry-run", headers: { cookie: `tessick_session=${stale}`, 'x-tessick-client': 'web' } });
     expect(res.statusCode).toBe(401);
     expect(body(res).code).toBe('SESSION_ENDED');
     expect(body(res).detail).toBe('Unauthorized: your sign-in has ended -- please sign in again');
@@ -125,7 +125,7 @@ describe('Session cookie (web sign-in)', () => {
     const out = await app.inject({ method: 'POST', url: '/api/v1/auth/logout', headers: { cookie, ...CLIENT } });
     expect(out.statusCode).toBe(200);
     const cleared = String(out.headers['set-cookie']);
-    expect(cleared).toMatch(/^testify_session=;/);
+    expect(cleared).toMatch(/^tessick_session=;/);
     expect(cleared).toContain('Max-Age=0');
 
     // The old cookie value no longer works even if a copy was kept.

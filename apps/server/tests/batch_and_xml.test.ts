@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { TestCaseRepository, TestCaseVersionRepository, ProjectRepository, TestPlanRepository, TestRunRepository, CustomFieldRepository } from '@testify/db';
+import { TestCaseRepository, TestCaseVersionRepository, ProjectRepository, TestPlanRepository, TestRunRepository, CustomFieldRepository } from '@tessick/db';
 
 describe('Batch Execution & Multi-Format XML/JSON/CSV Ingestion API', () => {
   let serverInstance: any;
@@ -30,7 +30,7 @@ describe('Batch Execution & Multi-Format XML/JSON/CSV Ingestion API', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(createRes.statusCode).toBe(201);
     const userId = JSON.parse(createRes.payload).user.id as string;
@@ -970,7 +970,7 @@ ${tc('SEL-4', 'Done', '')}
       const err = JSON.parse(res.body);
       expect(err.code).toBe('PLAN_LOCKED');
       expect(err.status).toBe(422);
-      expect(err.type).toBe('https://api.testify.dev/errors/PLAN_LOCKED');
+      expect(err.type).toBe('https://api.tessick.dev/errors/PLAN_LOCKED');
       expect(err.detail).toContain('locked');
     });
 
@@ -995,7 +995,7 @@ ${tc('SEL-4', 'Done', '')}
       const err = JSON.parse(res.body);
       expect(err.code).toBe('RUN_CLOSED');
       expect(err.status).toBe(422);
-      expect(err.type).toBe('https://api.testify.dev/errors/RUN_CLOSED');
+      expect(err.type).toBe('https://api.tessick.dev/errors/RUN_CLOSED');
       expect(err.invalid_params[0].name).toBe('test_run_id');
     });
 
@@ -1025,7 +1025,7 @@ ${tc('SEL-4', 'Done', '')}
       const err = JSON.parse(res.body);
       expect(err.code).toBe('CASE_VERSION_LOCKED');
       expect(err.status).toBe(422);
-      expect(err.type).toBe('https://api.testify.dev/errors/CASE_VERSION_LOCKED');
+      expect(err.type).toBe('https://api.tessick.dev/errors/CASE_VERSION_LOCKED');
     });
   });
 });

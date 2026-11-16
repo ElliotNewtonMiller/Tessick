@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdir, open, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
-import { SNIFF_BYTES, TextCheck, sniffEvidence, type EvidenceType } from '@testify/core';
+import { SNIFF_BYTES, TextCheck, sniffEvidence, type EvidenceType } from '@tessick/core';
 
 /**
  * An upload on its way to storage: streamed to a private temporary file while it's counted,
- * hashed (SHA-256) and sniffed, so it's stored only once it's known to be evidence Testify
+ * hashed (SHA-256) and sniffed, so it's stored only once it's known to be evidence Tessick
  * accepts, of a size it allows, with the checksum the client gave. A refused upload leaves
  * nothing behind.
  */

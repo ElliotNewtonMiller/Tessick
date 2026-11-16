@@ -1,16 +1,16 @@
 # TestLink-compatible API
 
-Testify answers the requests of Dave's TestLink REST API (the Slim PHP API on TestLink, in its v1, v2 and custom versions) with TestLink's responses. A script, Postman collection or AI tool written for that API keeps working when it's pointed at Testify. **Only the host changes:**
+Tessick answers the requests of Dave's TestLink REST API (the Slim PHP API on TestLink, in its v1, v2 and custom versions) with TestLink's responses. A script, Postman collection or AI tool written for that API keeps working when it's pointed at Tessick. **Only the host changes:**
 
 ```
 https://testlink.example.com/lib/api/rest/custom/testprojects   (TestLink)
-https://testify.example.com/lib/api/rest/custom/testprojects    (Testify)
+https://tessick.example.com/lib/api/rest/custom/testprojects    (Tessick)
 ```
 
 Decided with Elliot (2026-10-26):
 - **Drop-in:** the same paths, numeric ids, keys, bodies, responses and errors.
 - **A per-user key**, as TestLink's.
-- **An approved case edited through this API** gets a new DRAFT, as with MCP. Testify keeps its approval rule.
+- **An approved case edited through this API** gets a new DRAFT, as with MCP. Tessick keeps its approval rule.
 - **TestLink's whole history is migrated**, keeping its ids.
 
 ## Status
@@ -24,11 +24,11 @@ Built in phases; each is tested and checked live before the next.
 | 3 | Writes: projects, plans, builds, suites and cases (create, update, move), keywords, platforms, executions | **Done** |
 | 4 | `/testcasemetrics` and `/swagfile` | **Done** |
 | 5 | The migration from TestLink's database, keeping its ids and keys; ids kept by the XML importer | **Done** (tested on TestLink 1.9.20's own PostgreSQL schema; not yet on a real TestLink database) |
-| 6 | The parity check: the same requests against TestLink and Testify, the answers compared | To do |
+| 6 | The parity check: the same requests against TestLink and Tessick, the answers compared | To do |
 
 ## Keys
 
-TestLink authenticates with a user's API key (TestLink: My Settings → API interface). In Testify, each user makes theirs in **My Account → TestLink API key**:
+TestLink authenticates with a user's API key (TestLink: My Settings → API interface). In Tessick, each user makes theirs in **My Account → TestLink API key**:
 - It's shown once. Making a new one replaces it.
 - An admin can remove anyone's key (Admin Panel → User Roster → Remove TL Key), and disabling a user removes theirs.
 - **Through the API:**
@@ -42,7 +42,7 @@ The key is sent as TestLink takes it:
 
 What a key can do:
 - **It acts as its user,** with their permissions in each project (project roles and overrides included). Like a TestLink key, it reaches every project the user can see.
-- **It works only on the TestLink-compatible paths.** It isn't a credential for Testify's own API or MCP, whose project-bound tokens are unchanged.
+- **It works only on the TestLink-compatible paths.** It isn't a credential for Tessick's own API or MCP, whose project-bound tokens are unchanged.
 - **Its requests count against the user's rate limit** (1,200 a minute).
 - **A missing, wrong or removed key, or a disabled user,** gets TestLink's `400 {"status":"ko","message":"authentication error"}`.
 
@@ -64,7 +64,7 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
   - a server error is 500 (its message carries the request id; details go only to the log).
 
   Each route lists its codes (`statuses` in `testlinkCompat/routes/`), and the contract test checks them against the spec.
-- **Answers from Testify's shared checks** (a NUL character, a body over the limit, the rate limit) are rewritten into this envelope.
+- **Answers from Tessick's shared checks** (a NUL character, a body over the limit, the rate limit) are rewritten into this envelope.
 - **Bodies are read as JSON whatever their `Content-Type`** (or none), as TestLink reads them.
 
 ## Reads (phase 2)
@@ -74,7 +74,7 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
 | `GET /testprojects` | all | `item`: every project the key's user can see, by name |
 | `GET /testprojects/{id}` | all | `item`: one project. `{id}` is its number or name; on v2 and custom also its prefix (names and prefixes ignore case) |
 | `GET /testprojects/{id}/testplans` | all | `items`: its plans, by name |
-| `GET /testplans/{apikey}/builds` | v2, custom | `items`: the plan's builds (Testify's runs), by name. `{apikey}` is the plan's API key, from the plan list |
+| `GET /testplans/{apikey}/builds` | v2, custom | `items`: the plan's builds (Tessick's runs), by name. `{apikey}` is the plan's API key, from the plan list |
 | `GET /testprojects/{id}/testcases` | all | `items`: every case's latest version; v2 and custom add `keywords` and `customfields`. With the query layer |
 | `GET /testsuites/{id}/testcases` | custom | `items`: the suite's cases (`deep=1`: its sub-suites' too); `customfields=1`, `cfName`/`cfValue`/`cfMatch`, `nosteps=1`. With the query layer |
 | `GET /testprojects/{id}/testsuites` | custom | `items`: the suite tree; `includeMeta`, `name` and `match`, `activeOnly`, exclusions |
@@ -92,7 +92,7 @@ Every route lives under `/lib/api/rest/v1`, `/lib/api/rest/v2` and `/lib/api/res
 It engages only when one of its parameters has a value. An empty one (Postman sends them all) counts as not given, so the answer is then `items` alone, in tree order.
 
 **Who sees what:**
-- A project is visible when the key's user has `SPEC_VIEW` or `EXECUTE_RUN` there, as in Testify's own project list.
+- A project is visible when the key's user has `SPEC_VIEW` or `EXECUTE_RUN` there, as in Tessick's own project list.
 - Its plans and builds need only that.
 - Its specification (cases, suites, spec, keywords, custom fields) needs `SPEC_VIEW`; without it the answer is `{"status":"ko","message":"Insufficient rights"}`.
 - A project the user can't see reads as not found.
@@ -112,7 +112,7 @@ It engages only when one of its parameters has a value. An empty one (Postman se
   - TestLink's strings, with lists and multi-selects joined with `|`;
   - a checkbox is `"1"` or `"0"`;
   - a date is `YYYY-MM-DD` (TestLink keeps dates as timestamps);
-  - a value never set reads as the field's default, as Testify shows it.
+  - a value never set reads as the field's default, as Tessick shows it.
 - **Custom field types:** TEXT is `string` (0), NUMBER `numeric` (1), CHECKBOX `checkbox` (5), SINGLE_SELECT `list` (6), MULTI_SELECT `multiselection list` (7) and DATE `date` (8).
 - **Order:** suites follow their position, and a suite's cases their numeric id. In tree order a suite's own cases come before its sub-suites'.
 
@@ -126,7 +126,7 @@ Every read conforms. Where his spec contradicts itself (the 404 example has `ite
 
 ## Writes (phase 3)
 
-| Route | Versions | Does, in Testify |
+| Route | Versions | Does, in Tessick |
 | :--- | :--- | :--- |
 | `POST /testprojects` | all | creates a project. `active`, `public` and `options` aren't kept |
 | `POST /testplans`, `/testplans/{id}` | all | creates or changes a plan. `active: 0` archives it, `active: 1` takes it out of the archive |
@@ -139,25 +139,25 @@ Every read conforms. Where his spec contradicts itself (the 404 example has `ite
 | `POST /executions` | all | records a result |
 | `POST /keywords` | v2, custom | adds a keyword to the project |
 
-**Every write goes through Testify's own routes,** as the key's user. So Testify's permissions apply:
+**Every write goes through Tessick's own routes,** as the key's user. So Tessick's permissions apply:
 - `PROJECT_CREATE`, `PLAN_MANAGE`, `RUN_MANAGE`, `SPEC_CREATE`, `SPEC_EDIT`, `SPEC_APPROVE`, `EXECUTE_RUN` and `EXECUTE_OVERWRITE`;
-- custom field values need `PLAN_MANAGE`, as everywhere in Testify;
+- custom field values need `PLAN_MANAGE`, as everywhere in Tessick;
 - keywords need `CUSTOM_FIELD_MANAGE`.
 
 Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks apply too.
 
 **Cases:**
 - **Content is versioned.** Summary, preconditions and steps live in a version that's editable only while it's a draft. So changing them on an approved case makes a new DRAFT copying the latest version, as MCP does (decided with Elliot); `status: 7` in the same request approves it. Title, importance, execution type, custom fields, keywords and the estimated duration change in place.
-- **`status` and `active` move the case through Testify's lifecycle:**
+- **`status` and `active` move the case through Tessick's lifecycle:**
   - 7 (final) approves;
   - 5 (obsolete) or `active: 0` deprecates;
   - any other status makes or keeps a draft;
   - `active: 1` restores a deprecated case.
 
   Approving, deprecating and restoring need `SPEC_APPROVE`, checked before anything changes. A deprecated case's content can't change until it's restored.
-- **A new case is a DRAFT when the request gives a draft status** (TestLink's default is 1), even for a user who may auto-approve. Without `status`, Testify's rule applies (`SPEC_AUTO_APPROVE`).
+- **A new case is a DRAFT when the request gives a draft status** (TestLink's default is 1), even for a user who may auto-approve. Without `status`, Tessick's rule applies (`SPEC_AUTO_APPROVE`).
 - **HTML is stored as text,** cleaned as the TestLink XML importer does.
-- **The author is always the key's user**, since Testify records who made each version. `order` isn't kept, since Testify's cases have no order in a suite.
+- **The author is always the key's user**, since Tessick records who made each version. `order` isn't kept, since Tessick's cases have no order in a suite.
 - **A duplicate title in the suite** is refused (409), as TestLink does.
 - **`customFields`:**
   - keys are a field's name or its number, and unknown ones are skipped;
@@ -171,14 +171,14 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
 - **Refused** when the code isn't p, f or b, the build is closed or isn't the plan's, or the case isn't linked to the plan.
 - **Re-recording a case** that already has a result in the run needs `EXECUTE_OVERWRITE`.
 - **In a plan with platforms,** `platformID` is required. Each (build, platform) has its own run, named "Build — Platform" and made on its first result. The builds list shows only the builds, and changing a build's name or `is_open` changes its platform runs too.
-- **Platforms aren't a Testify feature,** and won't be (decided with Elliot, 2026-10-26). Testify has no platform screens, fields or reports. A team that wants to tell platforms apart does it its own way, with runs, plans or custom fields. This API only represents TestLink's platform data in Testify's terms, as plain runs, so TestLink clients and migrated history keep working.
+- **Platforms aren't a Tessick feature,** and won't be (decided with Elliot, 2026-10-26). Tessick has no platform screens, fields or reports. A team that wants to tell platforms apart does it its own way, with runs, plans or custom fields. This API only represents TestLink's platform data in Tessick's terms, as plain runs, so TestLink clients and migrated history keep working.
 
 **Keywords** are the options of the project's `keywords` field:
 - the first keyword creates the field, for that project;
 - a keyword's number follows the field and its text, so it doesn't change when other keywords are added;
 - a duplicate is refused, and notes aren't kept.
 
-**Not in Dave's API,** so done in Testify:
+**Not in Dave's API,** so done in Tessick:
 - adding cases to a plan;
 - making platforms (the migration brings TestLink's, phase 5).
 
@@ -203,53 +203,53 @@ Its validation, audit rows (User-Agent "… (via TestLink API)") and webhooks ap
   - `testCoverageSWAGS`: the SWAG file's entry for the project, without its `productKey`, when one matches.
 
 **`GET` and `POST /swagfile`** (custom) read and replace the SWAG file (testCoverageSWAG.json): per product, coverage estimates and the project API key (`productKey`) that ties it to a project.
-- Testify keeps it in `system_settings`.
+- Tessick keeps it in `system_settings`.
 - `GET` answers it as saved (404 `File not found` before the first save).
 - `POST` takes a JSON object and stores it pretty-printed. It answers `{"status":"ok","message":"File saved successfully","bytes_written":…}`; anything else is a 400 `Invalid JSON content`.
 - Each save writes a `TESTLINK_SWAG_SAVED` audit row.
 
 **Authentication differs from TestLink (to confirm with Dave):**
 - **TestLink serves the file to anyone,** read and write, though it holds every project's API key.
-- **Testify asks for a TestLink key** to read it, and also `PLAN_MANAGE` (as a Test Lead has) to replace it.
+- **Tessick asks for a TestLink key** to read it, and also `PLAN_MANAGE` (as a Test Lead has) to replace it.
 - **Dave's `manageSWAGS.html`** must therefore send an `APIKEY` header.
 
 ## Migration (phase 5)
 
-`apps/server/scripts/migrate-testlink.ts` moves a TestLink 1.9 database into Testify, keeping TestLink's ids, keys and history. After the move, TestLink's clients pointed at Testify see the same projects, suites, cases, plans, builds and executions under the same numbers.
+`apps/server/scripts/migrate-testlink.ts` moves a TestLink 1.9 database into Tessick, keeping TestLink's ids, keys and history. After the move, TestLink's clients pointed at Tessick see the same projects, suites, cases, plans, builds and executions under the same numbers.
 
 ```bash
-DATABASE_URL=postgres://…testify… npx tsx apps/server/scripts/migrate-testlink.ts --from postgres://…testlink… --time-zone America/Chicago --dry-run
+DATABASE_URL=postgres://…tessick… npx tsx apps/server/scripts/migrate-testlink.ts --from postgres://…testlink… --time-zone America/Chicago --dry-run
 ```
 
-- **`--from`** is TestLink's database, or `TESTLINK_DATABASE_URL`. A PostgreSQL TestLink is read with Testify's own driver. A MySQL one (`mysql://…`) needs the `mysql2` package, which Testify doesn't install: `npm install mysql2 --workspace=apps/server`.
-- **`DATABASE_URL`** is Testify's PostgreSQL. Start Testify on it once first, so it has its tables and its admin.
+- **`--from`** is TestLink's database, or `TESTLINK_DATABASE_URL`. A PostgreSQL TestLink is read with Tessick's own driver. A MySQL one (`mysql://…`) needs the `mysql2` package, which Tessick doesn't install: `npm install mysql2 --workspace=apps/server`.
+- **`DATABASE_URL`** is Tessick's PostgreSQL. Start Tessick on it once first, so it has its tables and its admin.
 - **`--dry-run`** does everything and rolls it back, so its report is exact and nothing is written.
 - **`--time-zone`** is the zone TestLink's server keeps its times in (TestLink stores them without one); UTC by default.
 - **`--table-prefix`** is TestLink's `DB_TABLE_PREFIX`, if it has one.
-- **`--actor`** is the Testify user the migration is recorded as (`admin` by default). It's also used as author or tester where TestLink's is unknown.
+- **`--actor`** is the Tessick user the migration is recorded as (`admin` by default). It's also used as author or tester where TestLink's is unknown.
 - **`--json`** prints the report as JSON.
 
 **How it runs:**
 - **One transaction:** everything commits, or nothing does.
 - **Again and again:** what's already migrated is kept as it is, and a later run brings only what TestLink gained since. Changes made in TestLink to rows already migrated aren't brought. So: migrate early, check, then run once more at the switch.
-- **A clean start:** the numbers must be free in Testify. If Testify's TestLink-compatible API was used first and numbered a row with a number TestLink uses, the migration stops and changes nothing. Each number records whether it came from TestLink or from Testify (`compat_ids.origin`).
+- **A clean start:** the numbers must be free in Tessick. If Tessick's TestLink-compatible API was used first and numbered a row with a number TestLink uses, the migration stops and changes nothing. Each number records whether it came from TestLink or from Tessick (`compat_ids.origin`).
 - **The report:** per kind of row, how many TestLink has, how many are new, already there and skipped, plus notes on everything that couldn't be kept exactly.
 - **A record:** a `TESTLINK_MIGRATED` audit row for each project. No webhooks are sent.
 
 **What it brings and how:**
 
-| TestLink | Testify |
+| TestLink | Tessick |
 | :--- | :--- |
-| users | users with the same login; an existing Testify user of that name is taken as the same person and left as they are. Passwords aren't brought (TestLink's are unsalted MD5): an admin sets each one (Admin Panel → Reset password). A missing or duplicate email becomes `login@testlink.invalid`. Inactive users are disabled. |
+| users | users with the same login; an existing Tessick user of that name is taken as the same person and left as they are. Passwords aren't brought (TestLink's are unsalted MD5): an admin sets each one (Admin Panel → Reset password). A missing or duplicate email becomes `login@testlink.invalid`. Inactive users are disabled. |
 | users' API keys (`script_key`) | their TestLink API keys, so their scripts keep working on day one |
 | roles, project roles | by what each role may do: user management → Admin, planning → Test Lead, editing or executing → Tester, viewing → Viewer, else No Access. Project roles too, for users the migration made |
 | projects, suites, cases, versions, steps | the same, with TestLink's ids. HTML becomes text. Each version keeps its status (final → APPROVED, obsolete or inactive → DEPRECATED, the rest DRAFT), author and times |
 | project and plan API keys | kept |
-| custom fields (on cases and suites) | Testify fields for the projects that use them. Lists, numbers, dates and text map directly; checkboxes become multi-selects, radio buttons single selects, the other types text or dates (each noted in the report). A required field without a usable default isn't required. A value a case never had stays unset, rather than taking the default |
+| custom fields (on cases and suites) | Tessick fields for the projects that use them. Lists, numbers, dates and text map directly; checkboxes become multi-selects, radio buttons single selects, the other types text or dates (each noted in the report). A required field without a usable default isn't required. A value a case never had stays unset, rather than taking the default |
 | keywords | the project's `keywords` field, with TestLink's keyword ids |
 | estimated duration | the project's `estimated_exec_duration` NUMBER field |
 | plans, their cases | plans (inactive → ARCHIVED, closed → LOCKED) with each case pinned to TestLink's version |
-| platforms | TestLink's platforms for this API; in Testify, a plain run per build and platform |
+| platforms | TestLink's platforms for this API; in Tessick, a plain run per build and platform |
 | builds | runs (closed or inactive → CLOSED), with their dates |
 | executions, step results | results with their tester, time, duration, notes and step results. p, f and b are recorded; "not run" and other codes are skipped (other codes are listed in the report). A result of a case no longer in its plan is kept on a retired link |
 
@@ -264,22 +264,22 @@ DATABASE_URL=postgres://…testify… npx tsx apps/server/scripts/migrate-testli
 The report counts the requirements and attachments it left.
 
 **TestLink XML imports keep TestLink's ids too:**
-- suites keep their `id`, and cases their `internalid`, when Testify hasn't used those numbers;
+- suites keep their `id`, and cases their `internalid`, when Tessick hasn't used those numbers;
 - a case's keywords go into the project's `keywords` field.
 
 Versions and keywords have no ids in TestLink's XML, so they're numbered when first shown.
 
 **Tests:**
-- `apps/server/tests/testlink_migration.test.ts` migrates a small TestLink built from Testify's own DDL of the tables it reads (TestLink's install scripts are GPL, so they aren't in the repository). It then reads everything back through this API with a migrated user's own key.
+- `apps/server/tests/testlink_migration.test.ts` migrates a small TestLink built from Tessick's own DDL of the tables it reads (TestLink's install scripts are GPL, so they aren't in the repository). It then reads everything back through this API with a migrated user's own key.
 - Given TestLink's `install/sql/postgres` folder, the same tests build the TestLink from TestLink's own schema and default data:
 
 ```bash
 TESTLINK_SQL_DIR=/path/to/testlink-code/install/sql/postgres npx vitest run apps/server/tests/testlink_migration.test.ts
 ```
 
-## How Testify's model maps (phases 2 to 5)
+## How Tessick's model maps (phases 2 to 5)
 
-| TestLink | Testify |
+| TestLink | Tessick |
 | :--- | :--- |
 | test project, suite, case, version, plan | project, suite, case, version, plan. Numeric ids in one sequence, as TestLink's `nodes_hierarchy` |
 | build | run |
@@ -289,11 +289,11 @@ TESTLINK_SQL_DIR=/path/to/testlink-code/install/sql/postgres npx vitest run apps
 | custom fields (12 types; pipe-delimited values) | custom fields (6 types; lists) |
 | keywords | a project MULTI_SELECT case field named `keywords`, one option per keyword; it isn't listed among the custom fields |
 | `estimated_exec_duration` | a NUMBER case field named `estimated_exec_duration`, when the project has one (otherwise `null`); not listed among the custom fields |
-| platforms | not a Testify feature (decided with Elliot): one plain run per (build, platform) when a TestLink plan has platforms |
+| platforms | not a Tessick feature (decided with Elliot): one plain run per (build, platform) when a TestLink plan has platforms |
 | project and plan API keys | kept as identifiers (`compat_api_keys`) |
 
 Numeric ids:
-- Testify's ids are UUIDs. The numeric ids TestLink clients use live beside them (`compat_ids`).
+- Tessick's ids are UUIDs. The numeric ids TestLink clients use live beside them (`compat_ids`).
 - A row gets one the first time this API shows it, or it keeps TestLink's own from the migration.
 - New ones follow the highest in their space.
 
@@ -305,4 +305,4 @@ Numeric ids:
   - `copytestersfrombuild`;
   - keyword notes.
 - **Summaries come back as text, not HTML.**
-- **Requirements and attachments** don't exist in Testify.
+- **Requirements and attachments** don't exist in Tessick.

@@ -34,7 +34,7 @@ describe('OpenAPI spec and docs page', () => {
     const initializer = await app.inject({ url: '/docs/static/swagger-initializer.js' });
     expect(initializer.statusCode).toBe(200);
     // "Try it out" with the session cookie needs the CSRF header.
-    expect(initializer.payload).toContain('X-Testify-Client');
+    expect(initializer.payload).toContain('X-Tessick-Client');
     expect((await app.inject({ url: '/docs/json' })).statusCode).toBe(200);
     expect((await app.inject({ url: '/docs/yaml' })).statusCode).toBe(200);
   });
@@ -42,7 +42,7 @@ describe('OpenAPI spec and docs page', () => {
   it('is an OpenAPI 3.1 document whose references all resolve, with every operation summarized and tagged', async () => {
     const spec = body(await app.inject({ url: '/docs/json' }));
     expect(spec.openapi).toBe('3.1.0');
-    expect(spec.info.title).toBe('Testify API');
+    expect(spec.info.title).toBe('Tessick API');
     expect(Object.keys(spec.components.securitySchemes)).toEqual(['bearerAuth', 'sessionCookie']);
 
     const refs = new Set<string>();
@@ -208,9 +208,9 @@ describe('OpenAPI spec and docs page', () => {
   });
 
   it('creating a user whose username or email is taken answers 409, not 500', async () => {
-    const user = { username: 'twin', email: 'twin@testify.local', password: 'SecurePass123!', global_role: 'Viewer' };
+    const user = { username: 'twin', email: 'twin@tessick.local', password: 'SecurePass123!', global_role: 'Viewer' };
     expect((await call('POST', '/api/v1/admin/users', user)).statusCode).toBe(201);
-    for (const again of [user, { ...user, email: 'other@testify.local' }, { ...user, username: 'other' }]) {
+    for (const again of [user, { ...user, email: 'other@tessick.local' }, { ...user, username: 'other' }]) {
       const res = await call('POST', '/api/v1/admin/users', again);
       expect(res.statusCode).toBe(409);
       expect(body(res).code).toBe('USER_EXISTS');

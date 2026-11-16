@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 
 /**
- * TestLink's platforms, for the TestLink-compatible API (testlinkCompat/). Testify has no
+ * TestLink's platforms, for the TestLink-compatible API (testlinkCompat/). Tessick has no
  * platforms of its own: a TestLink build of a plan with platforms is a run per platform.
  *
  * - `compat_platforms`: a project's platforms (made by the migration from TestLink, phase 5).

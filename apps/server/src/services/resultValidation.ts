@@ -10,7 +10,7 @@ import {
   type ExecutionStatus,
   type ExecutionVerdict,
   type StepVerdict,
-} from '@testify/core';
+} from '@tessick/core';
 
 export interface InvalidParam {
   name: string;

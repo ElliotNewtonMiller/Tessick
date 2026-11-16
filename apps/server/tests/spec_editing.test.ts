@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { CustomFieldRepository, TestPlanRepository, ProjectRepository } from '@testify/db';
+import { CustomFieldRepository, TestPlanRepository, ProjectRepository } from '@tessick/db';
 
 describe('Spec-mode suite/case create/edit/delete', () => {
   let serverInstance: any;
@@ -30,7 +30,7 @@ describe('Spec-mode suite/case create/edit/delete', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(createRes.statusCode).toBe(201);
     const userId = JSON.parse(createRes.payload).user.id as string;

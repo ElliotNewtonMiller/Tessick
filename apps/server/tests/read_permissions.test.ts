@@ -15,7 +15,7 @@ describe('Read routes require SPEC_VIEW', () => {
     body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password } }));
   const createUser = async (username: string, role: string) => {
     const res = await call(adminToken, 'POST', '/api/v1/admin/users', {
-      username, email: `${username}@testify.local`, password: 'Reader-Pass-123', global_role: role,
+      username, email: `${username}@tessick.local`, password: 'Reader-Pass-123', global_role: role,
     });
     expect(res.statusCode).toBe(201);
     return { id: body(res).user.id as string, token: (await login(username, 'Reader-Pass-123')).token as string };

@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { TestRunRepository, CustomFieldRepository, ProjectRepository, TestCaseVersionRepository, TestPlanRepository, TestSuiteRepository } from '@testify/db';
-import { REPORT_CATALOG, REPORT_DEFINITIONS, renderRunSummaryMarkdown, validateReportParams, type ReportDefinition, type RunSummaryReport } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { TestRunRepository, CustomFieldRepository, ProjectRepository, TestCaseVersionRepository, TestPlanRepository, TestSuiteRepository } from '@tessick/db';
+import { REPORT_CATALOG, REPORT_DEFINITIONS, renderRunSummaryMarkdown, validateReportParams, type ReportDefinition, type RunSummaryReport } from '@tessick/core';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -19,12 +19,12 @@ import { writeTools } from './writeTools.js';
 /** Smaller list sizes than the REST defaults, to keep agent context small. */
 const MCP_DEFAULT_LIMIT = 25;
 
-const INSTRUCTIONS = `Testify is a test case management system: projects contain test suites and test cases; a test plan selects cases to run; each test run of a plan records a result per case (PASSED, FAILED, BLOCKED, SKIPPED).
+const INSTRUCTIONS = `Tessick is a test case management system: projects contain test suites and test cases; a test plan selects cases to run; each test run of a plan records a result per case (PASSED, FAILED, BLOCKED, SKIPPED).
 Reading: list_projects -> list_plans_and_runs -> report_run_summary (what broke in a run, compared with the previous run, with error messages and how long each failure has been failing) -> report_case_history for a specific case -> report_test_health for flaky/slow/always-failing/stale cases.
 Use search_cases / list_report_fields to find cases, and list_suites for the suite tree; most reports take the same "filter" to limit them to matching cases. report_run_summary accepts format "markdown" for a ready-to-post summary.
 Rates are fractions between 0 and 1. ${REPORT_DEFINITIONS.flaky}
 Evidence: a case's execution in a run can carry screenshots, videos, logs and Playwright traces. list_evidence lists them and get_evidence shows one (an image you can look at, or a log's text); add_evidence adds a small file (base64, or a log as text) to a case that has a result, and create_evidence_upload + complete_evidence_upload upload a large file from disk with curl.
-Changing (the tools with readOnlyHint false, offered when the caller may use them): create_suite, create_case, duplicate_case (a copy of a case, with changes, in one call), update_case, update_cases, create_run, record_results, update_plan_cases, add_evidence, create_evidence_upload, complete_evidence_upload. They act as the caller, with the caller's permissions, and every change is audit-logged as made through MCP. Cases you create start as DRAFT, and editing an approved case's summary, preconditions or steps makes a new DRAFT version: a person reviews and approves them in Testify, so tell the user what you created or changed (readable ids). There are no tools to approve, deprecate or delete. Prefer update_cases and update_plan_cases over one call per case.`;
+Changing (the tools with readOnlyHint false, offered when the caller may use them): create_suite, create_case, duplicate_case (a copy of a case, with changes, in one call), update_case, update_cases, create_run, record_results, update_plan_cases, add_evidence, create_evidence_upload, complete_evidence_upload. They act as the caller, with the caller's permissions, and every change is audit-logged as made through MCP. Cases you create start as DRAFT, and editing an approved case's summary, preconditions or steps makes a new DRAFT version: a person reviews and approves them in Tessick, so tell the user what you created or changed (readable ids). There are no tools to approve, deprecate or delete. Prefer update_cases and update_plan_cases over one call per case.`;
 
 /** Every tool's project argument: an id or, as people and agents know a project, its prefix. */
 const PROJECT_ARG: JsonSchema = { type: 'string', description: 'The project: its id or its prefix (e.g. SHOP), from list_projects.' };
@@ -48,15 +48,15 @@ function toJsonSchema(report: ReportDefinition): JsonSchema {
 /**
  * MCP endpoint (Streamable HTTP, stateless, JSON responses) at POST /mcp.
  *
- * Authenticates exactly like the REST API (login JWT or tf_ci_ machine token), and every
+ * Authenticates exactly like the REST API (login JWT or tk_ci_ machine token), and every
  * tool checks SPEC_VIEW for the project it's asked about -- a token only ever sees its own
- * project. Report tools are generated from @testify/core's REPORT_CATALOG and call the same
+ * project. Report tools are generated from @tessick/core's REPORT_CATALOG and call the same
  * ReportService as the REST routes, so agents get exactly the numbers people see. The write
  * tools (writeTools.ts) call the REST routes as the caller; an API token is offered only the
  * ones its capabilities allow.
  *
  * Connect from Claude Code:
- *   claude mcp add --transport http testify http://localhost:3001/mcp --header "Authorization: Bearer tf_ci_..."
+ *   claude mcp add --transport http tessick http://localhost:3001/mcp --header "Authorization: Bearer tk_ci_..."
  */
 /** The arguments a tool's schema doesn't list, when it lists them all (additionalProperties: false). */
 function unknownArguments(schema: Record<string, unknown>, args: Record<string, unknown>): string[] {
@@ -292,7 +292,7 @@ export async function registerMcpRoutes(app: FastifyInstance, db: Kysely<Databas
   }
 
   function buildServer(user: AuthenticatedUser, request: FastifyRequest): Server {
-    const server = new Server({ name: 'testify', version: '1.0.0' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
+    const server = new Server({ name: 'tessick', version: '1.0.0' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: tools
         .filter((t) => offered(user, t))

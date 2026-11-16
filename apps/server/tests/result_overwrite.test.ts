@@ -16,7 +16,7 @@ describe('EXECUTE_OVERWRITE', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: auth(adminToken),
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: globalRole },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: globalRole },
     });
     expect(created.statusCode).toBe(201);
     return body(await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } })).token;

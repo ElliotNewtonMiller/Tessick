@@ -92,8 +92,8 @@ export function useReport<T>(projectId: string, reportId: string, params: Record
 }
 
 // ---------------------------------------------------------------------------------------
-// Report payload shapes (mirroring @testify/core's report types -- the web app doesn't
-// depend on @testify/core).
+// Report payload shapes (mirroring @tessick/core's report types -- the web app doesn't
+// depend on @tessick/core).
 
 export interface CaseRef {
   test_case_id: string;

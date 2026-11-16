@@ -74,7 +74,7 @@ describe('Role templates & permission overrides', () => {
   it('deleteRole blocks deletion of a role currently assigned to a user, with a count', async () => {
     const user = await userRepo.create({
       username: 'auditor_1',
-      email: 'auditor_1@testify.local',
+      email: 'auditor_1@tessick.local',
       password: 'AuditPass123!',
       global_role: 'Automation Service',
     });
@@ -105,7 +105,7 @@ describe('Role templates & permission overrides', () => {
   it('assignGlobalRole / assignProjectRole reject an unknown role name', async () => {
     const user = await userRepo.create({
       username: 'someone',
-      email: 'someone@testify.local',
+      email: 'someone@tessick.local',
       password: 'SomePass123!',
       global_role: 'Tester',
     });
@@ -121,7 +121,7 @@ describe('Role templates & permission overrides', () => {
   it('setUserOverrides / getUserOverrides: replace-all semantics, scoped independently per project', async () => {
     const user = await userRepo.create({
       username: 'override_user',
-      email: 'override_user@testify.local',
+      email: 'override_user@tessick.local',
       password: 'OverridePass123!',
       global_role: 'Viewer',
     });
@@ -155,7 +155,7 @@ describe('Role templates & permission overrides', () => {
   it('setUserOverrides rejects an unknown permission key', async () => {
     const user = await userRepo.create({
       username: 'bad_override_user',
-      email: 'bad_override_user@testify.local',
+      email: 'bad_override_user@tessick.local',
       password: 'BadOverride123!',
       global_role: 'Viewer',
     });
@@ -171,7 +171,7 @@ describe('Role templates & permission overrides', () => {
     });
     const user = await userRepo.create({
       username: 'custom_role_user',
-      email: 'custom_role_user@testify.local',
+      email: 'custom_role_user@tessick.local',
       password: 'CustomPass123!',
       global_role: custom.name,
     });
@@ -183,7 +183,7 @@ describe('Role templates & permission overrides', () => {
   it('evaluatePermissions: global overrides apply, and a project override wins a conflict with a global one', async () => {
     const user = await userRepo.create({
       username: 'layered_user',
-      email: 'layered_user@testify.local',
+      email: 'layered_user@tessick.local',
       password: 'LayeredPass123!',
       global_role: 'Viewer', // SPEC_VIEW, EXPORT_DATA only
     });

@@ -2,7 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { lookup as dnsLookup, type LookupAddress } from 'node:dns';
 import { isIP } from 'node:net';
-import { isBlockedAddress } from '@testify/core';
+import { isBlockedAddress } from '@tessick/core';
 
 /**
  * Where a webhook may send (decided with Elliot, 2026-10-12): public and private-network

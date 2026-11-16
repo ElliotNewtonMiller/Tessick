@@ -111,7 +111,7 @@ describe('Closing a run: manual close/reopen and auto-close when every case has 
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: h,
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: 'Tester' },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: 'Tester' },
     });
     const testerToken = await login(app, username, 'SecurePass123!');
     const denied = await app.inject({ method: 'PATCH', url, headers: { authorization: `Bearer ${testerToken}` }, payload: { status: 'OPEN' } });
@@ -124,7 +124,7 @@ describe('Closing a run: manual close/reopen and auto-close when every case has 
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: adminHeaders,
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: 'Tester' },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: 'Tester' },
     });
     expect(created.statusCode).toBe(201);
     return { authorization: `Bearer ${await login(app, username, 'SecurePass123!')}` };

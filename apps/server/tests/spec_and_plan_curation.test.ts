@@ -5,7 +5,7 @@ import {
   TestCaseRepository,
   TestCaseVersionRepository,
   TestPlanRepository,
-} from '@testify/db';
+} from '@tessick/db';
 
 describe('Specification / Plan Curation Routes', () => {
   let serverInstance: any;
@@ -37,7 +37,7 @@ describe('Specification / Plan Curation Routes', () => {
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         username,
-        email: `${username}@testify.local`,
+        email: `${username}@tessick.local`,
         password: 'SecurePass123!',
         global_role: 'Viewer',
       },

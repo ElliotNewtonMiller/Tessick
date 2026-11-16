@@ -16,7 +16,7 @@ const ALL_PERMISSIONS = [
   'EXECUTE_OVERWRITE', 'IMPORT_DATA', 'EXPORT_DATA', 'API_TOKEN_MANAGE', 'CUSTOM_FIELD_MANAGE', 'REPORT_EMAIL',
 ];
 const user = (username: string, global_role: string, permissions: string[]) => ({
-  id: `usr-${username}`, username, email: `${username}@testify.local`, global_role, permissions, must_change_password: false,
+  id: `usr-${username}`, username, email: `${username}@tessick.local`, global_role, permissions, must_change_password: false,
 });
 const ADMIN = user('admin', 'Admin', ALL_PERMISSIONS);
 const VIEWER = user('viewer', 'Viewer', ['SPEC_VIEW', 'EXPORT_DATA']);

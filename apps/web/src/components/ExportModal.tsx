@@ -236,7 +236,7 @@ export function ExportModal({ isOpen, onClose, projects, defaultProjectId }: Exp
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") || "";
       const match = disposition.match(/filename="([^"]+)"/);
-      const filename = match?.[1] || `testify_export.${format === "STANDARD_CSV" ? "csv" : "json"}`;
+      const filename = match?.[1] || `tessick_export.${format === "STANDARD_CSV" ? "csv" : "json"}`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

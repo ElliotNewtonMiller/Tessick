@@ -11,7 +11,7 @@ import { renderRunSummaryMarkdown } from './markdown.js';
 export interface EmailSection {
   reportId: string;
   data: any;
-  /** Link to this report in the Testify UI, or null when no public URL is configured. */
+  /** Link to this report in the Tessick UI, or null when no public URL is configured. */
   url: string | null;
 }
 
@@ -53,7 +53,7 @@ const clip = (s: string | null | undefined, max = 200) => {
 };
 
 function h2(title: string, url: string | null): string {
-  const link = url ? ` <a href="${escapeHtml(url)}" style="font-size:12px;font-weight:normal;color:${C.link}">Open in Testify →</a>` : '';
+  const link = url ? ` <a href="${escapeHtml(url)}" style="font-size:12px;font-weight:normal;color:${C.link}">Open in Tessick →</a>` : '';
   return `<h2 style="font-size:17px;margin:28px 0 8px;color:${C.text}">${escapeHtml(title)}${link}</h2>`;
 }
 
@@ -71,7 +71,7 @@ function table(headers: string[], rows: string[][]): string {
 
 function more(total: number, shown: number, url: string | null): string {
   if (total <= shown) return '';
-  return p(`…and ${total - shown} more${url ? ` — <a href="${escapeHtml(url)}" style="color:${C.link}">see all in Testify</a>` : ''}.`, true);
+  return p(`…and ${total - shown} more${url ? ` — <a href="${escapeHtml(url)}" style="color:${C.link}">see all in Tessick</a>` : ''}.`, true);
 }
 
 function verdictColor(v: string | null | undefined): string {
@@ -310,16 +310,16 @@ export function renderReportEmail(
     return render(s.data, s.url);
   });
   const what = opts.title || (rendered.length === 1 ? rendered[0].shortSubject : 'Test report');
-  const subject = `Testify · ${opts.projectName} · ${what}`;
+  const subject = `Tessick · ${opts.projectName} · ${what}`;
 
   const message = opts.message?.trim()
     ? `<div style="margin:12px 0;padding:10px 12px;background:${C.head};border-left:3px solid ${C.link};font-size:13px;color:${C.text};white-space:pre-wrap">${escapeHtml(opts.message.trim())}</div>`
     : '';
-  const footer = `<p style="margin:28px 0 0;font-size:11px;color:${C.muted}">Sent by Testify${opts.sentBy ? ` on behalf of ${escapeHtml(opts.sentBy)}` : ''}. Numbers are as of ${escapeHtml(new Date().toUTCString())}.</p>`;
+  const footer = `<p style="margin:28px 0 0;font-size:11px;color:${C.muted}">Sent by Tessick${opts.sentBy ? ` on behalf of ${escapeHtml(opts.sentBy)}` : ''}. Numbers are as of ${escapeHtml(new Date().toUTCString())}.</p>`;
   const html =
     `<!doctype html><html><body style="margin:0;padding:0;background:#ffffff">` +
     `<div style="max-width:720px;margin:0 auto;padding:20px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${C.text}">` +
-    `<div style="font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:0.05em">Testify · ${escapeHtml(opts.projectName)}</div>` +
+    `<div style="font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:0.05em">Tessick · ${escapeHtml(opts.projectName)}</div>` +
     `<h1 style="font-size:20px;margin:4px 0 0;color:${C.text}">${escapeHtml(what)}</h1>` +
     message +
     rendered.map((r) => r.html).join('') +
@@ -327,9 +327,9 @@ export function renderReportEmail(
     `</div></body></html>`;
 
   const text = [
-    `Testify · ${opts.projectName} · ${what}`,
+    `Tessick · ${opts.projectName} · ${what}`,
     opts.message?.trim() ? `\n${opts.message.trim()}` : '',
-    ...rendered.map((r, i) => `\n${r.text}${sections[i].url ? `\nOpen in Testify: ${sections[i].url}` : ''}`),
+    ...rendered.map((r, i) => `\n${r.text}${sections[i].url ? `\nOpen in Tessick: ${sections[i].url}` : ''}`),
   ].join('\n');
 
   return { subject, html, text };

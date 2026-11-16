@@ -34,10 +34,10 @@ export const OPENAPI_TAGS = [
   { name: 'Search', description: 'Finding cases by text and by property; the same filters work in reports.' },
   { name: 'Plans', description: 'Test plans: a set of cases, each pinned at a version.' },
   { name: 'Runs and results', description: 'Test runs of a plan, and the results recorded in them (one at a time, or in CI batches).' },
-  { name: 'Evidence', description: "Screenshots, videos, logs and Playwright traces for a case's execution in a run: uploaded one by one, by run for CI, or by upload link; always served through Testify." },
+  { name: 'Evidence', description: "Screenshots, videos, logs and Playwright traces for a case's execution in a run: uploaded one by one, by run for CI, or by upload link; always served through Tessick." },
   { name: 'Reports', description: 'Run summaries, trends, test health, case history, breakdowns. The catalog says what each report answers and takes.' },
   { name: 'Report email', description: 'Emailing reports to anyone, now or on a schedule.' },
-  { name: 'Import', description: 'Importing suites and cases: TestLink XML, JUnit XML, Testify JSON, CSV, TestRail CSV. Preview first, then import.' },
+  { name: 'Import', description: 'Importing suites and cases: TestLink XML, JUnit XML, Tessick JSON, CSV, TestRail CSV. Preview first, then import.' },
   { name: 'Export', description: 'Exporting suites and cases, or a run\'s results, as JSON or CSV.' },
   { name: 'API tokens', description: 'Tokens for CI and scripts. Each works only in its own project.' },
   { name: 'Webhooks', description: "Sending a project's events (runs, results, test cases, imports) to other systems as they happen: signed JSON, or Slack-style messages. Not available to API tokens." },
@@ -48,15 +48,15 @@ export const OPENAPI_TAGS = [
   { name: 'Operations', description: 'Health check and the MCP endpoint for AI agents.' },
 ];
 
-const SPEC_DESCRIPTION = `The Testify REST API. Everything the web app does goes through it.
+const SPEC_DESCRIPTION = `The Tessick REST API. Everything the web app does goes through it.
 
 **Authentication** — send one of:
-- \`Authorization: Bearer tf_ci_…\`: an API token from Admin Panel → API Tokens, bound to one project. The right choice for CI and scripts.
+- \`Authorization: Bearer tk_ci_…\`: an API token from Admin Panel → API Tokens, bound to one project. The right choice for CI and scripts.
 - \`Authorization: Bearer <jwt>\`: the \`token\` from \`POST /api/v1/auth/login\`.
-- The web app's session cookie: if you're signed in to Testify in this browser, "Try it out" just works.
+- The web app's session cookie: if you're signed in to Tessick in this browser, "Try it out" just works.
 
-**Getting started** (the full guide, with a CI example, is docs/api_getting_started.md in the Testify repository):
-1. In Testify, open Admin Panel → API Tokens, pick the project, tick the capabilities the job needs (for CI results: \`SPEC_VIEW\`, \`EXECUTE_RUN\`, and \`RUN_MANAGE\` to create runs) and copy the token. Here, click **Authorize** and paste it.
+**Getting started** (the full guide, with a CI example, is docs/api_getting_started.md in the Tessick repository):
+1. In Tessick, open Admin Panel → API Tokens, pick the project, tick the capabilities the job needs (for CI results: \`SPEC_VIEW\`, \`EXECUTE_RUN\`, and \`RUN_MANAGE\` to create runs) and copy the token. Here, click **Authorize** and paste it.
 2. Try \`GET /api/v1/auth/me\`, then \`GET /api/v1/projects\` and \`GET /api/v1/projects/{projectId}/plans\` for the ids you need.
 3. Create a run with \`POST /api/v1/plans/{planId}/runs\`, then send results with \`POST /api/v1/runs/{runId}/results/batch\`, naming each case by its readable id (\`{ "external_id": "SHOP-101" }\`).
 4. Read them back with the \`run_summary\` report (\`?format=markdown\` for a PR comment).
@@ -258,20 +258,20 @@ export async function registerOpenApi(app: FastifyInstance, options: OpenApiOpti
   await app.register(swagger, {
     openapi: {
       openapi: '3.1.0',
-      info: { title: 'Testify API', version: '1.0.0', description: SPEC_DESCRIPTION },
+      info: { title: 'Tessick API', version: '1.0.0', description: SPEC_DESCRIPTION },
       tags: OPENAPI_TAGS,
       components: {
         securitySchemes: {
           bearerAuth: {
             type: 'http',
             scheme: 'bearer',
-            description: 'An API token (`tf_ci_…`, from Admin Panel → API Tokens) or the `token` from `POST /api/v1/auth/login`.',
+            description: 'An API token (`tk_ci_…`, from Admin Panel → API Tokens) or the `token` from `POST /api/v1/auth/login`.',
           },
           sessionCookie: {
             type: 'apiKey',
             in: 'cookie',
-            name: 'testify_session',
-            description: "The web app's sign-in. Set by `POST /api/v1/auth/login` with `session: \"cookie\"`; changes also need the `X-Testify-Client: web` header (this page adds it).",
+            name: 'tessick_session',
+            description: "The web app's sign-in. Set by `POST /api/v1/auth/login` with `session: \"cookie\"`; changes also need the `X-Tessick-Client: web` header (this page adds it).",
           },
         },
       },
@@ -288,8 +288,8 @@ export async function registerOpenApi(app: FastifyInstance, options: OpenApiOpti
     staticCSP: true,
     // No top bar: its "Explore" box and Fastify logo mean nothing here.
     theme: {
-      title: 'Testify API',
-      css: [{ filename: 'testify.css', content: '.swagger-ui .topbar { display: none; }' }],
+      title: 'Tessick API',
+      css: [{ filename: 'tessick.css', content: '.swagger-ui .topbar { display: none; }' }],
     },
     uiConfig: {
       docExpansion: 'list',
@@ -297,9 +297,9 @@ export async function registerOpenApi(app: FastifyInstance, options: OpenApiOpti
       defaultModelsExpandDepth: 0,
       displayRequestDuration: true,
       // Cookie sign-ins must send this header on changes (the CSRF guard in middleware/auth.ts).
-      // This page is served by Testify itself, so it may.
+      // This page is served by Tessick itself, so it may.
       requestInterceptor: (req: any) => {
-        req.headers['X-Testify-Client'] = 'web';
+        req.headers['X-Tessick-Client'] = 'web';
         return req;
       },
     } as any,

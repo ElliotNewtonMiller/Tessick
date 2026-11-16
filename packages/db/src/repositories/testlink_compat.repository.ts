@@ -5,7 +5,7 @@ import type { Database } from '../types.js';
 import { hashToken } from './api_token.repository.js';
 
 /**
- * What the TestLink-compatible API (apps/server/src/testlinkCompat/) keeps beside Testify's own
+ * What the TestLink-compatible API (apps/server/src/testlinkCompat/) keeps beside Tessick's own
  * rows: TestLink's numeric ids, users' TestLink API keys, and the project and plan API keys
  * TestLink uses as identifiers (migration 016).
  */
@@ -36,7 +36,7 @@ export class CompatIdRepository {
    * The numeric ids of these rows, giving the ones that have none the next ids in their space
    * (highest + 1). Each round numbers all the missing rows in one statement, so it never hands
    * out an id twice; a concurrent request that took the same ids makes some rows conflict, and
-   * the next round numbers those above it. Testify's UUIDs stay the rows' real ids; these exist
+   * the next round numbers those above it. Tessick's UUIDs stay the rows' real ids; these exist
    * only for the TestLink-compatible API.
    */
   async intIds(entityType: CompatEntityType, entityIds: string[]): Promise<Map<string, number>> {
@@ -209,7 +209,7 @@ export interface CompatPlatform {
 }
 
 /**
- * TestLink's platforms (migration 017). Testify has none of its own: a build of a plan with
+ * TestLink's platforms (migration 017). Tessick has none of its own: a build of a plan with
  * platforms keeps one run per platform, made on the first result (`platformRun`).
  */
 export class CompatPlatformRepository {

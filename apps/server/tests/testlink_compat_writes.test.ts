@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { CompatPlatformRepository } from '@testify/db';
+import { CompatPlatformRepository } from '@tessick/db';
 import { testLinkFixture } from './testlinkFixture.js';
 
 /**
- * The TestLink-compatible API, phase 3: writes. Each goes through Testify's own route as the
+ * The TestLink-compatible API, phase 3: writes. Each goes through Tessick's own route as the
  * key's user and answers as TestLink does: 200 with the row's TestLink id, or `id: -1`. A
  * refusal has the HTTP code Dave's spec documents for the route, otherwise 200 with
  * `status: "ko"` (as TestLink's PHP answers). (The data is in testlinkFixture.ts.)
@@ -264,7 +264,7 @@ describe('TestLink-compatible API: writes', () => {
     expect([needs.status, needs.body.message]).toEqual([200, `Test plan ${plan.id} has platforms: platformID is required`]);
 
     // Platform numbers, as the migration's platforms would have them.
-    const { CompatIdRepository } = await import('@testify/db');
+    const { CompatIdRepository } = await import('@tessick/db');
     const list = await platforms.platformsOfPlan(fx.seed.planId);
     const numbers = await new CompatIdRepository(fx.db).intIds('platform', list.map((p) => p.id));
     const ios = numbers.get(list.find((p) => p.name === 'iOS')!.id)!;

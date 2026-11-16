@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
-import { ProjectRepository } from '@testify/db';
+import { ProjectRepository } from '@tessick/db';
 
 describe('MCP endpoint (POST /mcp)', () => {
   let serverInstance: any;
@@ -65,7 +65,7 @@ describe('MCP endpoint (POST /mcp)', () => {
     const init = await rpc(app, token, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
     expect(init.statusCode).toBe(200);
     const initBody = JSON.parse(init.payload);
-    expect(initBody.result.serverInfo.name).toBe('testify');
+    expect(initBody.result.serverInfo.name).toBe('tessick');
     expect(initBody.result.instructions).toContain('report_run_summary');
 
     const list = JSON.parse((await rpc(app, token, 'tools/list')).payload);
@@ -166,7 +166,7 @@ describe('MCP endpoint (POST /mcp)', () => {
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: { authorization: `Bearer ${admin}` },
-      payload: { username, email: `${username}@testify.local`, password: 'SecurePass123!', global_role: JSON.parse(roleRes.payload).role.name },
+      payload: { username, email: `${username}@tessick.local`, password: 'SecurePass123!', global_role: JSON.parse(roleRes.payload).role.name },
     });
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'SecurePass123!' } });
     const token = JSON.parse(login.payload).token;

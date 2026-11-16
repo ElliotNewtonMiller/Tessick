@@ -141,7 +141,7 @@ export function LoginPage({ onLoginSuccess, notice }: LoginPageProps) {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            TESTIFY
+            TESSICK
           </h1>
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
             Enterprise Test Execution & Quality Assurance
@@ -380,7 +380,7 @@ export function LoginPage({ onLoginSuccess, notice }: LoginPageProps) {
             <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: '1.5', marginBottom: '20px' }}>
               Self-service user registration and automated password resets are disabled for security compliance.
               <br /><br />
-              Please contact your <strong>Testify System Administrator</strong> or user manager to issue new credentials or reset your account password.
+              Please contact your <strong>Tessick System Administrator</strong> or user manager to issue new credentials or reset your account password.
             </p>
             <button
               onClick={() => setShowForgotPasswordModal(false)}

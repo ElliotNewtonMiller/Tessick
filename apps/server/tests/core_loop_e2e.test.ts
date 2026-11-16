@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.ts';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 
 describe('Core Operational Loop E2E Integration Test', () => {
   let serverInstance: any;
@@ -168,7 +168,7 @@ describe('Core Operational Loop E2E Integration Test', () => {
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         username: 'readonly_viewer',
-        email: 'readonly_viewer@testify.local',
+        email: 'readonly_viewer@tessick.local',
         password: 'ReadonlyViewer1!',
         global_role: 'Viewer',
       },

@@ -2,10 +2,10 @@
 
 **Status:** Design document, updated 2026-10-11 to match what's built
 **Author:** Lead System Architect & QA Domain Specialist
-**Target Platform:** Testify
+**Target Platform:** Tessick
 **Date:** September 8, 2026
 
-> **Database engine (changed 2026-09-11):** the original design ran two SQL engines, native SQLite for local use and PostgreSQL for production. The SQLite driver (`better-sqlite3`) proved unreliable across machines, so Testify uses one Postgres-compatible dialect: an embedded `PGlite` (WASM Postgres) instance for development and tests, and a real PostgreSQL server in production. See §4.
+> **Database engine (changed 2026-09-11):** the original design ran two SQL engines, native SQLite for local use and PostgreSQL for production. The SQLite driver (`better-sqlite3`) proved unreliable across machines, so Tessick uses one Postgres-compatible dialect: an embedded `PGlite` (WASM Postgres) instance for development and tests, and a real PostgreSQL server in production. See §4.
 
 ---
 

@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 
 /**
  * Readable case ids. Anywhere the API takes a case id -- the `:caseId` path parameter,

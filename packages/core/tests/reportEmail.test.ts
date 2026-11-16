@@ -69,19 +69,19 @@ describe('renderReportEmail', () => {
   };
 
   it('subject summarizes a single run; the link and message appear; user text is escaped', () => {
-    const email = renderReportEmail([{ reportId: 'run_summary', data: runSummary, url: 'https://testify.example/#/reports/run?project=p&run=r2' }], {
+    const email = renderReportEmail([{ reportId: 'run_summary', data: runSummary, url: 'https://tessick.example/#/reports/run?project=p&run=r2' }], {
       projectName: 'Shop & Co',
       message: 'FYI <b>team</b>',
     });
-    expect(email.subject).toBe('Testify · Shop & Co · Run v2: 50% pass, 1 new failure');
-    expect(email.html).toContain('href="https://testify.example/#/reports/run?project=p&amp;run=r2"');
+    expect(email.subject).toBe('Tessick · Shop & Co · Run v2: 50% pass, 1 new failure');
+    expect(email.html).toContain('href="https://tessick.example/#/reports/run?project=p&amp;run=r2"');
     expect(email.html).toContain('New failures');
     expect(email.html).not.toContain('<script>');
     expect(email.html).not.toContain('<img');
     expect(email.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(email.html).toContain('FYI &lt;b&gt;team&lt;/b&gt;');
     expect(email.html).toContain('Shop &amp; Co');
-    expect(email.text).toContain('Open in Testify: https://testify.example/');
+    expect(email.text).toContain('Open in Tessick: https://tessick.example/');
   });
 
   it('a title (e.g. a schedule name) becomes the subject; several sections render in order; unknown reports are rejected', () => {
@@ -93,9 +93,9 @@ describe('renderReportEmail', () => {
       ],
       { projectName: 'Shop', title: 'Weekly digest' }
     );
-    expect(email.subject).toBe('Testify · Shop · Weekly digest');
+    expect(email.subject).toBe('Tessick · Shop · Weekly digest');
     expect(email.html.indexOf('Project overview')).toBeLessThan(email.html.indexOf('Run: v2'));
-    expect(email.html).not.toContain('Open in Testify'); // no public URL configured
+    expect(email.html).not.toContain('Open in Tessick'); // no public URL configured
     expect(() => renderReportEmail([{ reportId: 'case_history', data: {}, url: null }], { projectName: 'x' })).toThrow();
   });
 

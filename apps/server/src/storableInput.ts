@@ -1,5 +1,5 @@
 import type { FastifyError, FastifyInstance, FastifyRequest } from 'fastify';
-import { nulFields, withoutNul } from '@testify/core';
+import { nulFields, withoutNul } from '@tessick/core';
 import { sendError } from './errors.js';
 
 declare module 'fastify' {
@@ -33,7 +33,7 @@ export function registerNulGuard(app: FastifyInstance): void {
     const params = nulFields(request.params).map((name) => (name === '*' ? 'path' : name));
     const fields = [...params, ...nulFields(request.query), ...nulFields(request.body)];
     if (fields.length === 0) return;
-    const reason = "contains a NUL character (U+0000), which Testify can't store";
+    const reason = "contains a NUL character (U+0000), which Tessick can't store";
     return sendError(reply, 400, `${fields.join(', ')} ${reason}`, {
       code: 'INVALID_REQUEST',
       invalid_params: [...new Set(fields)].map((name) => ({ name, reason })),
@@ -45,7 +45,7 @@ export function registerNulGuard(app: FastifyInstance): void {
 const UNSTORABLE_VALUE: Record<string, string> = {
   '22001': 'A value in the request is too long to store.',
   '22003': 'A number in the request is too large to store.',
-  '22021': "The request contains a character Testify can't store.",
+  '22021': "The request contains a character Tessick can't store.",
   '22P02': "A value in the request isn't in the expected form, e.g. text where a whole number belongs.",
   '22007': "A date in the request isn't in the expected form.",
   '22008': 'A date in the request is out of range.',

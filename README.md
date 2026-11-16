@@ -1,6 +1,6 @@
-# Testify
+# Tessick
 
-Testify is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
+Tessick is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 
 - **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types, for all projects or chosen ones.
 - **Execution**: test plans and test runs, with a keyboard-driven queue (`j`/`k` to move, `p`/`f`/`b`/`s` to record a verdict). CI systems send their JUnit XML reports, or results as JSON, through the API.
@@ -31,12 +31,12 @@ npx tsx apps/server/scripts/report-demo.ts
 
 ## Running it for real
 
-Testify runs as one process that serves both the API and the web app, on top of PostgreSQL. The quickest way to get both is Docker Compose:
+Tessick runs as one process that serves both the API and the web app, on top of PostgreSQL. The quickest way to get both is Docker Compose:
 
 ```bash
 cp .env.example .env    # then fill in POSTGRES_PASSWORD and JWT_SECRET (openssl rand -hex 32)
 docker compose up -d
-docker compose logs testify   # shows the first admin's generated password, once
+docker compose logs tessick   # shows the first admin's generated password, once
 ```
 
 Then open http://localhost:3001.
@@ -46,7 +46,7 @@ Without Docker:
 ```bash
 npm ci
 npm run build
-DATABASE_URL=postgres://user:pass@host:5432/testify JWT_SECRET=$(openssl rand -hex 32) npm start
+DATABASE_URL=postgres://user:pass@host:5432/tessick JWT_SECRET=$(openssl rand -hex 32) npm start
 ```
 
 [docs/deployment.md](docs/deployment.md) covers configuration, HTTPS and reverse proxies, backups, upgrades and running more than one instance.
@@ -75,7 +75,7 @@ Schema changes always go in a new migration in `packages/db/src/migrations/`; ne
 ## API and integrations
 
 - **Getting started**: [docs/api_getting_started.md](docs/api_getting_started.md) takes you from making an API token to a CI pipeline that records its results (with examples for GitHub Actions, GitLab CI, Jenkins and Azure DevOps).
-- **REST API**: sign in with `POST /api/v1/auth/login`, or use an API token from Admin Panel → API Tokens (`Authorization: Bearer tf_ci_...`).
+- **REST API**: sign in with `POST /api/v1/auth/login`, or use an API token from Admin Panel → API Tokens (`Authorization: Bearer tk_ci_...`).
 - **API docs page**: open `/docs` on your server (e.g. `http://localhost:3001/docs`) to browse the routes and try them; the OpenAPI spec is at `/docs/json`. Every route is on it.
 - **Results from CI**: upload the JUnit XML report your tests already write (`POST /api/v1/plans/:planId/results/junit?run_name=...`), or send JSON (`POST /api/v1/runs/:runId/results/batch`).
 - **API reference**: [docs/rfc_03_api_and_xml_contracts.md](docs/rfc_03_api_and_xml_contracts.md) §1-4 has the conventions, every route and the error codes.

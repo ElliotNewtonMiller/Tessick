@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import nodemailer, { type Transporter } from 'nodemailer';
-import type { Database, LastEmail } from '@testify/db';
-import { LastEmailRepository, SystemSettingsRepository } from '@testify/db';
+import type { Database, LastEmail } from '@tessick/db';
+import { LastEmailRepository, SystemSettingsRepository } from '@tessick/db';
 import { getSecretBox, isEncryptedSecret, SecretDecryptError } from './secrets.js';
 
 /** system_settings keys for outgoing email. */
@@ -24,7 +24,7 @@ export interface EmailSettings {
   /** A password is stored but can't be decrypted (SECRETS_KEY missing or changed). */
   smtp_password_unreadable: boolean;
   from: string | null;
-  /** Base URL of the Testify web app, for "Open in Testify" links. */
+  /** Base URL of the Tessick web app, for "Open in Tessick" links. */
   public_url: string | null;
 }
 
@@ -72,11 +72,11 @@ export async function encryptStoredSmtpPassword(db: Kysely<Database>): Promise<v
   if (box) {
     await repo.setMany({ [EMAIL_SETTING_KEYS.smtp_password]: box.encrypt(stored) });
   } else if (process.env.NODE_ENV !== 'test') {
-    console.warn('[testify] The SMTP password is stored unencrypted. Set SECRETS_KEY (32+ characters) and restart to encrypt it.');
+    console.warn('[tessick] The SMTP password is stored unencrypted. Set SECRETS_KEY (32+ characters) and restart to encrypt it.');
   }
 }
 
-const DEFAULT_FROM = 'Testify <testify@localhost>';
+const DEFAULT_FROM = 'Tessick <tessick@localhost>';
 
 type TransportFactory = (settings: EmailSettings) => Transporter;
 

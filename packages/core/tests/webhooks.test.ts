@@ -31,7 +31,7 @@ describe('Slack-style messages', () => {
     created_at: '2026-10-12T10:00:00Z',
     project: { id: 'p', name: 'Shop', prefix: 'SHOP' },
     actor: { type: 'USER', name: 'alice' },
-    url: 'https://testify.example/#/reports/run?project=p',
+    url: 'https://tessick.example/#/reports/run?project=p',
     data,
   });
   const run = { id: 'r', name: 'CI build 7', status: 'OPEN' };
@@ -57,7 +57,7 @@ describe('Slack-style messages', () => {
     for (const e of [...WEBHOOK_EVENTS.map((x) => x.key), 'ping']) {
       const msg = renderSlackMessage(env(e, samples[e]));
       expect(msg.text, e).toContain('Shop · by alice');
-      expect(msg.text, e).toContain('<https://testify.example/#/reports/run?project=p|Open in Testify>');
+      expect(msg.text, e).toContain('<https://tessick.example/#/reports/run?project=p|Open in Tessick>');
       expect((msg.blocks[0] as any).type).toBe('section');
     }
     const closed = renderSlackMessage(env('run.closed', samples['run.closed'])).text;
@@ -90,7 +90,7 @@ describe('Teams messages', () => {
     created_at: '2026-10-14T10:00:00Z',
     project: { id: 'p', name: 'Shop', prefix: 'SHOP' },
     actor: { type: 'SERVICE_ACCOUNT', name: 'ci (API token)' },
-    url: 'https://testify.example/#/reports/run?project=p',
+    url: 'https://tessick.example/#/reports/run?project=p',
     data: {
       run: { name: 'CI build 7' },
       plan: { name: 'Regression' },
@@ -110,7 +110,7 @@ describe('Teams messages', () => {
     expect(attachment.contentType).toBe('application/vnd.microsoft.card.adaptive');
     const card = attachment.content;
     expect(card).toMatchObject({ type: 'AdaptiveCard', version: '1.4' });
-    expect(card.actions).toEqual([{ type: 'Action.OpenUrl', title: 'Open in Testify', url: env.url }]);
+    expect(card.actions).toEqual([{ type: 'Action.OpenUrl', title: 'Open in Tessick', url: env.url }]);
     const texts = card.body.map((b: any) => b.inlines.map((r: any) => r.text).join(''));
     expect(texts).toEqual([
       '❌ 2 failed in run CI build 7 (plan Regression). 3 passed · 2 failed.',

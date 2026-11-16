@@ -1,5 +1,5 @@
-import { CompatApiKeyRepository, CompatIdRepository, ProjectRepository, SystemSettingsRepository, TestSuiteRepository } from '@testify/db';
-import { METRICS_DEFAULT_EXCLUDED_SUITE, TestLinkQueryError, caseMatches, parseCaseQuery, swagProductFor, testCaseMetrics } from '@testify/core';
+import { CompatApiKeyRepository, CompatIdRepository, ProjectRepository, SystemSettingsRepository, TestSuiteRepository } from '@tessick/db';
+import { METRICS_DEFAULT_EXCLUDED_SUITE, TestLinkQueryError, caseMatches, parseCaseQuery, swagProductFor, testCaseMetrics } from '@tessick/core';
 import { writeAudit } from '../../audit.js';
 import type { CompatRoute } from '../index.js';
 import { CUSTOM } from '../versions.js';
@@ -11,7 +11,7 @@ import { loadProjectSpec, projectAccess } from '../projectData.js';
  * estimates and the project API key, `productKey`, that ties it to a project).
  *
  * TestLink serves the SWAG file to anyone, read and write, though it holds every project's API
- * key. Testify asks for a TestLink key to read it, and also a manager's permission
+ * key. Tessick asks for a TestLink key to read it, and also a manager's permission
  * (PLAN_MANAGE, as a Test Lead has) to replace it. Dave's manageSWAGS.html then needs to send an
  * APIKEY header (to settle with Dave). The file is kept in system_settings.
  */

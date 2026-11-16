@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { CompatIdRepository, TestSuiteRepository } from '@testify/db';
+import { CompatIdRepository, TestSuiteRepository } from '@tessick/db';
 import {
   TestLinkQueryError,
   parseCaseQuery,
@@ -11,7 +11,7 @@ import {
   suiteTreeItems,
   type SuiteTree,
   type TlSuite,
-} from '@testify/core';
+} from '@tessick/core';
 import type { CompatContext, CompatRoute } from '../index.js';
 import { ALL, CUSTOM } from '../versions.js';
 import { INSUFFICIENT_RIGHTS, tlError, tlKo, tlOk } from '../envelope.js';

@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { Database, TestSuiteNode } from '@testify/db';
+import type { Database, TestSuiteNode } from '@tessick/db';
 import {
   TestRunRepository,
   CustomFieldRepository,
@@ -7,14 +7,14 @@ import {
   TestCaseRepository,
   TestPlanRepository,
   TestSuiteRepository,
-} from '@testify/db';
+} from '@tessick/db';
 import {
   matchesCase,
   validateCaseFilterRequest,
   type CaseFilterProblem,
   type CaseFilterFieldDescriptor,
   type CaseFilterRecord,
-} from '@testify/core';
+} from '@tessick/core';
 
 const PRIORITY_VALUES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const EXECUTION_TYPE_VALUES = ['MANUAL', 'AUTOMATED'];

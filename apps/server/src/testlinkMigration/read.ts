@@ -1,4 +1,4 @@
-import { TL_NODE } from '@testify/core';
+import { TL_NODE } from '@tessick/core';
 import type { TestLinkSource } from './source.js';
 
 /**
@@ -55,7 +55,7 @@ export interface TestLinkData {
   roles: Array<{ id: number; description: string }>;
   roleRights: Array<{ role_id: number; right: string }>;
   projectRoles: Array<{ user_id: number; testproject_id: number; role_id: number }>;
-  /** What exists in TestLink but not in Testify, so it's counted, not migrated. */
+  /** What exists in TestLink but not in Tessick, so it's counted, not migrated. */
   notMigrated: { requirements: number; attachments: number };
 }
 

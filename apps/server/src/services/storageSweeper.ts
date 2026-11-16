@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { EvidenceUploadRepository, StorageDeletionRepository, type Database } from '@testify/db';
+import { EvidenceUploadRepository, StorageDeletionRepository, type Database } from '@tessick/db';
 import type { StorageProvider } from '../storage/provider.js';
 
 /**

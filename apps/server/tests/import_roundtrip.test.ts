@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
 
-/** A Testify export imported into another project gives back the same cases. */
+/** A Tessick export imported into another project gives back the same cases. */
 describe('Export, then import into another project', () => {
   let app: any;
   let seed: any;

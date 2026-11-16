@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 /**
- * A tiny S3 for tests, in-process: path-style buckets, and the requests Testify's S3 provider
+ * A tiny S3 for tests, in-process: path-style buckets, and the requests Tessick's S3 provider
  * makes (PUT, GET with one Range, HEAD, DELETE, HEAD bucket), presigned PUTs included. Like S3, it
  * refuses a PUT whose `x-amz-checksum-sha256` doesn't match the body (BadDigest). It doesn't check
  * signatures: the SDK's signing isn't what's under test.

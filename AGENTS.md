@@ -1,10 +1,12 @@
-# Testify — Agent / Contributor Guide
+# Tessick — Agent / Contributor Guide
 
 This file orients any AI coding agent (Claude, Gemini/Antigravity, etc.) or human contributor working in this repo. It describes how things are **now**. The history behind them -- every change, why it was made and how it was tested -- is in `docs/changelog.md`. Read this file before making changes, and check `docs/changelog.md` before changing something that looks odd: it's often a decision made with Elliot (the project's owner).
 
-## What Testify is
+## What Tessick is
 
-Testify is an open-source, self-hosted test case management app meant to replace TestLink. It's feature-complete enough to deploy (README, Docker, CI, production build).
+Tessick is an open-source, self-hosted test case management app meant to replace TestLink. It's feature-complete enough to deploy (README, Docker, CI, production build).
+
+It was named **Testify** until 2026-11-15 (renamed by Elliot: the name clashed with a popular Go testing library). Older `docs/changelog.md` entries and the `.antigravity/agents/` briefs keep the old name, as history; everything else says Tessick (`@tessick/*` packages, `tessick_session`, `X-Tessick-*` headers, `tk_ci_` tokens).
 
 **Specification:**
 - Projects contain a tree of test suites, which contain test cases.
@@ -37,9 +39,9 @@ npm run dev --workspace=apps/server      # API on :3001, in-memory database (src
 npm run dev --workspace=apps/web         # web app on :3000, proxies /api to :3001
 npm run build                            # production: apps/web/dist + apps/server/dist/server.js
 npm start                                # production: one process serving the API and web app (needs DATABASE_URL, JWT_SECRET)
-docker compose up -d                     # Testify + PostgreSQL; copy .env.example to .env first
+docker compose up -d                     # Tessick + PostgreSQL; copy .env.example to .env first
 npx tsx apps/server/scripts/report-demo.ts   # loads a demo project with 8 runs of results through the API
-npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Testify's)
+npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Tessick's)
 ```
 
 **Development database:**
@@ -56,7 +58,7 @@ npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves
 - Also read: `SECRETS_KEY`, `ADMIN_PASSWORD`, `PORT`, `TRUST_PROXY`, `CORS_ORIGINS`, `LOG_LEVEL`, `WEB_DIST_DIR`, `SEED_SAMPLE_DATA`, `SEED_DEV_FIXTURES`, `WEBHOOK_ALLOW_LOCAL`, `EVIDENCE_MAX_FILE_MB`.
 - All of it is parsed in `apps/server/src/config.ts`.
 
-**First admin on a real database:** username `admin`. The password is `ADMIN_PASSWORD` if set; otherwise a random one is printed once in the log, and Testify makes the admin change it at first sign-in.
+**First admin on a real database:** username `admin`. The password is `ADMIN_PASSWORD` if set; otherwise a random one is printed once in the log, and Tessick makes the admin change it at first sign-in.
 
 ## Repo layout
 
@@ -78,8 +80,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    the REST routes as the caller (internalRequests.ts).
   src/testlinkCompat/  The TestLink-compatible API (/lib/api/rest/{v1,v2,custom}, docs/testlink_compat_api.md):
                    index.ts (mounting per version), auth.ts (TestLink API keys), envelope.ts (TestLink's answers),
-                   versions.ts, projectData.ts (Testify's rows as TestLink rows, with numeric ids), writes.ts (calling
-                   Testify's routes as the key's user, refusals in TestLink's envelope), routes/ (one file per area;
+                   versions.ts, projectData.ts (Tessick's rows as TestLink rows, with numeric ids), writes.ts (calling
+                   Tessick's routes as the key's user, refusals in TestLink's envelope), routes/ (one file per area;
                    reads use the repositories, writes go through innerRequest with via 'testlink').
   src/testlinkMigration/  The migration from TestLink's database: source.ts (PostgreSQL, or MySQL with mysql2),
                    read.ts (portable SELECTs), migrate.ts (one transaction, TestLink's ids kept; scripts/migrate-testlink.ts).
@@ -137,7 +139,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 
 **Evidence** (screenshots, videos, logs, Playwright traces; `routes/evidence.ts`, RFC 03 §5):
 - It belongs to a case's execution in a run (run + plan link) and names the result it was added with; results read through the API list theirs.
-- Files are recognised by their contents only (`packages/core/src/evidence/sniff.ts`). Everything else is refused, and accepted files are always served by Testify with their sniffed type, `nosniff` and a `sandbox` CSP.
+- Files are recognised by their contents only (`packages/core/src/evidence/sniff.ts`). Everything else is refused, and accepted files are always served by Tessick with their sniffed type, `nosniff` and a `sandbox` CSP.
 - It can be added while the run is open, and for 24 hours after it closes only by whoever recorded the result (`test_runs.closed_at`, kept by a trigger). Deleting it is for its uploader while the run is open, or `EXECUTE_OVERWRITE` (decided with Elliot).
 - Uploads stream through the spool (size, SHA-256, type) before anything is stored. The same file again for the same execution is answered, not added. Every upload route answers `{ evidence, refused }` (201/200/207, or the refusal).
 - A deleted evidence row queues its file (`storage_deletions`, a trigger), and `services/storageSweeper.ts` deletes it after commit. So any delete path (run, plan, case, project with `force`) cleans up storage by itself.
@@ -164,7 +166,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 ## Auth and permissions
 
 **Sign-ins:**
-- The web app uses an HttpOnly `testify_session` cookie (`POST /auth/login` with `session: "cookie"`). Its writes must send `X-Testify-Client: web` (CSRF guard).
+- The web app uses an HttpOnly `tessick_session` cookie (`POST /auth/login` with `session: "cookie"`). Its writes must send `X-Tessick-Client: web` (CSRF guard).
 - Scripts use `Authorization: Bearer <jwt>` from a plain login.
 - Every sign-in is a server-side session (`sessions` table): 8 hours idle, 7 days maximum.
 - Passwords are PBKDF2-SHA512 at 210,000 iterations (`hashPassword` in `user.repository.ts`, stored as `pbkdf2_sha512$<iterations>$<salt>$<key>`). Older hashes are upgraded when their user signs in. An unknown username still costs a password check, so timing doesn't reveal accounts.
@@ -174,7 +176,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 - 20 wrong passwords lock an account for 15 minutes; an admin can Unlock it.
 - 50 failures from one address in 15 minutes block that address.
 
-**API tokens** (`tf_ci_...`):
+**API tokens** (`tk_ci_...`):
 - Each is bound to one project. Anything in another project is "not found" to it: 404, as if it didn't exist, so a token learns nothing about other projects (`sendNotInTokenProjectError`; it was 403 `TOKEN_PROJECT_MISMATCH`, changed with Elliot on 2026-10-25 after the API audit).
 - Routes outside any project (`/admin/...`, creating a project, `PATCH /auth/me`) refuse tokens (`TOKEN_NOT_ALLOWED`); deny by default via `tokenMayUseRoute`, except `GET /auth/me`, `GET /projects` and `/mcp`. A new route outside a project is therefore closed to tokens automatically.
 - A token's capabilities are capped by its issuer's **current** permissions, checked on every use. Disabling the issuer revokes their tokens.
@@ -186,12 +188,12 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 **TestLink API keys** (for the TestLink-compatible API, `docs/testlink_compat_api.md`):
 - One per user (`user_api_keys`, SHA-256 hashed, 32 hex characters like TestLink's), made in My Account; a new one replaces the old. An admin can remove anyone's (`DELETE /admin/users/:userId/testlink-key`), and disabling a user removes theirs.
 - Sent as the `APIKEY` header (v2, custom) or the HTTP Basic user name (every version; v1 takes only that). Accepted **only** on `/lib/api/rest/...` (`testlinkCompat/auth.ts`), never on `/api` or `/mcp`.
-- It acts as its user, with their permissions in each project, and counts against the per-user limit. Writes go through Testify's routes as an inner request carrying the user's id (`innerRequest(..., { asUserId })`, `via: 'testlink'`, honoured only with the per-process secret).
+- It acts as its user, with their permissions in each project, and counts against the per-user limit. Writes go through Tessick's routes as an inner request carrying the user's id (`innerRequest(..., { asUserId })`, `via: 'testlink'`, honoured only with the per-process secret).
 - A missing or wrong key gets TestLink's `400 {"status":"ko","message":"authentication error"}`; every answer on those paths is TestLink's envelope, not problem details.
 - Each compat route answers only with the HTTP codes Dave's spec documents for it (`statuses` on the route): any other refusal is a 200 with `status: "ko"`/`"error"`, as TestLink's PHP answers, except auth (400), the rate limit (429) and server errors.
 - Editing an approved case's content through it makes a new DRAFT (as MCP; decided with Elliot); `status: 7` approves, `5`/`active: 0` deprecates, both needing SPEC_APPROVE.
 - A TestLink key isn't the password: the password-change requirement (`must_change_password`) doesn't hold its requests, so a migrated user's scripts work before an admin sets their password.
-- `compat_ids.origin` says whether a number came from TestLink (the migration, an XML import) or was given by Testify; the migration refuses a number Testify gave.
+- `compat_ids.origin` says whether a number came from TestLink (the migration, an XML import) or was given by Tessick; the migration refuses a number Tessick gave.
 
 **Permissions:**
 - The registry is in `packages/core/src/rbac/registry.ts` (20 keys).
@@ -222,7 +224,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Lists that grow (a project's cases, a run's results, a plan's runs, the audit log, case history) are paged: `limit` and `cursor` in, `next_cursor` out (null on the last page). Keyset helpers are in `packages/db/src/paging.ts`; routes read the page with `readPage` (`apps/server/src/paging.ts`), which answers `400 INVALID_CURSOR`. Short lists stay whole.
   - Fields are snake_case, and ids are named after their database columns (`test_plan_id`, `test_run_id`, `test_case_id`, ...). Never "build" or "execution" in a new address, field or code.
   - A case may be named by its readable id (SHOP-12) wherever a case id is taken: `authenticateRequest` replaces `:caseId`, `test_case_id` and `case_ids` with internal ids once the caller is known (`caseRefs.ts`). A readable id shared by several projects is settled by the request's project or an API token's, otherwise `400 AMBIGUOUS_CASE_ID`.
-  - Bulk changes (`routes/bulkChanges.ts`) and MCP write tools run each change through its ordinary route in-process (`innerRequest` in `internalRequests.ts`, as the caller), so they need no rules of their own. Such requests carry a per-process secret: they aren't rate-limited twice, and `internalVia(request)` says `bulk`, `mcp` or `testlink` (`mcp` makes new cases DRAFT and marks audit User-Agents "(via Testify MCP)"; `testlink` acts as the key's user, marks them "(via TestLink API)", and starts a case as DRAFT when the client asked for one: `startsAsDraft`).
+  - Bulk changes (`routes/bulkChanges.ts`) and MCP write tools run each change through its ordinary route in-process (`innerRequest` in `internalRequests.ts`, as the caller), so they need no rules of their own. Such requests carry a per-process secret: they aren't rate-limited twice, and `internalVia(request)` says `bulk`, `mcp` or `testlink` (`mcp` makes new cases DRAFT and marks audit User-Agents "(via Tessick MCP)"; `testlink` acts as the key's user, marks them "(via TestLink API)", and starts a case as DRAFT when the client asked for one: `startsAsDraft`).
   - In the web app, take addresses from `apps/web/src/api/routes.ts`.
 - **Route schemas (OpenAPI):**
   - A documented route has `schema` (tags, summary, params, query, body, responses) from `apps/server/src/openapi/areas/<area>.ts`; shared schemas and helpers (`wrapped`, `list`, `authedErrors`, `NO_CONTENT`, `FORCE_QUERY`, `handlerValidated`, and `oneOf` for any field limited to a set of values, which also lists them in the description) are in `openapi/schemas.ts`. Routes without a tag stay out of the spec, and `openapi.test.ts` fails if any `/api` or `/mcp` route is missing (or mark it `hide: true`).
@@ -307,7 +309,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - A custom-field change made by another admin shows only after the next case or suite switch or a reload; nothing is pushed.
 - `AuditLogRepository` is used only by tests; routes insert audit rows directly.
 - Recharts 2 is deprecated upstream; the Recharts 3 upgrade hasn't been done.
-- The TestLink-compatible API can't add cases to a plan or make platforms (Dave's API has no such calls): that's done in Testify, or by the migration (phase 5).
+- The TestLink-compatible API can't add cases to a plan or make platforms (Dave's API has no such calls): that's done in Tessick, or by the migration (phase 5).
 - Webhooks:
   - No filters beyond events (e.g. only one plan's runs).
   - Events are queued just after their change commits, so a crash between the two loses one. Order isn't guaranteed across retries.
@@ -328,7 +330,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - **Every change gets an entry at the end of `docs/changelog.md`:** what changed, why, decisions made with Elliot, tests added, and how it was verified.
 - **Update this file** only when a fact, convention, decision or gap above changes. Keep it describing the present.
 - **`AGENTS.md` is an identical copy** of this file for other agents. Update both together.
-- **Commits:** Elliot has authorized committing directly to the local repo, in logical commits with clear messages. The repo is on GitHub (`origin`, `ElliotNewtonMiller/Testify`), where every push runs CI, including the production build on real PostgreSQL. Don't push unless asked.
+- **Commits:** Elliot has authorized committing directly to the local repo, in logical commits with clear messages. The repo is on GitHub (`origin`, `ElliotNewtonMiller/Tessick`), where every push runs CI, including the production build on real PostgreSQL. Don't push unless asked.
 - **Ask before downloading** packages or images.
 - **After a change,** give Elliot a short checklist of what to test, and add it to `docs/manual_test_backlog.md` with what you checked yourself and how. Verify UI changes yourself rather than waiting for him; he catches up on the backlog later (decided with Elliot, 2026-11-09).
 - **API work:** `docs/api_roadmap.md` tracks the planned API and MCP steps. Update a step's status and the Decisions table as the work happens.
@@ -336,7 +338,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 
 ## Doc map
 
-1. `README.md`: overview and quick start. `docs/deployment.md`: running Testify for real.
+1. `README.md`: overview and quick start. `docs/deployment.md`: running Tessick for real.
 2. `docs/changelog.md`: the history and reasoning behind everything.
 3. `docs/api_getting_started.md`: the API for scripts and CI, step by step. `docs/reports_api_and_mcp.md`: reports, the results API, MCP. The reference itself is `/docs` on a running server.
 4. `docs/manual_test_backlog.md`: the checks Elliot will do himself in the web app, and what the agent already checked. `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.

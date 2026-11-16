@@ -11,7 +11,7 @@ interface TestLinkKey {
 
 /**
  * My Account: your TestLink API key, for scripts and tools written for TestLink's REST API.
- * They send it as the APIKEY header to Testify's TestLink-compatible API (/lib/api/rest/...).
+ * They send it as the APIKEY header to Tessick's TestLink-compatible API (/lib/api/rest/...).
  * The key is shown once, when made; making a new one replaces the old.
  */
 export function TestLinkKeySection() {

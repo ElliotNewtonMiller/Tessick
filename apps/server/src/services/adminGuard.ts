@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { RoleRepository, UserRepository } from '@testify/db';
-import { PERMISSION_KEYS } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { RoleRepository, UserRepository } from '@tessick/db';
+import { PERMISSION_KEYS } from '@tessick/core';
 import type { AuthenticatedUser } from '../middleware/auth.js';
 
 /**

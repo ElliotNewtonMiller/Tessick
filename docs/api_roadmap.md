@@ -1,6 +1,6 @@
 # API & MCP Roadmap
 
-The next steps for Testify's API and MCP endpoint, with recommendations, open questions and status. Keep it current as the work happens:
+The next steps for Tessick's API and MCP endpoint, with recommendations, open questions and status. Keep it current as the work happens:
 - update each step's **Status** line;
 - record decisions in the **Decisions** table;
 - add each finished change to `docs/changelog.md` as usual.
@@ -13,7 +13,7 @@ Status values: **Not started**, **Planning**, **In progress**, **Done**, **Dropp
 
 **Good:**
 - **Coverage:** 130 endpoints cover nearly everything the web app does: projects, suites, cases and versions, plans, runs, results, evidence, search, import, export, custom fields, admin, API tokens, reports and report emails. The web app itself uses these endpoints, so anything you can click, a script can do.
-- **Security:** project-bound API tokens (`tf_ci_...`), permissions checked per project, rate limits and an audit log (RFC 04).
+- **Security:** project-bound API tokens (`tk_ci_...`), permissions checked per project, rate limits and an audit log (RFC 04).
 - **CI:** a build uploads its JUnit XML report as it is (up to 20,000 tests), or sends JSON batches of up to 5,000 results, into a run named after the build (step 5).
 - **Consistent** (step 1, 2026-10-12): one address style, verbs and status codes, one error format, one name per id, "runs" and "results" throughout.
 - **Webhooks:** a project's events reach Slack, CI or your own code as they happen, signed, with retries (step 7).
@@ -40,13 +40,13 @@ An **OpenAPI spec** is one structured file in a standard format that describes e
 - which permission it requires.
 
 Many tools read that format, so the one file gives:
-1. **A documentation page** served by Testify itself (e.g. `/docs`), generated from the file.
+1. **A documentation page** served by Tessick itself (e.g. `/docs`), generated from the file.
 2. **"Try it":** on that page, paste an API token, fill in a form for any endpoint, press Send, and see the real answer.
 3. **Client libraries:** tools can generate Python, TypeScript or other code for calling the API.
 4. **Imports into other tools and agents,** which can read the file to understand the whole API.
 5. **Docs that can't go stale:** tests check the server's real answers against the file.
 
-**How it fits Testify:** Fastify (the server framework) has an official plugin that builds the spec from a description (a JSON schema) attached to each route, and another plugin serves the page: Swagger UI, or Scalar. No route has a schema yet; input is checked by hand-written code. Adding schemas route by route is the main work. The same schemas then also do the input checking, so documentation and behavior can't disagree.
+**How it fits Tessick:** Fastify (the server framework) has an official plugin that builds the spec from a description (a JSON schema) attached to each route, and another plugin serves the page: Swagger UI, or Scalar. No route has a schema yet; input is checked by hand-written code. Adding schemas route by route is the main work. The same schemas then also do the input checking, so documentation and behavior can't disagree.
 
 ---
 
@@ -86,7 +86,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 5 | JSON bodies are capped at 1 MB, while the docs promise batches of 5,000 results with stack traces up to 100,000 characters; the 413 doesn't say the limit. | JSON batches take 50 MB, like JUnit files; every 413 says the limit. | **Done** (changelog 2026-10-23) |
 | 6 | Lists that grow aren't paged: a plan's runs (one per CI build), a plan's cases, the spec tree, users. | A plan's runs are paged, newest first (the web app follows the pages). A plan's cases (the Execute queue), the spec tree and users stay whole: the queue and the tree show everything, and users stay few. | **Done** (changelog 2026-10-23) |
 | 7 | The single-result route needs `test_plan_case_id`; elsewhere a case id or readable id works. | It also takes `test_case_id`: the case's id or readable id. | **Done** (changelog 2026-10-23) |
-| 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | Not now (decided with Elliot): nothing outside Testify uses the API yet, and an optional `If-Match` can be added later without breaking any client. | **Decided: not now** |
+| 8 | No ETag or version check: two editors (or an agent and a person) overwrite each other. | Not now (decided with Elliot): nothing outside Tessick uses the API yet, and an optional `If-Match` can be added later without breaking any client. | **Decided: not now** |
 | 9 | `executed_at` in the future (2099) is accepted, distorting "latest" and trends. | More than 5 minutes ahead is refused, per item. | **Done** (changelog 2026-10-23) |
 | 10 | Signed-in users have no request limit (only API tokens do). | 1,200 a minute per user, like tokens (decided with Elliot). | **Done** (changelog 2026-10-25) |
 | 11 | Misleading errors: a malformed token says "your sign-in has ended"; `INVALID_FILTER` has detail `INVALID_FILTER` and a blank field name; the 413 has no limit. | Filter errors (with 4) and the 413 (with 5); something that isn't a token is `INVALID_TOKEN`, not "your sign-in has ended". | **Done** (changelog 2026-10-23) |
@@ -110,7 +110,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 - naming of fields and query parameters;
 - what list, create and update responses look like.
 
-**Why now:** nothing outside Testify depends on the API yet. Once people write scripts against it, every change breaks them.
+**Why now:** nothing outside Tessick depends on the API yet. Once people write scripts against it, every change breaks them.
 
 **Recommendation (followed):** do this first, and write the result into RFC 03 to replace §1-4. The web app changes along with the routes.
 
@@ -147,7 +147,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 - Add a test that real responses match the spec.
 
 **How it works** (`apps/server/src/openapi/`):
-- **The page and spec:** Swagger UI at `/docs`, the spec at `/docs/json` and `/docs/yaml`, open to anyone. "Try it out" sends real requests: with the browser's session cookie (the page adds the `X-Testify-Client` header), or with a token entered under "Authorize". Routes without a schema yet are left out of the spec.
+- **The page and spec:** Swagger UI at `/docs`, the spec at `/docs/json` and `/docs/yaml`, open to anyone. "Try it out" sends real requests: with the browser's session cookie (the page adds the `X-Tessick-Client` header), or with a token entered under "Authorize". Routes without a schema yet are left out of the spec.
 - **Route schemas** live in `openapi/areas/<area>.ts`; shared ones (`Problem`, `User`, `Project`, `Plan`, `Run`, ...) in `openapi/schemas.ts`, which become `#/components/schemas/...`.
 - **Requests are validated** against them: bodies exactly as sent, query strings and path parameters with type coercion. A mismatch is `400 INVALID_REQUEST` naming each field. Routes that already check their input more precisely (single and batch results) keep their own checks; their body schema is documentation only (`handlerValidated`).
 - **Responses aren't changed** by their schemas: they're serialized with plain `JSON.stringify`.
@@ -181,7 +181,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 ### 5. Make CI integration easy
 
 **Status:** Done (2026-10-12).
-- **JUnit XML upload:** `POST /runs/{id}/results/junit` takes the report test runners already write, matching each test to a case by readable id (a `testify_id` property or an id in the name), otherwise by suite and title, as a JUnit import names cases.
+- **JUnit XML upload:** `POST /runs/{id}/results/junit` takes the report test runners already write, matching each test to a case by readable id (a `tessick_id` property or an id in the name), otherwise by suite and title, as a JUnit import names cases.
 - **Runs by name:** `POST /plans/{id}/results/junit|batch?run_name=` creates the build's run on first use and reuses it after.
 - **Guide:** [api_getting_started.md](api_getting_started.md) §5 has examples for GitHub Actions, GitLab CI, Jenkins and Azure DevOps.
 - **Not built** (decided with Elliot): a command-line uploader (curl is enough) and generated client libraries (`/docs/json` works with OpenAPI generators).
@@ -199,7 +199,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 - **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading. Later: `add_evidence`, `create_evidence_upload` and `complete_evidence_upload`, with `list_evidence` and `get_evidence` for reading (evidence, 2026-11-09); `duplicate_case` (2026-11-15).
 - **As the caller:** each calls the REST routes with the caller's credential, so the token's capabilities decide, and a token is offered only the tools it may use.
 - **People approve:** agent-made cases are always DRAFT, and editing an approved case makes a new DRAFT. There are no approve, deprecate or delete tools.
-- **Audit:** changes are marked "via Testify MCP" in their audit rows, and every call writes an `MCP_WRITE` row to the Security Audit Log.
+- **Audit:** changes are marked "via Tessick MCP" in their audit rows, and every call writes an `MCP_WRITE` row to the Security Audit Log.
 
 **What:** MCP tools that change things, such as creating and editing test cases, recording results, creating plans and runs, and adding cases to plans.
 
@@ -218,7 +218,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 - the server: events, delivery with signing and retries, address rules, the management and delivery-log API;
 - the Admin Panel's Webhooks tab: create, edit, pause, test, new secret, delete, and the delivery log with Send again.
 
-**What:** Testify calls other systems when something happens, such as a run finishing, a test failing or a case being approved, so Slack, a bug tracker or CI can react. Each call is signed so the receiver can trust it. Designed in RFC 03 §7.3; not built.
+**What:** Tessick calls other systems when something happens, such as a run finishing, a test failing or a case being approved, so Slack, a bug tracker or CI can react. Each call is signed so the receiver can trust it. Designed in RFC 03 §7.3; not built.
 
 **Recommendation:** after steps 1-3. Needs a settings screen, retries for failed deliveries, and a delivery log.
 
@@ -252,14 +252,14 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 
 **Status:** In progress. Phases 1 to 5 of 6 done (2026-10-26): every route in Dave's API. That's the three version paths, TestLink API keys, TestLink's envelope and errors, the test routes, every read (with Dave's query layer), every write, `/testcasemetrics` and the SWAG file. Phase 5 done too: the migration from TestLink's database (`apps/server/scripts/migrate-testlink.ts`), and TestLink XML imports keeping TestLink's ids. Next: the parity check against the real TestLink (phase 6), which needs access to Dave's TestLink.
 
-**What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Testify as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
+**What:** Dave's TestLink REST API (v1, v2, custom: 29 endpoints) answered by Tessick as TestLink answers, so his scripts, AI tooling, metrics page and SWAG editor change only the host. The design, phases and what can't be exact are in [testlink_compat_api.md](testlink_compat_api.md).
 
 **How:**
-- A translation layer (`apps/server/src/testlinkCompat/`): reads through the repositories, writes through Testify's routes as the key's user (`innerRequest`, `via: 'testlink'`), so permissions, validation, audit and webhooks apply unchanged.
+- A translation layer (`apps/server/src/testlinkCompat/`): reads through the repositories, writes through Tessick's routes as the key's user (`innerRequest`, `via: 'testlink'`), so permissions, validation, audit and webhooks apply unchanged.
 - TestLink's numeric ids kept beside the UUIDs (`compat_ids`), with project, suite, case, version and plan sharing one sequence, as TestLink's nodes do.
 - A migration from TestLink's database that keeps its ids and users' keys (phase 5; needs database access and a MySQL client package).
 
-**To settle with Dave:** custom execution status codes; whether platforms are used; database access for the migration; whether Testify serves his HTML pages (they need their own Content-Security-Policy); `/swagfile` requiring a key.
+**To settle with Dave:** custom execution status codes; whether platforms are used; database access for the migration; whether Tessick serves his HTML pages (they need their own Content-Security-Policy); `/swagfile` requiring a key.
 
 ### Related gaps worth doing alongside
 
@@ -291,10 +291,10 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-11 | Short path names: `/suites`, `/cases`, `/versions`, `/plans`, `/runs`, `/results`. | |
 | 2026-10-11 | Rename in the database too: `builds` → `test_runs`, `executions` → `test_results`, `execution_steps` → `test_step_results`. | Migration `007`. |
 | 2026-10-11 | Id fields use the database column names (`test_plan_id`, `test_run_id`, ...) everywhere in the API. | One name per id, no translation layer. |
-| 2026-10-11 | No aliases: old addresses change outright; the cleaned-up API becomes the stable `/api/v1` (step 2). | Nothing outside Testify uses the API yet. |
+| 2026-10-11 | No aliases: old addresses change outright; the cleaned-up API becomes the stable `/api/v1` (step 2). | Nothing outside Tessick uses the API yet. |
 | 2026-10-12 | `PUT` stays for updates that replace the whole thing: report schedules and the email settings. Everything else that updates part of an item is `PATCH`. | Found while converting; a missing field in those bodies clears the value. |
 | 2026-10-12 | Removing a whole suite from a plan answers 200 with counts, not 204. | The counts (`removed`, `retired`, `skipped`) are what the web app shows. |
-| 2026-10-12 | Swagger UI for the docs page. | Chosen over Scalar: it serves all its files from Testify, so it works without internet access. |
+| 2026-10-12 | Swagger UI for the docs page. | Chosen over Scalar: it serves all its files from Tessick, so it works without internet access. |
 | 2026-10-12 | `/docs` and the spec are open to anyone. | They describe the API, not data; "Try it out" still needs a sign-in or token. |
 | 2026-10-12 | Schemas validate requests, but don't replace the routes' own checks where those give more specific errors (results, batch). Responses are never reshaped by schemas; tests check them instead. | Keeps behaviour and error codes the same while the spec is added area by area. |
 | 2026-10-12 | Report outputs are described only at the top level in the spec, for now. | Each of the six reports has its own deep shape; the catalog and reports_api_and_mcp.md describe them. Full schemas per report are a possible follow-up. |
@@ -304,7 +304,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-12 | Bulk changes (e.g. deprecating many cases) become their own roadmap step. | Keeps this pass to reads and paging. |
 | 2026-10-12 | One recipient at a time: `POST /report-schedules/{id}/recipients` and `DELETE /report-schedules/{id}/recipients/{email}`, rather than a partial `PATCH`. | `PUT` stays for replacing a whole schedule. A schedule keeps at least one recipient (`409 LAST_RECIPIENT`); adding one already there changes nothing. |
 | 2026-10-12 | CI uploads JUnit XML to the server as it is (`/results/junit`); no command-line uploader. | Nothing to install in CI; one `curl`. The same file format a JUnit import reads. |
-| 2026-10-12 | A JUnit test matches a case by readable id first (a `testify_id` property, or an id in the test name), otherwise by suite and title as a JUnit import names cases. Unmatched tests are reported (207), never created. | "Import the JUnit file once, then upload each build's file" needs no changes to the tests. |
+| 2026-10-12 | A JUnit test matches a case by readable id first (a `tessick_id` property, or an id in the test name), otherwise by suite and title as a JUnit import names cases. Unmatched tests are reported (207), never created. | "Import the JUnit file once, then upload each build's file" needs no changes to the tests. |
 | 2026-10-12 | One call creates or reuses a build's run by name (`run_name` on `POST /plans/{id}/results/junit` and `/results/batch`). | Creating needs `RUN_MANAGE`; reusing only `EXECUTE_RUN`. Concurrent jobs end up in one run. |
 | 2026-10-12 | Guide examples for GitHub Actions, GitLab CI, Jenkins and Azure DevOps. | |
 | 2026-10-12 | CI results (JSON batches and JUnit uploads) never auto-close a run; `close_run=true` closes it on purpose. | Found while checking the guide live: with auto-linking, the first file of a build filled the plan and closed the run, refusing the build's other files and any re-run. Manual results still auto-close, once. |
@@ -312,7 +312,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-12 | Bulk changes run each item through its single-item route in-process (`app.inject`), with per-item outcomes (200/207) and no all-or-nothing mode. | Same rules, errors and audit rows as one-at-a-time, with no second copy of the logic. |
 | 2026-10-12 | Agents get: create suites and cases, edit cases (one or many), create runs, record results, add and remove plan cases. Not: approve, deprecate, restore, delete. | Decided with Elliot. |
 | 2026-10-12 | Cases an agent creates always start as DRAFT, even with `SPEC_AUTO_APPROVE`; editing an approved case's content makes a new DRAFT. | Decided with Elliot: a person approves agents' work, which also limits what prompt injection could do. |
-| 2026-10-12 | Every MCP write-tool call writes an `MCP_WRITE` row to the Security Audit Log, and its changes say "(via Testify MCP)" in their User-Agent. | The changes keep their usual audit rows too. |
+| 2026-10-12 | Every MCP write-tool call writes an `MCP_WRITE` row to the Security Audit Log, and its changes say "(via Tessick MCP)" in their User-Agent. | The changes keep their usual audit rows too. |
 | 2026-10-12 | Webhooks are managed with a new per-project `WEBHOOK_MANAGE` permission (Admin and Test Lead by default), never grantable to API tokens, in an Admin Panel tab. | Decided with Elliot. A webhook sends project data to any address. |
 | 2026-10-12 | Webhook targets: public and private networks yes; loopback and link-local (cloud metadata) no, unless `WEBHOOK_ALLOW_LOCAL=true`. Checked on save and on every connection after DNS; redirects not followed. | Decided with Elliot. |
 | 2026-10-12 | Two formats: signed JSON, and Slack-style messages (also Mattermost, Rocket.Chat, Discord's `/slack`). | Decided with Elliot; Teams later if asked for. |
@@ -324,14 +324,14 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-23 | API tokens choose where they work: the REST API and MCP (default), MCP only, or REST only (`interfaces`; `403 TOKEN_INTERFACE_NOT_ALLOWED`). An agent's token should be MCP only, since MCP's limits hold only on `/mcp`. Tokens describe themselves (`/auth/me`; `api_token` on `GET /projects` and MCP `list_projects`). | An agent whose MCP connection failed fell back to the REST API with the same token, stepping outside MCP's limits, and couldn't tell why it saw only one project. |
 | 2026-10-23 | NUL characters are refused with 400 naming the field, except on the result routes, imports and `/mcp`, which remove them. Limits (names 255, integers 2,147,483,647, suites 27 deep) are checked up front; a data exception the database still raises answers 400 and is logged. | Audit finding 1. Results and imports carry captured test output and other tools' files, where a stray NUL shouldn't cost the result. |
 | 2026-10-23 | API tokens can't hold `PROJECT_DELETE`; no trash for deleted projects. | Decided with Elliot (audit finding 2). |
-| 2026-10-23 | Unknown request fields and report filter keys are refused with 400. | Decided with Elliot (audit finding 4): nothing outside Testify uses the API yet, so this is the cheapest time. |
+| 2026-10-23 | Unknown request fields and report filter keys are refused with 400. | Decided with Elliot (audit finding 4): nothing outside Tessick uses the API yet, so this is the cheapest time. |
 | 2026-10-23 | Repeat uploads are caught with an optional `Idempotency-Key` header on the three result routes, kept 24 hours; no automatic de-duplication by content. | Decided with Elliot (audit finding 3). Content-based de-duplication would silently drop a genuine re-run whose report has no times. |
-| 2026-10-25 | No `If-Match`/ETag on edits for now. | Decided with Elliot (audit finding 8): nothing outside Testify uses the API yet, and an optional header can be added later without breaking clients. |
+| 2026-10-25 | No `If-Match`/ETag on edits for now. | Decided with Elliot (audit finding 8): nothing outside Tessick uses the API yet, and an optional header can be added later without breaking clients. |
 | 2026-10-25 | Signed-in users are limited to 1,200 requests a minute each, like tokens. | Decided with Elliot (audit finding 10). Nobody clicking comes near it; it stops a runaway script on a password sign-in. |
 | 2026-10-25 | To an API token, anything in another project is `404`, as if it didn't exist (it was `403 TOKEN_PROJECT_MISMATCH`). | Decided with Elliot (audit finding 15): the 403 confirmed the other project's item existed. The message still says it's not in the token's project. |
 | 2026-10-26 | A TestLink-compatible API (step 10): drop-in, only the host changes. | Decided with Elliot, for Dave's TestLink clients: TestLink's paths, numeric ids, bodies, answers and errors. |
 | 2026-10-26 | Its credential is a per-user TestLink API key, accepted only on `/lib/api/rest/...`. | Decided with Elliot: TestLink's keys are per user. Keeping it off `/api` and `/mcp` leaves the project-bound tokens and MCP's limits as they are. |
-| 2026-10-26 | An approved case edited through it gets a new DRAFT. | Decided with Elliot, as MCP: Testify keeps its approval rule. |
+| 2026-10-26 | An approved case edited through it gets a new DRAFT. | Decided with Elliot, as MCP: Tessick keeps its approval rule. |
 | 2026-10-26 | TestLink's whole history is migrated, keeping its ids and keys. | Decided with Elliot (phase 5). |
-| 2026-10-26 | No platforms feature in Testify. The TestLink-compatible API keeps TestLink's platform data as one plain run per (build, platform). | Decided with Elliot: teams that want to tell platforms apart do it their own way; Testify doesn't decipher platforms. |
+| 2026-10-26 | No platforms feature in Tessick. The TestLink-compatible API keeps TestLink's platform data as one plain run per (build, platform). | Decided with Elliot: teams that want to tell platforms apart do it their own way; Tessick doesn't decipher platforms. |
 | 2026-10-26 | The SWAG file (`/swagfile`) needs a TestLink key to read and `PLAN_MANAGE` to replace, though TestLink serves it to anyone. | It holds every project's API key. To confirm with Dave: his `manageSWAGS.html` must send an `APIKEY` header. |

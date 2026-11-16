@@ -5,12 +5,12 @@ import { sql, type Kysely } from 'kysely';
  * TestLink's requests with TestLink's identifiers, so a client of Dave's TestLink REST API
  * changes only the host.
  *
- * - `compat_ids`: TestLink's numeric ids for Testify's rows (UUIDs stay primary). Each
+ * - `compat_ids`: TestLink's numeric ids for Tessick's rows (UUIDs stay primary). Each
  *   `id_space` is one sequence: `node` holds projects, suites, cases, versions and plans
  *   together, as TestLink's nodes_hierarchy does (an id like `parentID` may name a project or a
  *   suite, so they must never collide); builds, executions, keywords, custom fields and
  *   platforms have their own. A migration from TestLink keeps TestLink's ids (`origin`
- *   'testlink'); new rows get the highest + 1 (`origin` 'testify').
+ *   'testlink'); new rows get the highest + 1 (`origin` 'tessick').
  * - `user_api_keys`: a user's TestLink API key (the APIKEY header), one per user, stored as a
  *   SHA-256 digest like API tokens. It works only on the TestLink-compatible paths.
  * - `compat_api_keys`: the project and plan API keys TestLink uses as identifiers in requests
@@ -23,9 +23,9 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('int_id', 'integer', (col) => col.notNull())
     .addColumn('entity_type', 'varchar(20)', (col) => col.notNull())
     .addColumn('entity_id', 'varchar(36)', (col) => col.notNull())
-    // 'testlink': kept from TestLink by the migration; 'testify': given by Testify when the row
-    // was first shown. The migration refuses to reuse a number Testify gave.
-    .addColumn('origin', 'varchar(10)', (col) => col.notNull().defaultTo('testify'))
+    // 'testlink': kept from TestLink by the migration; 'tessick': given by Tessick when the row
+    // was first shown. The migration refuses to reuse a number Tessick gave.
+    .addColumn('origin', 'varchar(10)', (col) => col.notNull().defaultTo('tessick'))
     .addPrimaryKeyConstraint('pk_compat_ids', ['id_space', 'int_id'])
     .addUniqueConstraint('uq_compat_ids_entity', ['entity_type', 'entity_id'])
     .execute();

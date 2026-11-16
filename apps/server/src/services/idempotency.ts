@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import { sendError } from '../errors.js';
 
 /**

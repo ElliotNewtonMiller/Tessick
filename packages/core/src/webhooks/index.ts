@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 
 /**
- * Webhooks (API roadmap step 7): the events Testify sends, how a delivery is signed, the
+ * Webhooks (API roadmap step 7): the events Tessick sends, how a delivery is signed, the
  * Slack-style message for webhooks that want one, and which addresses a webhook may not reach.
  * The server's delivery worker is apps/server/src/services/webhooks.ts. Formats: the JSON envelope, a
  * Slack-style message, or a Microsoft Teams Adaptive Card.
@@ -174,7 +174,7 @@ function headline(env: WebhookEnvelope, st: Style): string {
   const tc = d.test_case ? `${st.bold(st.esc(d.test_case.external_id))} ${st.esc(d.test_case.title)}` : 'A test case';
   switch (env.event) {
     case 'ping':
-      return `${st.icon('bell', '🔔')}Testify webhook ${st.bold(st.esc(d.webhook?.name))} works.`;
+      return `${st.icon('bell', '🔔')}Tessick webhook ${st.bold(st.esc(d.webhook?.name))} works.`;
     case 'run.created':
       return `${st.icon('arrow_forward', '▶️')}Run ${run} started${plan}.`;
     case 'run.closed': {
@@ -204,7 +204,7 @@ function headline(env: WebhookEnvelope, st: Style): string {
       return `${st.icon('inbox_tray', '📥')}Import finished: ${c.imported_cases_count ?? 0} cases in ${c.imported_suites_count ?? 0} suites (${st.esc(d.format)}).`;
     }
     default:
-      return `Testify event ${st.esc(env.event)}.`;
+      return `Tessick event ${st.esc(env.event)}.`;
   }
 }
 
@@ -215,7 +215,7 @@ function headline(env: WebhookEnvelope, st: Style): string {
 export function renderSlackMessage(env: WebhookEnvelope): { text: string; blocks: unknown[] } {
   const main = headline(env, SLACK);
   const failures = eventFailures(env, SLACK).join('\n');
-  const link = env.url ? `<${env.url}|Open in Testify>` : '';
+  const link = env.url ? `<${env.url}|Open in Tessick>` : '';
   const who = [`${slackEscape(env.project.name)}`, env.actor ? `by ${slackEscape(env.actor.name)}` : ''].filter(Boolean).join(' · ');
 
   const text = clip([main, failures, [who, link].filter(Boolean).join(' · ')].filter(Boolean).join('\n'), 3900);
@@ -249,7 +249,7 @@ export function renderTeamsMessage(env: WebhookEnvelope): { type: 'message'; att
     version: '1.4',
     msteams: { width: 'Full' },
     body,
-    ...(env.url ? { actions: [{ type: 'Action.OpenUrl', title: 'Open in Testify', url: env.url }] } : {}),
+    ...(env.url ? { actions: [{ type: 'Action.OpenUrl', title: 'Open in Tessick', url: env.url }] } : {}),
   };
   return { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: card }] };
 }

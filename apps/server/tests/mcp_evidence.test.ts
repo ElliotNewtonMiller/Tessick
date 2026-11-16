@@ -79,7 +79,7 @@ describe('MCP evidence tools', () => {
 
     // Through MCP, marked as such in the audit log.
     const added = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs?action=EVIDENCE_ADDED')).audit_logs;
-    expect(added.map((r: any) => r.user_agent)).toEqual(['claude-code/2.0 (via Testify MCP)', 'claude-code/2.0 (via Testify MCP)']);
+    expect(added.map((r: any) => r.user_agent)).toEqual(['claude-code/2.0 (via Tessick MCP)', 'claude-code/2.0 (via Tessick MCP)']);
   });
 
   it("follows the REST rules: a result first, the type by contents, the inline size, and no other project's run", async () => {

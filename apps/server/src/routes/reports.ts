@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import {
   REPORT_CATALOG,
   REPORT_DEFINITIONS,
@@ -10,14 +10,14 @@ import {
   validateReportParams,
   type ReportFormat,
   type RunSummaryReport,
-} from '@testify/core';
+} from '@tessick/core';
 import { requirePermission } from '../middleware/auth.js';
 import { ReportError, ReportService } from '../services/reportService.js';
 
 import { sendError, reportErrorParams } from '../errors.js';
 import * as O from '../openapi/areas/other.js';
 /**
- * Reports, driven entirely by @testify/core's REPORT_CATALOG:
+ * Reports, driven entirely by @tessick/core's REPORT_CATALOG:
  *
  * GET  /api/v1/projects/:projectId/reports            -- the catalog: every report, what it
  *      answers, its params as JSON Schema and formats, plus how every number is defined.

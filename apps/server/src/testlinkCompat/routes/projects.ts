@@ -1,5 +1,5 @@
-import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, ProjectRepository, TestPlanRepository, TestRunRepository } from '@testify/db';
-import { buildFlags, planFlags } from '@testify/core';
+import { CompatApiKeyRepository, CompatIdRepository, CompatPlatformRepository, ProjectRepository, TestPlanRepository, TestRunRepository } from '@tessick/db';
+import { buildFlags, planFlags } from '@tessick/core';
 import type { CompatRoute } from '../index.js';
 import { ALL, V2_UP } from '../versions.js';
 import { tlError, tlOk } from '../envelope.js';
@@ -10,7 +10,7 @@ const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(
 
 export const noProject = (idCard: string) => `No Test Project identified by '${idCard}'!`;
 
-/** Projects, their plans, and a plan's builds (Testify's runs). */
+/** Projects, their plans, and a plan's builds (Tessick's runs). */
 export const projectRoutes: CompatRoute[] = [
   {
     method: 'GET',

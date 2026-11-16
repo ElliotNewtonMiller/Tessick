@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import {
   TestSuiteRepository,
   TestCaseRepository,
@@ -12,7 +12,7 @@ import {
   TestRunRepository,
   type TestSuiteNode,
   type TestCaseVersionWithSteps,
-} from '@testify/db';
+} from '@tessick/db';
 import { authenticateRequest, requirePermission, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { sendPlanLockedError,
   sendCaseVersionNotApprovedError,

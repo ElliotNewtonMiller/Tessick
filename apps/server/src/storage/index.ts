@@ -17,9 +17,9 @@ export async function createStorage(config: EvidenceStorageConfig): Promise<{ st
   }
   if (config.kind === 's3') {
     const { S3StorageProvider } = await import('./s3.js');
-    return { storage: new S3StorageProvider(config), spoolDir: join(tmpdir(), 'testify-evidence') };
+    return { storage: new S3StorageProvider(config), spoolDir: join(tmpdir(), 'tessick-evidence') };
   }
-  return { storage: new MemoryStorageProvider(), spoolDir: join(tmpdir(), 'testify-evidence') };
+  return { storage: new MemoryStorageProvider(), spoolDir: join(tmpdir(), 'tessick-evidence') };
 }
 
 /** What the evidence routes need: the storage, the spool, the file size limit, and the clock. */

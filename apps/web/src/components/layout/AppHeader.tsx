@@ -132,7 +132,7 @@ export function AppHeader({
             fontSize: "17px",
           }}
         >
-          ⚡ TESTIFY
+          ⚡ TESSICK
         </span>
         <Divider />
 

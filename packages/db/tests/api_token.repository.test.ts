@@ -26,7 +26,7 @@ describe('ApiTokenRepository', () => {
     }
   });
 
-  it('create() generates a tf_ci_-prefixed plaintext, an 8-hex-char display prefix, and a SHA-256 hash -- never storing the plaintext', async () => {
+  it('create() generates a tk_ci_-prefixed plaintext, an 8-hex-char display prefix, and a SHA-256 hash -- never storing the plaintext', async () => {
     const project = await projectRepo.create({ name: 'P', prefix: 'TOK' });
 
     const { token, plaintext } = await tokenRepo.create({
@@ -59,7 +59,7 @@ describe('ApiTokenRepository', () => {
     const found = await tokenRepo.findByHash(hashToken(plaintext));
     expect(found?.id).toBe(token.id);
 
-    const notFound = await tokenRepo.findByHash(hashToken('tf_ci_some_other_token'));
+    const notFound = await tokenRepo.findByHash(hashToken('tk_ci_some_other_token'));
     expect(notFound).toBeUndefined();
   });
 

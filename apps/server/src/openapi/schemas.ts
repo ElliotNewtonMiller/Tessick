@@ -1,4 +1,4 @@
-import { API_TOKEN_INTERFACES } from '@testify/core';
+import { API_TOKEN_INTERFACES } from '@tessick/core';
 /**
  * Shared JSON schemas for the OpenAPI spec (`/docs/json`). Each one is registered with
  * `app.addSchema` and becomes `#/components/schemas/<$id>` in the spec; route schemas refer
@@ -52,7 +52,7 @@ export const SHARED_SCHEMAS: Schema[] = [
     description: 'Every error is RFC 7807 problem details (RFC 03 §4).',
     required: ['type', 'title', 'status', 'code', 'detail'],
     properties: {
-      type: str('https://api.testify.dev/errors/{code}'),
+      type: str('https://api.tessick.dev/errors/{code}'),
       title: str('The HTTP status text'),
       status: { type: 'integer', description: 'The HTTP status' },
       code: str('Machine-readable error code, e.g. NOT_FOUND, RUN_CLOSED'),
@@ -386,7 +386,7 @@ export const SHARED_SCHEMAS: Schema[] = [
       id: str(),
       project_id: str('The one project it works in'),
       name: str(),
-      token_prefix: str('The first characters after tf_ci_, to recognise it'),
+      token_prefix: str('The first characters after tk_ci_, to recognise it'),
       capabilities: { ...PERMISSIONS_LIST, description: 'What it was given' },
       interfaces: oneOf(API_TOKEN_INTERFACES, 'Where it works: BOTH the REST API and MCP, MCP only (an AI agent\'s token: MCP\'s limits then can\'t be stepped around), or REST only.'),
       created_by: str('The user who issued it'),

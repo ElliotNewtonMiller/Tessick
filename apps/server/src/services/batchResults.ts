@@ -1,8 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import type { BatchResultsRequest, BatchResultsResponse, BatchResultOutcome } from '@testify/core';
+import type { Database } from '@tessick/db';
+import type { BatchResultsRequest, BatchResultsResponse, BatchResultOutcome } from '@tessick/core';
 import { sendPlanLockedError, sendRunClosedError, sendNotInTokenProjectError, sendProblemDetails, sendError } from '../errors.js';
 import { MAX_BATCH_RESULTS, validateBatchItem, type InvalidParam, type BatchItemShape } from './resultValidation.js';
 import { resolveCaseLinkability } from '../routes/testPlanCases.js';

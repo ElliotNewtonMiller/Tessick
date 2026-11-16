@@ -1,9 +1,9 @@
 /**
- * Moves a TestLink 1.9 database into Testify, keeping TestLink's ids, API keys and history, so
+ * Moves a TestLink 1.9 database into Tessick, keeping TestLink's ids, API keys and history, so
  * clients of the TestLink-compatible API keep working after the switch
  * (docs/testlink_compat_api.md, "Migration").
  *
- *   DATABASE_URL=postgres://…testify… npx tsx apps/server/scripts/migrate-testlink.ts --from postgres://…testlink… --dry-run
+ *   DATABASE_URL=postgres://…tessick… npx tsx apps/server/scripts/migrate-testlink.ts --from postgres://…testlink… --dry-run
  *
  * Options:
  *   --from <url>          TestLink's database: postgres://… or mysql://… (mysql needs `npm install mysql2 --workspace=apps/server`).
@@ -11,13 +11,13 @@
  *   --dry-run             Do it all, report, and write nothing (the migration rolled back).
  *   --time-zone <zone>    The zone TestLink's server keeps its times in (IANA, e.g. America/Chicago). Default UTC.
  *   --table-prefix <p>    TestLink's table prefix (its DB_TABLE_PREFIX), if any.
- *   --actor <username>    The Testify user the migration is recorded as. Default admin.
+ *   --actor <username>    The Tessick user the migration is recorded as. Default admin.
  *   --json                Print the report as JSON.
  *
- * DATABASE_URL is Testify's own database (PostgreSQL). Start Testify on it once first, so it
+ * DATABASE_URL is Tessick's own database (PostgreSQL). Start Tessick on it once first, so it
  * has its tables and its admin. Running again brings only what TestLink gained since.
  */
-import { createDbClient, migrateToLatest } from '@testify/db';
+import { createDbClient, migrateToLatest } from '@tessick/db';
 import { connectTestLink } from '../src/testlinkMigration/source.js';
 import { migrateTestLink, MigrationError, type MigrationReport } from '../src/testlinkMigration/migrate.js';
 
@@ -54,7 +54,7 @@ async function main() {
   const from = (opts.from as string) || process.env.TESTLINK_DATABASE_URL;
   const target = process.env.DATABASE_URL;
   if (!from) throw new Error('Name TestLink\'s database with --from <url> (or TESTLINK_DATABASE_URL)');
-  if (!target || target === 'memory') throw new Error("Set DATABASE_URL to Testify's PostgreSQL database");
+  if (!target || target === 'memory') throw new Error("Set DATABASE_URL to Tessick's PostgreSQL database");
 
   const db = createDbClient({ connectionString: target });
   const source = await connectTestLink(from);

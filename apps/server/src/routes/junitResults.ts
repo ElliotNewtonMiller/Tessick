@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import { JUnitResultsError, junitCaseId, junitSuiteName, parseJUnitResults, type BatchResultsRequest, type JUnitTestResult } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { JUnitResultsError, junitCaseId, junitSuiteName, parseJUnitResults, type BatchResultsRequest, type JUnitTestResult } from '@tessick/core';
 import { requirePermission } from '../middleware/auth.js';
 import { sendError } from '../errors.js';
 import { BatchRecorded, recordResultsBatch } from '../services/batchResults.js';
@@ -17,7 +17,7 @@ import { checkWindow, findResultExecution, presentEvidence, storeEvidence, uploa
  * Maven Surefire, Gradle, Jest/Vitest junit reporters, go-junit-report, ...). The body is the file
  * itself, any content type: `curl --data-binary @report.xml`.
  *
- * Each <testcase> is matched to a case of the project: by a readable id (a `testify_id` property,
+ * Each <testcase> is matched to a case of the project: by a readable id (a `tessick_id` property,
  * or an id like SHOP-101 in the test's name), otherwise by suite name and title, as a JUnit import
  * of the same file would have created them. Matched cases not yet in the plan are added if approved
  * (as for the JSON batch); unmatched tests are reported per item (207) and not recorded.

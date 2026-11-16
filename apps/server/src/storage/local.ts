@@ -6,7 +6,7 @@ import { assertStorageKey, type StorageProvider } from './provider.js';
 
 /**
  * Evidence files in a directory (EVIDENCE_DIR), one file per key. Directories are made 0700 and
- * files 0600, so only Testify's own user reads them. Keys are checked against the pattern Testify
+ * files 0600, so only Tessick's own user reads them. Keys are checked against the pattern Tessick
  * makes, so no key can name a path outside the directory. A file arrives complete: it's moved
  * from the spool (on the same disk when possible, `incomingDir`) into place by a rename.
  */
@@ -63,7 +63,7 @@ export class LocalStorageProvider implements StorageProvider {
       await writeFile(probe, 'ok', { mode: 0o600 });
       await unlink(probe);
     } catch (err: any) {
-      throw new Error(`EVIDENCE_DIR (${this.root}) isn't a directory Testify can write to: ${err?.message ?? err}`);
+      throw new Error(`EVIDENCE_DIR (${this.root}) isn't a directory Tessick can write to: ${err?.message ?? err}`);
     }
   }
 }

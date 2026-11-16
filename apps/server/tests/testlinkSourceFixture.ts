@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sql, type Kysely } from 'kysely';
-import { createDbClient } from '@testify/db';
+import { createDbClient } from '@tessick/db';
 import { kyselySource, type TestLinkSource } from '../src/testlinkMigration/source.js';
 
 /**
  * A TestLink 1.9 database, in memory, for the migration's tests.
  *
  * By default it has only the tables and columns the migration reads, written here (TestLink's
- * own install scripts are GPL, so they aren't copied into Testify). Given TestLink's
+ * own install scripts are GPL, so they aren't copied into Tessick). Given TestLink's
  * install/sql/postgres folder (TESTLINK_SQL_DIR), it loads TestLink's real schema and default
  * data instead, so the same tests prove the migration against them.
  *

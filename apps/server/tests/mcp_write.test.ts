@@ -74,7 +74,7 @@ describe('MCP write tools', () => {
     // Every change is marked as made through MCP, and every call is in the Security Audit Log.
     const created_rows = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs?action=CASE_CREATED')).audit_logs;
     const agentRow = created_rows.find((r: any) => JSON.parse(r.diff).title === 'Pays with a saved card');
-    expect([agentRow.user_agent, agentRow.actor_type]).toEqual(['claude-code/2.0 (via Testify MCP)', 'SERVICE_ACCOUNT']);
+    expect([agentRow.user_agent, agentRow.actor_type]).toEqual(['claude-code/2.0 (via Tessick MCP)', 'SERVICE_ACCOUNT']);
     const writes = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs')).audit_logs.filter((r: any) => r.action === 'MCP_WRITE');
     expect(writes.map((r: any) => [r.resource_id, JSON.parse(r.diff).ok]).reverse()).toEqual([
       ['create_suite', true],
@@ -102,7 +102,7 @@ describe('MCP write tools', () => {
     expect(withSteps.title).toMatch(/\(copy\)$/);
     // Marked as made through MCP.
     const row = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs?action=CASE_CREATED')).audit_logs.find((r: any) => r.resource_id === copy.test_case_id);
-    expect(row.user_agent).toBe('claude-code/2.0 (via Testify MCP)');
+    expect(row.user_agent).toBe('claude-code/2.0 (via Tessick MCP)');
     // Not offered without SPEC_CREATE.
     const reader = await token(['SPEC_VIEW']);
     expect((await tool(reader, 'duplicate_case', { project_id: p, test_case_id: 'SHOP-101' })).error).toMatch(/lacks SPEC_CREATE/);

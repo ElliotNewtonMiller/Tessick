@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 import { logServerError } from '../errors.js';
 import { compatAuth } from './auth.js';
 import { isAuthFailure, problemToEnvelope, tlKo } from './envelope.js';
@@ -14,14 +14,14 @@ import { executionRoutes } from './routes/executions.js';
 import { metricsRoutes } from './routes/metrics.js';
 
 /**
- * Testify's TestLink-compatible API: Dave's TestLink REST API (v1, v2 and custom), answered
+ * Tessick's TestLink-compatible API: Dave's TestLink REST API (v1, v2 and custom), answered
  * with TestLink's requests, responses, numeric ids and keys, so a client changes only the host.
  * docs/testlink_compat_api.md describes it; Dave's own openapi.yaml documents the routes, so
- * they're left out of Testify's spec.
+ * they're left out of Tessick's spec.
  *
  * Each version is its own context under /lib/api/rest/<version>, with TestLink's 404 and error
- * envelope. Changes go through Testify's own routes, as the key's user (internalRequests.ts), so
- * permissions, validation, audit rows and webhooks are Testify's.
+ * envelope. Changes go through Tessick's own routes, as the key's user (internalRequests.ts), so
+ * permissions, validation, audit rows and webhooks are Tessick's.
  */
 export interface CompatContext {
   db: Kysely<Database>;

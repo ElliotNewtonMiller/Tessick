@@ -35,7 +35,7 @@ describe('parseJUnitResults', () => {
   it('handles nested suites, a single root suite, test properties and reruns', () => {
     const tests = parseJUnitResults(`<testsuite name="all">
         <testsuite name="inner">
-          <testcase name="a"><properties><property name="testify_id" value="SHOP-7"/></properties></testcase>
+          <testcase name="a"><properties><property name="tessick_id" value="SHOP-7"/></properties></testcase>
         </testsuite>
         <testcase name="b"><flakyFailure message="first try failed"/></testcase>
       </testsuite>`);
@@ -43,7 +43,7 @@ describe('parseJUnitResults', () => {
       ['inner', 'a', 'PASSED'],
       ['all', 'b', 'PASSED'],
     ]);
-    expect(tests[0].properties).toEqual({ testify_id: 'SHOP-7' });
+    expect(tests[0].properties).toEqual({ tessick_id: 'SHOP-7' });
   });
 
   it('refuses what is not a JUnit report', () => {
@@ -57,8 +57,8 @@ describe('parseJUnitResults', () => {
 describe('matching a JUnit test to a case', () => {
   const test = (name: string, extra: object = {}) => ({ suite: 'S', classname: '', name, outcome: 'PASSED' as const, duration_ms: null, message: null, details: null, properties: {}, ...extra });
 
-  it('takes a readable id from a testify_id property, then from the name', () => {
-    expect(junitCaseId(test('logs in', { properties: { testify_id: 'SHOP-9' } }))).toBe('SHOP-9');
+  it('takes a readable id from a tessick_id property, then from the name', () => {
+    expect(junitCaseId(test('logs in', { properties: { tessick_id: 'SHOP-9' } }))).toBe('SHOP-9');
     expect(junitCaseId(test('SHOP-101 logs in'))).toBe('SHOP-101');
     expect(junitCaseId(test('[SHOP-101] logs in'))).toBe('SHOP-101');
     expect(junitCaseId(test('logs in (QA2-15)'))).toBe('QA2-15');

@@ -1,13 +1,13 @@
 import type { Kysely } from 'kysely';
-import type { Database } from '@testify/db';
-import type { RunSummaryReport } from '@testify/core';
+import type { Database } from '@tessick/db';
+import type { RunSummaryReport } from '@tessick/core';
 import { actorType } from '../audit.js';
 import { ReportService } from './reportService.js';
 import { emitWebhookEvent, type WebhookActor } from './webhooks.js';
 
 /**
- * The events each part of Testify sends to webhooks (the catalog is WEBHOOK_EVENTS in
- * @testify/core). Each helper builds the event's `data` and queues it; none of them throws.
+ * The events each part of Tessick sends to webhooks (the catalog is WEBHOOK_EVENTS in
+ * @tessick/core). Each helper builds the event's `data` and queues it; none of them throws.
  */
 
 const MAX_FAILURES = 20;

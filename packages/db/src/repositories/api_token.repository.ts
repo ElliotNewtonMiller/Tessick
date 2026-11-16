@@ -2,12 +2,12 @@ import { randomBytes, createHash } from 'node:crypto';
 import type { Kysely, Selectable, Insertable } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import type { Database, ApiTokensTable } from '../types.js';
-import type { ApiTokenInterface } from '@testify/core';
+import type { ApiTokenInterface } from '@tessick/core';
 
 export type ApiTokenRow = Selectable<ApiTokensTable>;
 type NewApiTokenRow = Insertable<ApiTokensTable>;
 
-export const API_TOKEN_PREFIX = 'tf_ci_';
+export const API_TOKEN_PREFIX = 'tk_ci_';
 
 export interface ApiToken {
   id: string;
@@ -36,7 +36,7 @@ export interface CreateApiTokenInput {
 
 export interface CreateApiTokenResult {
   token: ApiToken;
-  /** The full raw token, e.g. "tf_ci_<64 hex chars>". Returned only from create() --
+  /** The full raw token, e.g. "tk_ci_<64 hex chars>". Returned only from create() --
    * never stored anywhere and never retrievable again afterward. */
   plaintext: string;
 }

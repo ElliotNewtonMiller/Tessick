@@ -1,5 +1,5 @@
 /**
- * The canonical permission-key registry for Testify's RBAC system. This is the single
+ * The canonical permission-key registry for Tessick's RBAC system. This is the single
  * source of truth for what permission keys exist, replacing the doc-only list in
  * docs/rfc_04_rbac_security_matrix.md and the copy that used to live hardcoded inline in
  * packages/db/src/repositories/role.repository.ts. Both packages/db's seed data and its
@@ -132,7 +132,7 @@ export const DEFAULT_ROLE_DESCRIPTIONS: Record<string, string> = {
 /**
  * Where an API token works: `BOTH` the REST API and MCP (the default), `MCP` only, or `REST` only.
  * An AI agent's token should be `MCP`: MCP adds limits of its own (cases an agent creates are
- * drafts; there are no tools to approve, deprecate or delete; changes are marked "via Testify
+ * drafts; there are no tools to approve, deprecate or delete; changes are marked "via Tessick
  * MCP"), and a token that also works on the REST API lets an agent step around them.
  */
 export const API_TOKEN_INTERFACES = ['BOTH', 'MCP', 'REST'] as const;

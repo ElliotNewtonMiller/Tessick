@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
-import { ApiTokenRepository, UserRepository } from '@testify/db';
-import { PERMISSION_KEYS, TOKEN_EXCLUDED_PERMISSIONS, API_TOKEN_INTERFACES, isTokenGrantable } from '@testify/core';
+import type { Database } from '@tessick/db';
+import { ApiTokenRepository, UserRepository } from '@tessick/db';
+import { PERMISSION_KEYS, TOKEN_EXCLUDED_PERMISSIONS, API_TOKEN_INTERFACES, isTokenGrantable } from '@tessick/core';
 import { requirePermission, apiTokenIssuerAccess } from '../middleware/auth.js';
 import { sendCapabilityCeilingExceededError, sendError } from '../errors.js';
 import { requestOrigin } from '../audit.js';

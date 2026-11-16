@@ -169,7 +169,7 @@ export function useSpecSelection({
     const selection = kind === "SUITES" ? specSelectedSuiteIds : specSelectedCaseIds;
     const ids = selection.has(id) ? [...selection] : [id];
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("application/x-testify-move", JSON.stringify({ kind, ids }));
+    e.dataTransfer.setData("application/x-tessick-move", JSON.stringify({ kind, ids }));
     // Deferred: changing the DOM inside dragstart (the tree adds its "top level" zone) can
     // make the browser cancel the drag.
     setTimeout(() => setDragPayload({ kind, ids }), 0);

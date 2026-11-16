@@ -2,9 +2,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { evidenceCount } from '../services/evidence.js';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { CreateTestStepInput, Database } from '@testify/db';
-import { TestSuiteRepository, TestCaseRepository, TestCaseVersionRepository, ProjectRepository, CustomFieldRepository, TestPlanRepository } from '@testify/db';
-import { findUnsatisfiedRequiredFields, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@testify/core';
+import type { CreateTestStepInput, Database } from '@tessick/db';
+import { TestSuiteRepository, TestCaseRepository, TestCaseVersionRepository, ProjectRepository, CustomFieldRepository, TestPlanRepository } from '@tessick/db';
+import { findUnsatisfiedRequiredFields, MAX_DB_INTEGER, MAX_NAME_LENGTH } from '@tessick/core';
 import { requirePermission } from '../middleware/auth.js';
 import { sendCaseVersionLockedError,
   sendSuiteInUseError,

@@ -37,7 +37,7 @@ export function tlAuthError(reply: FastifyReply) {
 }
 
 /**
- * Answers Testify sends from shared code before a TestLink route runs (the NUL guard, a body
+ * Answers Tessick sends from shared code before a TestLink route runs (the NUL guard, a body
  * over the limit, a rate limit, an unexpected error), which are problem details, rewritten into
  * TestLink's envelope, so a TestLink client sees one format. A 401 is TestLink's 400
  * authentication error.

@@ -20,9 +20,9 @@ describe('JUnit results and runs by name', () => {
       <failure message="expected 302, got 500">AssertionError: expected 302, got 500
   at pkce.spec.ts:42</failure>
     </testcase>
-    <testcase classname="tests.auth" name="checks password rules"><properties><property name="testify_id" value="SHOP-103"/></properties><error message="boom"/></testcase>
+    <testcase classname="tests.auth" name="checks password rules"><properties><property name="tessick_id" value="SHOP-103"/></properties><error message="boom"/></testcase>
     <testcase classname="tests.auth" name="SHOP-104 single sign-on"><skipped message="IdP is down"/></testcase>
-    <testcase classname="tests.misc" name="not tracked in Testify"/>
+    <testcase classname="tests.misc" name="not tracked in Tessick"/>
   </testsuite>
 </testsuites>`;
 
@@ -44,7 +44,7 @@ describe('JUnit results and runs by name', () => {
       ['Authentication & OAuth2 Engine.OAuth2 PKCE Code Exchange Flow', 201, 'FAILED'],
       ['tests.auth.checks password rules', 201, 'FAILED'],
       ['tests.auth.SHOP-104 single sign-on', 201, 'SKIPPED'],
-      ['tests.misc.not tracked in Testify', 422, 'CASE_NOT_FOUND'],
+      ['tests.misc.not tracked in Tessick', 422, 'CASE_NOT_FOUND'],
     ]);
 
     const results = body(await call(admin, 'GET', `/api/v1/runs/${seed.buildId}/results`)).results;

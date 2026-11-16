@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import nodemailer from 'nodemailer';
-import { createDbClient, SystemSettingsRepository } from '@testify/db';
+import { createDbClient, SystemSettingsRepository } from '@tessick/db';
 import { createServer } from '../src/server.js';
 import { MemoryStorageProvider } from '../src/storage/index.js';
 import { resolveSecretsKey, ConfigError } from '../src/config.js';
@@ -49,7 +49,7 @@ describe('Stored SMTP password', () => {
     else delete process.env.SECRETS_KEY;
     // A real database also requires JWT_SECRET.
     const { app } = await withEnv({ JWT_SECRET: real ? 'secrets-test-jwt-secret-0123456789' : undefined }, () =>
-      createServer(real ? 'postgres://unused/testify' : undefined, { db, evidence: { storage: new MemoryStorageProvider() } })
+      createServer(real ? 'postgres://unused/tessick' : undefined, { db, evidence: { storage: new MemoryStorageProvider() } })
     );
     apps.push(app);
     const token = JSON.parse((await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: 'admin', password: 'password' } })).payload).token;

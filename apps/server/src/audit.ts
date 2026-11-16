@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
+import type { Database } from '@tessick/db';
 
 /**
  * Where an audited action came from: the client's address and its User-Agent header. These

@@ -40,10 +40,10 @@ describe('CORS headers', () => {
   });
 
   it('allows exactly the listed origins', async () => {
-    process.env.CORS_ORIGINS = 'https://testify.example.com';
+    process.env.CORS_ORIGINS = 'https://tessick.example.com';
     ({ app } = await createServer());
-    const allowed = await app.inject({ method: 'GET', url: '/api/v1/projects', headers: { origin: 'https://testify.example.com' } });
-    expect(allowed.headers['access-control-allow-origin']).toBe('https://testify.example.com');
+    const allowed = await app.inject({ method: 'GET', url: '/api/v1/projects', headers: { origin: 'https://tessick.example.com' } });
+    expect(allowed.headers['access-control-allow-origin']).toBe('https://tessick.example.com');
     const other = await app.inject({ method: 'GET', url: '/api/v1/projects', headers: { origin: 'https://evil.example' } });
     expect(other.headers['access-control-allow-origin']).toBeUndefined();
     expect((await preflight()).headers['access-control-allow-origin']).toBeUndefined();

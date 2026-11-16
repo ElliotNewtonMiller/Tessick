@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
-import type { Database } from '@testify/db';
-import { TestRunRepository } from '@testify/db';
+import type { Database } from '@tessick/db';
+import { TestRunRepository } from '@tessick/db';
 import { NO_ORIGIN, type RequestOrigin } from './audit.js';
 import { emitRunClosed } from './services/webhookEvents.js';
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Kysely } from 'kysely';
-import type { Database, CustomFieldDefinition } from '@testify/db';
-import { CustomFieldRepository, TestCaseRepository, TestSuiteRepository } from '@testify/db';
+import type { Database, CustomFieldDefinition } from '@tessick/db';
+import { CustomFieldRepository, TestCaseRepository, TestSuiteRepository } from '@tessick/db';
 import {
   CUSTOM_FIELD_TYPES,
   CUSTOM_FIELD_ENTITY_TYPES,
@@ -9,7 +9,7 @@ import {
   resolveDefaultValue,
   type CustomFieldEntityType,
   type CustomFieldType,
-} from '@testify/core';
+} from '@tessick/core';
 import { authenticateRequest, requirePermission, requireAnyPermission, EXECUTION_READ_PERMISSIONS } from '../middleware/auth.js';
 import { sendCustomFieldInUseError, sendProblemDetails, isPublicError, sendError } from '../errors.js';
 import { requestOrigin } from '../audit.js';

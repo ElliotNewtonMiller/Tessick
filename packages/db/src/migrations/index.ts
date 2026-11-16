@@ -97,7 +97,7 @@ async function adoptPreMigratorDatabase(db: Kysely<any>): Promise<void> {
   const complete = names.has('last_email') && names.has('report_schedules') && planCases?.columns.some((c) => c.name === 'removed_at');
   if (!complete) {
     throw new Error(
-      'This database was created by an older Testify build and is missing parts of the current schema. ' +
+      'This database was created by an older Tessick build and is missing parts of the current schema. ' +
         'Recreate it (or point DATABASE_URL at an empty database) and start the server again.'
     );
   }

@@ -229,7 +229,7 @@ export function SchedulesTab({ projectId, plans, defaultPlanId }: { projectId: s
     <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
       <Section
         title="Scheduled emails"
-        info="Report emails sent automatically, daily or weekly, to any addresses -- recipients don't need a Testify account. The numbers are worked out when each email goes out."
+        info="Report emails sent automatically, daily or weekly, to any addresses -- recipients don't need a Tessick account. The numbers are worked out when each email goes out."
         actions={
           !draft && (
             <button style={{ ...buttonStyle, backgroundColor: "#0284c7", border: "none", color: "#fff" }} onClick={() => setDraft(draftFrom(null, defaultPlanId || plans[0]?.id || ""))}>
