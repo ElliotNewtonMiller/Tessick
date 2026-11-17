@@ -4139,3 +4139,27 @@ Elliot imported a real Playwright report (`results.xml`, 47 tests, one `<testsui
 - This entry, moved to the end of the changelog.
 
 Each workspace's tests pass on their own (875 passed, 4 skipped: core 219, db 138, server 461 + 4 skipped, web 57; a full run from the repo root stalled again before any test started, as on 2026-11-15); typecheck clean.
+
+## License: AGPLv3 plus a commercial license (2026-11-16)
+
+Elliot asked to change the license from MIT to dual licensing, AGPLv3 plus a commercial license (a suggestion from Gemini), to protect the product and allow selling commercial licenses.
+
+**Checked first:**
+- **Elliot holds the copyright to everything:** all 222 commits are his, and there have been no outside pull requests or forks. So he can relicense without anyone's agreement.
+- **Every production dependency is permissive** (MIT 187, Apache-2.0 26, ISC 24, BSD 9, BlueOak 7, MIT-0, 0BSD; tallied from `package-lock.json`). All of them can be used in AGPL code and in a commercial version.
+- **What the AGPL does and doesn't do,** corrected with Elliot: it doesn't stop anyone offering Tessick as a paid hosted service. It requires them to offer their users the source of Tessick and their changes to it, not of the rest of their stack. The commercial license is for those who won't publish their changes, or whose policy forbids AGPL software.
+
+**Decided with Elliot:**
+- `AGPL-3.0-only` rather than "or later", so later AGPL versions don't apply unless he chooses.
+- Commercial licensing enquiries go to his GitHub profile; no email address is published.
+- The copyright line is "Elliot Newton-Miller".
+
+**Changed:**
+- `LICENSE` is the AGPLv3 text, unchanged from `https://www.gnu.org/licenses/agpl-3.0.txt` (34,523 bytes, SHA-256 `0d96a4ff…abcb0`; downloaded with Elliot's permission).
+- `"license": "AGPL-3.0-only"` in the five `package.json` files, and in their `package-lock.json` entries, as npm writes them.
+- README's License section: the copyright, both licenses, how to ask for a commercial one, that versions up to `f530a5c` stay available under MIT, and that outside contributions need a contributor license agreement.
+- CLAUDE.md/AGENTS.md: the license, plus a decision to keep: new dependencies must be permissive, and no copyleft code may be copied in, so the commercial license stays possible.
+
+**Not done:** there's no contributor license agreement yet (none is needed until someone outside sends code), and no commercial license terms. Elliot was advised to have a lawyer look at both before selling one, and at the open question of who owns the rights to AI-generated code.
+
+Typecheck clean; no code changed.

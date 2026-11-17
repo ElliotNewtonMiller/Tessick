@@ -6,6 +6,8 @@ This file orients any AI coding agent (Claude, Gemini/Antigravity, etc.) or huma
 
 Tessick is an open-source, self-hosted test case management app meant to replace TestLink. It's feature-complete enough to deploy (README, Docker, CI, production build).
 
+It's dual-licensed (since 2026-11-16; MIT before): `AGPL-3.0-only` (`LICENSE`), or a commercial license from Elliot (see the README's License section).
+
 It was named **Testify** until 2026-11-15 (renamed by Elliot: the name clashed with a popular Go testing library). Older `docs/changelog.md` entries and the `.antigravity/agents/` briefs keep the old name, as history; everything else says Tessick (`@tessick/*` packages, `tessick_session`, `X-Tessick-*` headers, `tk_ci_` tokens).
 
 **Specification:**
@@ -285,6 +287,9 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 
 These were chosen deliberately; don't reverse them without asking Elliot.
 
+- **License: AGPL-3.0-only plus a commercial license** (dual licensing, decided with Elliot on 2026-11-16). Selling the commercial license needs Elliot to hold the rights to everything in the repo, so:
+  - New dependencies must have permissive licenses (MIT, Apache-2.0, ISC, BSD, BlueOak and the like). No GPL, LGPL, AGPL or other copyleft code, and no copying code or text from projects under such licenses.
+  - Outside contributions need a contributor license agreement before they're merged.
 - **PostgreSQL only.** SQLite was dropped (native-binding problems), and PGlite is the zero-setup in-memory option. Don't add a second dialect.
 - **No sample projects on startup.** Users and roles are seeded, plus dev fixture users on the in-memory database. The sample project exists only for tests (`SEED_SAMPLE_DATA`).
 - **Role templates and template-based dev accounts stay** (audit scope).

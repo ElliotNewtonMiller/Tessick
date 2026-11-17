@@ -84,4 +84,13 @@ Schema changes always go in a new migration in `packages/db/src/migrations/`; ne
 
 ## License
 
-MIT; see [LICENSE](LICENSE).
+Copyright (c) 2026 Elliot Newton-Miller.
+
+Tessick is dual-licensed:
+
+- **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`; see [LICENSE](LICENSE)). You may use, change and self-host Tessick for free, including inside a company. If you change it and let people use your changed version over a network, you must offer them its source code under the same license.
+- **A commercial license**, for organisations that want to use or offer Tessick without the AGPL's terms, for example in a product or hosted service whose source they don't want to publish. To ask about one, contact [Elliot Newton-Miller on GitHub](https://github.com/ElliotNewtonMiller).
+
+Versions published before 2026-11-16 (up to commit `f530a5c`) were released under the MIT license, and remain available under it.
+
+**Contributing:** outside contributions need a contributor license agreement, so that Tessick can keep being offered under both licenses. Please open an issue before sending a pull request.
