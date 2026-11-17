@@ -4227,3 +4227,21 @@ Elliot is preparing to release Tessick. Step 1 of his launch list is a demo that
 - **Not verified:** the publish job and the arm64 image run only on GitHub after a push.
 
 Each workspace's tests pass on their own (882 passed, 4 skipped: core 219, db 138, server 467 + 4 skipped, web 58); typecheck clean; the Docker build ran the production build.
+
+## The root test run no longer runs out of memory; the image's GHCR details (2026-11-17)
+
+**The root `npm test` stall.** Twice on 2026-11-16 the root run printed Vitest's start line and then nothing for hours (once taking the agent's session down with it), while each workspace's tests passed on their own.
+- **The cause** (measured with `free` and each worker's RSS every 5 seconds): a Vitest worker running server tests settles around 1.3 to 1.6 GB, since every test starts a server on its own in-memory Postgres (PGlite). Vitest's default is one worker per core but one: 7 on Elliot's 8-core, 16 GB laptop. Within 30 seconds the 7 workers held about 8 GB and climbing, with 2.5 GB of RAM left beside Chrome and the Claude app, so the machine swapped and the run looked stalled. CI's 4-core runner starts 3 workers, which is why CI never showed it.
+- **Ruled out:** a leak. `createServer()` doesn't close a database it made itself, and about 70 test files rely on `app.close()` alone. Closing it in an `onClose` hook was tried and measured: the largest file (26 tests) peaked at the same 1.3 to 1.6 GB either way, as unreachable PGlite instances are collected anyway. So that change wasn't kept.
+- **The fix** (`vitest.config.ts`): `maxWorkers` is as many workers as free memory allows at 2.5 GB each (`os.freemem()`, which on Linux is MemAvailable), at least 1 and at most Vitest's default. `--maxWorkers=N` still overrides it. On this laptop that's 4 workers; on CI it stays 3.
+- CLAUDE.md/AGENTS.md (Testing): the worker limit and why.
+
+**The published image's details on GHCR** (`.github/workflows/ci.yml`, `publish` job):
+- GHCR's package page reads a multi-platform image's description and license from the image index's annotations, and the first publish set only labels (on each platform's image). The metadata action's annotations had defaulted to the repository's GitHub description and license, which GitHub reports as `AGPL-3.0`: the AGPL's text is the same for "-only" and "-or-later", so its license detector can't tell them apart. `LICENSE` is right and unchanged; the "-only" is stated in the README and the `package.json` files.
+- Now the job sets the title, description and `AGPL-3.0-only` as annotations too, at the manifest and index levels (`DOCKER_METADATA_ANNOTATIONS_LEVELS`), and passes them to the build.
+- The Docker actions moved to their Node 24 majors (GitHub warned that the Node 20 ones are deprecated): `setup-qemu-action` v4, `setup-buildx-action` v4, `login-action` v4, `metadata-action` v6, `build-push-action` v7. Their breaking changes (removed deprecated inputs and environment variables) touch nothing the workflow uses. Tessick itself still runs on Node 22.
+
+**Verified:**
+- The root `npm test` on the laptop, twice in a row, with memory sampled every 5 seconds and a guard that would stop the workers below 1.5 GB free (it never fired): 117 files passed and 1 skipped, 882 tests passed and 4 skipped, in 349 and 376 seconds. The first run chose 4 workers (peak 5.4 GB together, at least 4.8 GB of RAM always free); the second, starting with less free memory, chose 3. Before, the same command had 7 workers holding 8 GB after 30 seconds and was stopped.
+- Typecheck clean.
+- The workflow can only run on GitHub: after the push, the publish job's run and the annotations on the published index (read from the registry without signing in) are checked.

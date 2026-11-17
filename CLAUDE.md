@@ -330,6 +330,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 ## Testing and verification
 
 - **Commands:** `npm test` runs every test; it must stay green. `npm run typecheck` must stay clean.
+- **Test workers:** a worker running server tests uses about 1.5 GB (a PGlite per test), so `vitest.config.ts` starts only as many as free memory allows at 2.5 GB each, at most one per core but one. Without that, an 8-core laptop swapped and the root run looked stalled. Say `--maxWorkers=N` to choose.
 - **Where tests live:**
   - Server tests start a real server per test on an in-memory database (`createServer()`) and use `app.inject`.
   - Web tests are pure-logic tests, plus `apps/web/src/tests/app.smoke.test.tsx` (jsdom), which renders `<App />` against a fake API.
