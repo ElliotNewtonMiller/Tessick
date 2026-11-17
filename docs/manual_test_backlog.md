@@ -6,6 +6,8 @@ Each entry says what the agent already checked, and how, so it's clear what a pe
 
 API and MCP changes aren't listed: the agent tests those itself.
 
+Tasks for Elliot that aren't tests (decisions, paperwork) are in **Elliot's other tasks** at the end.
+
 ## Evidence in the web app (2026-11-09)
 
 Commits `cc48c79` (the Execute pane's Evidence section, the viewer, the Reports chip) and the audit log grouping after it. Sign in as `admin` / `password`, with a plan that has a run.
@@ -60,3 +62,15 @@ Import a Playwright (or Vitest) JUnit report, e.g. the `results.xml` from 2026-1
 **Already checked by the agent** (2026-10-22, in-process through the API, with the real 47-test report): 62 suites instead of 188 for both the dry run and the import, and uploading the same file as results recorded all 47 onto 47 distinct cases. The parser and server tests cover the same cases.
 
 **Not checked by the agent:** the Import dialog itself with this file (its preview tree comes from the same dry run).
+
+## Elliot's other tasks
+
+### Before selling a commercial license (2026-11-16)
+
+Tessick is dual-licensed since `4e94dc3`: AGPL-3.0-only, or a commercial license from Elliot. Selling the commercial one needs these first; a lawyer should look at each.
+
+- [ ] **Commercial license terms:** what a buyer may do (use, change, host, resell), for how long, on how many installations, and at what price. Nothing like this exists yet; the README only says to ask.
+- [ ] **A contributor license agreement (CLA):** needed before merging anyone else's code, so you keep the right to sell it commercially. Also decide how contributors sign it (for example a CLA bot on pull requests). Until then, the README asks contributors to open an issue first.
+- [ ] **Rights to AI-generated code:** most of Tessick was written with Claude's help, and whether such code can be owned and licensed (by country) is unsettled. Ask how that affects a commercial license and what a buyer should be told.
+
+**Already done by the agent:** checked that every commit is yours and that no one else has contributed; checked that every production dependency has a permissive license; switched `LICENSE`, the `package.json` files and the README; and added the rule that new dependencies must be permissive (CLAUDE.md, "Decisions to keep").

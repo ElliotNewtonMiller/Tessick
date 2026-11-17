@@ -347,7 +347,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 1. `README.md`: overview and quick start. `docs/deployment.md`: running Tessick for real.
 2. `docs/changelog.md`: the history and reasoning behind everything.
 3. `docs/api_getting_started.md`: the API for scripts and CI, step by step. `docs/reports_api_and_mcp.md`: reports, the results API, MCP. The reference itself is `/docs` on a running server.
-4. `docs/manual_test_backlog.md`: the checks Elliot will do himself in the web app, and what the agent already checked. `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.
+4. `docs/manual_test_backlog.md`: the checks Elliot will do himself in the web app, and what the agent already checked; at its end, his other tasks (e.g. what selling a commercial license needs). `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.
 5. Design documents, updated 2026-10-11 (RFC 03 §1-4 on 2026-10-12) to match the code (each says plainly what isn't built):
    - `docs/MASTER_ARCHITECTURE_BLUEPRINT.md`: the overview, linking to the RFCs.
    - `docs/rfc_01_domain_model.md` (domain, schema, state machines), `rfc_02` (layout, hotkeys), `rfc_03` (the API: conventions, route map, CI results, errors, import), `rfc_04` (permissions, tokens, audit, threat model).

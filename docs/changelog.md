@@ -4163,3 +4163,10 @@ Elliot asked to change the license from MIT to dual licensing, AGPLv3 plus a com
 **Not done:** there's no contributor license agreement yet (none is needed until someone outside sends code), and no commercial license terms. Elliot was advised to have a lawyer look at both before selling one, and at the open question of who owns the rights to AI-generated code.
 
 Typecheck clean; no code changed.
+
+## The backlog holds Elliot's other tasks too (2026-11-16)
+
+Elliot asked for what selling a commercial license needs (from the entry above) to go into his backlog. `docs/manual_test_backlog.md` is his only backlog, so it gets a section at the end, **Elliot's other tasks**, for tasks that aren't tests. The first is **Before selling a commercial license**: commercial terms, a contributor license agreement, and the rights to AI-generated code, each for a lawyer. The file's introduction and the doc map in CLAUDE.md/AGENTS.md mention the section.
+
+Docs only; nothing to test.
+
