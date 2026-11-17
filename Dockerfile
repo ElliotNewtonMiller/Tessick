@@ -3,7 +3,9 @@
 # docker-compose.yml for Tessick plus Postgres in one go.
 
 # --- Build: install everything, then build the web app and bundle the server. ---
-FROM node:22-slim AS build
+# On the machine's own platform even when building for another (the arm64 image): its output is
+# plain JavaScript and static files, so only the runtime stage's install runs emulated.
+FROM --platform=$BUILDPLATFORM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/

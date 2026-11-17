@@ -8,6 +8,12 @@
       "port": 3001
     },
     {
+      "name": "api-server-demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["TESSICK_DEMO=true", "npm", "run", "dev", "--workspace=apps/server"],
+      "port": 3001
+    },
+    {
       "name": "web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace=apps/web"],

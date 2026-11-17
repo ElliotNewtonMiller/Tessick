@@ -63,6 +63,21 @@ Import a Playwright (or Vitest) JUnit report, e.g. the `results.xml` from 2026-1
 
 **Not checked by the agent:** the Import dialog itself with this file (its preview tree comes from the same dry run).
 
+## The one-command demo (2026-11-16)
+
+Once CI has published the image and the package is public (see Elliot's other tasks), on a machine without the repo (a Mac with Apple Silicon if you can, to check the arm64 image):
+
+- [ ] In an empty folder, run the two commands from the README's "Try it in a minute". Note how long it takes until the sign-in page loads.
+- [ ] The sign-in page shows the amber "Demo instance" note, with `admin` and `tessick-demo-admin` already filled in; Log In works.
+- [ ] Report Demo is selected, with Release Regression and Run 1.0.8. Reports shows the trends and Test Health its flaky and failing cases.
+- [ ] `docker compose -f docker-compose.demo.yml logs tessick` shows the demo block with the `claude mcp add` command; running it connects Claude Code, and it can list the project's runs.
+- [ ] `docker compose -f docker-compose.demo.yml down -v`, then `up` again: a fresh demo, with a new token.
+- [ ] From another machine on the network, http://<this machine>:3001 doesn't answer.
+
+**Already checked by the agent** (on the dev server in demo mode, at `127.0.0.1:3000` in a separate tab): the note and the filled-in fields, signing in with them, the Overview report (88 results, the activity chart), and recording a Pass with `p` on DEMO-12 in Execute. The startup log's demo block, and `scripts/report-demo.ts` against the same server. CI starts the demo compose file from the image it builds and checks its sign-in and project.
+
+**Not checked by the agent:** the published image itself (it doesn't exist until the first push), the arm64 image, and how long a first start takes with the downloads.
+
 ## Elliot's other tasks
 
 ### Before selling a commercial license (2026-11-16)
@@ -74,3 +89,8 @@ Tessick is dual-licensed since `4e94dc3`: AGPL-3.0-only, or a commercial license
 - [ ] **Rights to AI-generated code:** most of Tessick was written with Claude's help, and whether such code can be owned and licensed (by country) is unsettled. Ask how that affects a commercial license and what a buyer should be told.
 
 **Already done by the agent:** checked that every commit is yours and that no one else has contributed; checked that every production dependency has a permissive license; switched `LICENSE`, the `package.json` files and the README; and added the rule that new dependencies must be permissive (CLAUDE.md, "Decisions to keep").
+
+### Make the Docker image public (2026-11-16)
+
+- [ ] After the first push to `main` with the publish job, CI publishes `ghcr.io/elliotnewtonmiller/tessick`. GitHub makes a new package private, so the demo can't download it until you change that: on GitHub, your profile → **Packages** → **tessick** → **Package settings** → **Change visibility** → **Public**. While you're there, check that it's linked to the Tessick repository.
+

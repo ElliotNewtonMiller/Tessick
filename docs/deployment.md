@@ -6,6 +6,19 @@ Tessick is one Node.js process that serves the API, the MCP endpoint (`/mcp`) an
 - PostgreSQL (tested with 17).
 - Node.js 22 or newer, or Docker.
 
+## Trying it: the demo
+
+`docker-compose.demo.yml` starts Tessick and PostgreSQL with nothing to configure, and loads the Report Demo project (12 cases, 8 runs of results):
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/ElliotNewtonMiller/Tessick/main/docker-compose.demo.yml
+docker compose -f docker-compose.demo.yml up
+```
+
+Open http://localhost:3001 and sign in as `admin` / `tessick-demo-admin`; the sign-in page shows it. The log shows an API token for the demo project, with the command that connects Claude Code to it over MCP. `docker compose -f docker-compose.demo.yml down -v` deletes it all, to start again.
+
+It runs in demo mode (`TESSICK_DEMO=true`): the admin password is well known, and the database password is in the file. It's reachable only from the same machine (`127.0.0.1`). Don't keep real data in it; use `docker-compose.yml` for that.
+
 ## With Docker Compose
 
 `docker-compose.yml` runs Tessick and PostgreSQL together, with the database kept in a Docker volume.
@@ -16,12 +29,14 @@ Tessick is one Node.js process that serves the API, the MCP endpoint (`/mcp`) an
 
 Tessick listens on port 3001; set `TESSICK_PORT` in `.env` to use another port on the host. To upgrade, pull the new code and run `docker compose up -d --build`.
 
-The image (`Dockerfile`) works on its own too:
+The image (`Dockerfile`) works on its own too. Each push to `main` publishes it as `ghcr.io/elliotnewtonmiller/tessick`, for amd64 and arm64, tagged `latest` and `sha-<commit>`:
 
 ```bash
-docker build -t tessick .
-docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... tessick
+docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... -e EVIDENCE_DIR=/data/evidence ghcr.io/elliotnewtonmiller/tessick:latest
+# or build it yourself: docker build -t tessick .
 ```
+
+`docker-compose.yml` builds the image from the code (`build: .`); to use the published one instead, replace that line with `image: ghcr.io/elliotnewtonmiller/tessick:latest`.
 
 It runs as the unprivileged `node` user, and Docker checks its health through `GET /api/v1/health`.
 
@@ -56,6 +71,7 @@ All configuration comes from environment variables; nothing reads a `.env` file 
 | `LOG_LEVEL` | `info` | `info` logs one JSON line per request. `warn` and `error` log only problems; `silent` logs nothing. |
 | `WEB_DIST_DIR` | `apps/web/dist` | Where the built web app is. If there's no build, only the API is served. |
 | `SEED_SAMPLE_DATA` | `false` | `true` creates a small sample project. |
+| `TESSICK_DEMO` | `false` | `true` is demo mode, for trying Tessick (`docker-compose.demo.yml`), never for real data: the first admin's password is `tessick-demo-admin` (unless `ADMIN_PASSWORD` is set) and the sign-in page shows it; `JWT_SECRET` and `SECRETS_KEY` may be left unset (random for each start, so a restart signs everyone out); and a fresh database gets the Report Demo project. |
 | `EVIDENCE_STORAGE` | from the settings below | Where evidence files (screenshots, videos, logs, traces uploaded for test executions) are kept: `local` (a directory) or `s3` (a bucket). `memory` only with `DATABASE_URL=memory`. **A real database needs one**: startup stops otherwise. Docker Compose uses `local` on the `evidence-data` volume. |
 | `EVIDENCE_DIR` | none | `local`: the directory. Tessick must be able to write to it (checked at startup); it makes its folders 0700 and files 0600. |
 | `EVIDENCE_S3_BUCKET` | none | `s3`: the bucket. Credentials come from AWS's own variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, ...) or the server's IAM role. Startup checks the bucket can be reached. |
@@ -110,6 +126,7 @@ To move a TestLink 1.9 database into Tessick, keeping its ids, API keys and hist
 ## Security checklist
 
 - Strong, unique `JWT_SECRET`, `SECRETS_KEY` and database password, kept out of version control (`.env` is git-ignored).
+- `TESSICK_DEMO` not set: demo mode's admin password is public.
 - HTTPS in front, with `TRUST_PROXY=true`.
 - Change the first admin's password at first sign-in. Tessick asks for it when it generated the password.
 - PostgreSQL reachable only from Tessick, not from the internet.

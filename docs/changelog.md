@@ -4170,3 +4170,60 @@ Elliot asked for what selling a commercial license needs (from the entry above) 
 
 Docs only; nothing to test.
 
+
+## A one-command demo, with the image published to GHCR (2026-11-16)
+
+Elliot is preparing to release Tessick. Step 1 of his launch list is a demo that someone evaluating it can start with one command and use within about a minute, with no database or secrets to set up. Before this, `docker-compose.yml` needed a `.env` with two secrets, built the image from source (minutes), started with no projects, and printed the admin's password once in its log.
+
+**Decided with Elliot:**
+- CI publishes the image to GHCR, so the demo downloads a ready-made image.
+- The demo data is the existing report demo (12 cases, 8 runs), unchanged.
+- The sign-in page shows the demo's credentials.
+- "No sample projects on startup" stays the default; demo mode is an opt-in exception (CLAUDE.md, Decisions to keep).
+
+**The demo** (`docker-compose.demo.yml`, README "Try it in a minute", `deployment.md` "Trying it"):
+- `curl -fsSLO …/docker-compose.demo.yml && docker compose -f docker-compose.demo.yml up`, then sign in at http://localhost:3001 as `admin` / `tessick-demo-admin`.
+- `name: tessick-demo`, so its containers and volumes never mix with `docker-compose.yml` in the same folder (both would otherwise be project `tessick`, sharing `tessick_db-data`).
+- PostgreSQL with a fixed password and no published port; Tessick only on `127.0.0.1` (`TESSICK_PORT`, default 3001); evidence on a volume. `down -v` resets it.
+
+**Demo mode** (`TESSICK_DEMO=true`, `resolveDemoMode` in `config.ts`; refuses anything but true/false):
+- The first admin's password is `DEMO_ADMIN_PASSWORD` (`tessick-demo-admin`, not forced to change), unless `ADMIN_PASSWORD` is set. Demo mode wins over the in-memory database's `password`, so the dev server in demo mode matches what the sign-in page shows.
+- `JWT_SECRET` and `SECRETS_KEY` may be unset even with a real database: each is random for the process, as on the in-memory database. A restart signs everyone out; no secret is ever written in the compose file.
+- **The project is loaded once, into a fresh database:** when the first admin is created on this start, `createServer` loads the Report Demo through its own routes in-process (`app.inject`, User-Agent "Tessick demo loader"), as that admin, after every route is registered. The plan said "when there are no projects". The change is that a demo project someone deleted doesn't come back on a restart. A failure is logged and leaves the demo without its project.
+- A log block (`demoBanner` in `demo/demoMode.ts`): it's a demo with a public password, how to sign in, and the first time the demo project's token in a ready-to-paste `claude mcp add` command.
+- **`GET /api/v1/instance`** (`routes/instance.ts`, no sign-in, `operationId: getInstance`): `{ demo: null }`, or in demo mode `{ demo: { username: 'admin', password } }`, with `password: null` when `ADMIN_PASSWORD` chose it, so a chosen password is never published.
+- **Shared data:** the report demo's data and steps moved from `scripts/report-demo.ts` into `src/demo/reportDemo.ts` (`loadReportDemo(api, credentials, log)`), so the script (over HTTP) and demo mode (in-process) load the same project. The script's output is unchanged.
+
+**Sign-in page** (`LoginPage.tsx`): reads `/instance` once; in demo mode an amber note ("Demo instance. Sign in as admin with the password … It's for trying Tessick: don't keep real data here.") and both fields filled in, unless someone has typed in them. If the request fails, the page is as before.
+
+**The image** (`.github/workflows/ci.yml`, `Dockerfile`):
+- The `docker` job builds the image under its published name and starts `docker-compose.demo.yml` from it (`--wait`). It then checks `/instance`, signs in with the demo password and finds Report Demo.
+- A new `publish` job, only on pushes to `main` after the test, PostgreSQL and Docker jobs pass:
+  - builds `linux/amd64` and `linux/arm64` with Buildx (QEMU for arm64) and pushes `ghcr.io/elliotnewtonmiller/tessick`, tagged `latest` and `sha-<commit>`;
+  - adds the OCI labels: the source repository, `AGPL-3.0-only` and a description;
+  - logs in with `GITHUB_TOKEN` (`packages: write` on that job only) and caches layers in GitHub Actions.
+- The Dockerfile's build stage runs on the build machine's own platform (`--platform=$BUILDPLATFORM`): its output is plain JavaScript, so only the runtime stage's `npm ci --omit=dev` is emulated for arm64.
+- **Elliot's step:** a new GHCR package is private. He makes it public once, after the first publish (backlog, "Make the Docker image public").
+
+**Also:** `.claude/launch.json` gets `api-server-demo` (the dev server with `TESSICK_DEMO=true`).
+
+**Docs:** README, `deployment.md` (the demo; the published image; `TESSICK_DEMO` in the table; the security checklist), RFC 03 (the route, and which routes need no credential), CLAUDE.md/AGENTS.md (configuration, commands, layout, the decision), `manual_test_backlog.md` (the demo from a clean machine; making the package public).
+
+**Tests:**
+- New `apps/server/tests/demo_mode.test.ts` (6):
+  - `resolveDemoMode`;
+  - random secrets in demo mode on a real database;
+  - the demo admin password, with `ADMIN_PASSWORD` winning;
+  - a fresh database in demo mode gets Report Demo (12 cases, one plan, 8 runs, 88 results) and the demo sign-in, and its token reads reports;
+  - deleted, it stays deleted after a restart against the same database;
+  - with `ADMIN_PASSWORD`, `/instance` shows no password; without demo mode, `demo: null` and no project.
+- `openapi.test.ts`: 131 documented routes; `/instance` needs no credential and is `getInstance`.
+- `app.smoke.test.tsx` +1: the note and the filled-in fields, and no note without demo mode.
+
+**Verified:**
+- **Browser:** the dev server in demo mode, at `127.0.0.1:3000` in a separate tab. The log showed the demo block, and the sign-in page the note with both fields filled. Log In worked; Report Demo was selected; Reports' Overview showed 88 results with the activity chart; in Execute, `p` on DEMO-12 recorded Passed.
+- **Script:** `scripts/report-demo.ts` against the same server made "Report Demo 2" with the same output as before.
+- **Docker** (`postgres:17-alpine` and `node:22-slim` pulled with Elliot's permission): the image built in 90 seconds. `TESSICK_PORT=3091 docker compose -f docker-compose.demo.yml up -d` answered `/instance` and signed in, with Report Demo, 13 seconds after `up`. The database had no published port, Tessick listened only on `127.0.0.1`, and the log showed the demo block. `down -v` removed both `tessick-demo_*` volumes.
+- **Not verified:** the publish job and the arm64 image run only on GitHub after a push.
+
+Each workspace's tests pass on their own (882 passed, 4 skipped: core 219, db 138, server 467 + 4 skipped, web 58); typecheck clean; the Docker build ran the production build.

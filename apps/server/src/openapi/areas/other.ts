@@ -4,7 +4,8 @@ import { authedErrors, wrapped, list, NO_CONTENT, idParams, oneOf, handlerValida
 /**
  * Route schemas for API tokens (routes/apiTokens.ts), reports (routes/reports.ts), report
  * email (routes/reportEmail.ts), import (routes/ingestion.ts), export (routes/exports.ts), the
- * health check (observability.ts) and the MCP endpoint (mcp/mcpServer.ts).
+ * health check (observability.ts), the instance information (routes/instance.ts) and the MCP
+ * endpoint (mcp/mcpServer.ts).
  */
 
 const TOKENS = ['API tokens'];
@@ -517,6 +518,29 @@ export const healthSchema = {
       type: 'object',
       required: ['status', 'database', 'uptime_seconds'],
       properties: { status: oneOf(['unavailable']), database: oneOf(['unreachable']), uptime_seconds: { type: 'integer' } },
+    },
+  },
+};
+
+export const instanceSchema = {
+  tags: OPS,
+  summary: 'Instance information',
+  operationId: 'getInstance',
+  description:
+    'What the sign-in page needs to know before anyone signs in. No sign-in. `demo` is null unless the server runs in demo mode (`TESSICK_DEMO=true`), when it gives the demo admin to sign in as; `password` is null when `ADMIN_PASSWORD` chose it.',
+  security: [],
+  response: {
+    200: {
+      description: 'The instance',
+      type: 'object',
+      required: ['demo'],
+      properties: {
+        demo: {
+          type: ['object', 'null'],
+          required: ['username', 'password'],
+          properties: { username: { type: 'string' }, password: { type: ['string', 'null'] } },
+        },
+      },
     },
   },
 };

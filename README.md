@@ -11,6 +11,19 @@ Tessick is an open-source, self-hosted test case management app: a faster, more 
 - **Import and export**: TestLink XML, JUnit XML, TestRail CSV, CSV and JSON.
 - **Access control**: roles you can edit, per-project roles and overrides, and project-scoped API tokens for CI.
 
+## Try it in a minute
+
+With Docker, and nothing to configure:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/ElliotNewtonMiller/Tessick/main/docker-compose.demo.yml
+docker compose -f docker-compose.demo.yml up
+```
+
+Open http://localhost:3001 and sign in as `admin` / `tessick-demo-admin` (the sign-in page shows it). A demo project is loaded, with eight runs of results to explore in Reports and an open run to try the keyboard-driven execution on. If port 3001 is taken, start it with `TESSICK_PORT=3002` in front. `docker compose -f docker-compose.demo.yml down -v` removes it all.
+
+The demo's password is public, so it only listens on your own machine. To keep real data, see [Running it for real](#running-it-for-real).
+
 ## Quick start (development)
 
 Needs Node.js 22 or newer.

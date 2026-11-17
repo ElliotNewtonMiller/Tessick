@@ -1,0 +1,46 @@
+# A Tessick demo for trying it out: no .env, no secrets, a demo project already loaded.
+#   docker compose -f docker-compose.demo.yml up
+# Then open http://localhost:3001 (or TESSICK_PORT) and sign in as admin / tessick-demo-admin;
+# the sign-in page shows it too. Start again from scratch with:
+#   docker compose -f docker-compose.demo.yml down -v
+#
+# Not for real use: the admin password is well known and the database password is in this file.
+# It only listens on this machine (127.0.0.1). To run Tessick for real, use docker-compose.yml
+# (see docs/deployment.md).
+name: tessick-demo
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tessick
+      POSTGRES_USER: tessick
+      # Only the tessick container can reach the database: it has no published port.
+      POSTGRES_PASSWORD: tessick-demo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tessick -d tessick"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  tessick:
+    image: ghcr.io/elliotnewtonmiller/tessick:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Demo mode (docs/deployment.md): the well-known admin password, no JWT_SECRET or
+      # SECRETS_KEY needed, and the Report Demo project loaded into the fresh database.
+      TESSICK_DEMO: "true"
+      DATABASE_URL: postgres://tessick:tessick-demo@db:5432/tessick
+      EVIDENCE_DIR: /data/evidence
+    volumes:
+      - evidence-data:/data/evidence
+    ports:
+      - "127.0.0.1:${TESSICK_PORT:-3001}:3001"
+
+volumes:
+  db-data:
+  evidence-data:

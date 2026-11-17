@@ -81,6 +81,8 @@ function installApi(opts: {
   projectPermissions?: string[];
   completesRun?: boolean;
   notesStatus?: number;
+  /** Demo mode's sign-in, as GET /instance answers it. */
+  demo?: { username: string; password: string | null } | null;
 }) {
   calls = [];
   // Evidence: none, and none allowed, until a result is recorded.
@@ -95,6 +97,7 @@ function installApi(opts: {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
     calls.push({ method, path: url.pathname, body });
     const p = url.pathname;
+    if (p === '/api/v1/instance') return json({ demo: opts.demo ?? null });
     if (p === '/api/v1/auth/me') return opts.signedIn ? json({ user: opts.signedIn }) : json({ status: 401, code: 'UNAUTHORIZED', detail: 'Unauthorized' }, 401);
     if (p === '/api/v1/projects' && method === 'GET')
       return json({ projects: [{ ...project, permissions: opts.projectPermissions ?? opts.signedIn?.permissions ?? [] }] });
@@ -169,6 +172,16 @@ describe('App smoke tests', () => {
     render(<App />);
     expect(await screen.findByRole('button', { name: /^Log In$/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Sign Out/ })).toBeNull();
+    expect(screen.queryByText(/Demo instance/)).toBeNull();
+  });
+
+  it("shows a demo server's sign-in on the login page, and fills it in", async () => {
+    installApi({ signedIn: null, demo: { username: 'admin', password: 'tessick-demo-admin' } });
+    render(<App />);
+    const note = await screen.findByRole('note');
+    expect(note.textContent).toContain('Demo instance. Sign in as admin with the password tessick-demo-admin');
+    await waitFor(() => expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('tessick-demo-admin'));
+    expect((screen.getByLabelText(/Username or Email/) as HTMLInputElement).value).toBe('admin');
   });
 
   it('shows the selected project, plan and run in the header', async () => {

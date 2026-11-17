@@ -23,6 +23,8 @@ const force = (path: string, forced?: boolean) => withQuery(path, { force: force
 
 export const api = {
   // Sign-in
+  /** Before sign-in: the demo admin's sign-in when the server runs in demo mode. */
+  instance: `${V1}/instance`,
   login: `${V1}/auth/login`,
   logout: `${V1}/auth/logout`,
   me: `${V1}/auth/me`,

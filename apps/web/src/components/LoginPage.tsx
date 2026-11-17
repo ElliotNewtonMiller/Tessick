@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserProfile } from './AuthModal';
 import { jsonHeaders } from '../utils/session';
 
@@ -19,6 +19,28 @@ export function LoginPage({ onLoginSuccess, notice }: LoginPageProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState<boolean>(false);
+  // Demo mode (TESSICK_DEMO on the server): the demo admin's sign-in, shown and filled in.
+  const [demo, setDemo] = useState<{ username: string; password: string | null } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(api.instance)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.demo) return;
+        setDemo(data.demo);
+        // Only fields nobody has typed in yet.
+        setUsername((u) => (u === '' || (import.meta.env.DEV && u === 'admin') ? data.demo.username : u));
+        if (data.demo.password) {
+          setPassword((p) => (p === '' || (import.meta.env.DEV && p === 'password') ? data.demo.password : p));
+        }
+      })
+      // Only a convenience: without it the page works as before.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +169,31 @@ export function LoginPage({ onLoginSuccess, notice }: LoginPageProps) {
             Enterprise Test Execution & Quality Assurance
           </p>
         </div>
+
+        {/* DEMO MODE: WHO TO SIGN IN AS */}
+        {demo && (
+          <div
+            role="note"
+            style={{
+              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              border: '1px solid rgba(251, 191, 36, 0.45)',
+              color: '#fde68a',
+              padding: '10px 12px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              marginBottom: '20px',
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Demo instance.</strong> Sign in as <code>{demo.username}</code>
+            {demo.password ? (
+              <>
+                {' '}with the password <code>{demo.password}</code>
+              </>
+            ) : null}
+            . It's for trying Tessick: don't keep real data here.
+          </div>
+        )}
 
         {/* LOG IN FORM */}
         <form onSubmit={handleLogin}>

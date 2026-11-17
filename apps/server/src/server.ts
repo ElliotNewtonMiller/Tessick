@@ -32,7 +32,7 @@ import { registerReportEmailRoutes } from './routes/reportEmail.js';
 import { registerEmailAdminRoutes } from './routes/emailAdmin.js';
 import { createRateLimits } from './services/rateLimits.js';
 import { runDueSchedules } from './services/reportEmailService.js';
-import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, resolveEvidenceConfig, DEFAULT_EVIDENCE_MAX_FILE_MB, ConfigError } from './config.js';
+import { resolveDatabaseConfig, resolveInitialAdminPassword, resolveCorsOrigins, resolveSecretsKey, resolveWebDistDir, resolveJwtSecret, resolveLogLevel, resolveWebhookAllowLocal, resolveEvidenceConfig, resolveDemoMode, DEMO_ADMIN_PASSWORD, DEFAULT_EVIDENCE_MAX_FILE_MB, ConfigError } from './config.js';
 import { loggerOptions, registerRequestLogging, registerHttpsOnHttpHint, registerHealthRoute } from './observability.js';
 import { registerWebApp } from './webApp.js';
 import { registerSecurityHeaders } from './securityHeaders.js';
@@ -50,6 +50,9 @@ import { join } from 'node:path';
 import { createStorage, type StorageProvider } from './storage/index.js';
 import { registerEvidenceRoutes } from './routes/evidence.js';
 import { runStorageSweep } from './services/storageSweeper.js';
+import { registerInstanceRoute } from './routes/instance.js';
+import { loadDemoProject, demoBanner } from './demo/demoMode.js';
+import type { ReportDemo } from './demo/reportDemo.js';
 
 // Tessick only targets Postgres-compatible SQL. With no connectionString this routes to an
 // ephemeral, zero-config PGlite (WASM Postgres) instance -- no server, no native bindings,
@@ -152,8 +155,9 @@ export async function createServer(
 
   // Signing secret for session JWTs (see packages/core/src/security/jwt.ts): JWT_SECRET, which
   // a real database requires (resolveJwtSecret in config.ts). Only the in-memory database falls
-  // back to a random secret for this process.
-  const jwtSecret = resolveJwtSecret({ inMemory: !connectionString });
+  // back to a random secret for this process, and so does demo mode (TESSICK_DEMO, config.ts).
+  const demo = resolveDemoMode();
+  const jwtSecret = resolveJwtSecret({ inMemory: !connectionString, demo });
 
   // Bring the schema up to date (only migrations that haven't run yet -- safe on every start,
   // including against a database that's already current), then seed the RBAC registry
@@ -165,7 +169,7 @@ export async function createServer(
   await migrateToLatest(db);
   // Key for secrets stored in the database (SECRETS_KEY), then encrypt an SMTP password saved
   // in plaintext by an older version.
-  setSecretBox(resolveSecretsKey({ inMemory: !connectionString }));
+  setSecretBox(resolveSecretsKey({ inMemory: !connectionString, demo }));
   configureWebhooks({
     allowLocal: options.webhooks?.allowLocal ?? resolveWebhookAllowLocal(),
     deliverImmediately: options.webhooks?.deliverImmediately ?? true,
@@ -178,9 +182,12 @@ export async function createServer(
   // The first admin, only when there are no users yet. Its password comes from ADMIN_PASSWORD,
   // or is generated and printed once (see config.ts) -- never a well-known default on a real database.
   const userRepo = new UserRepository(db);
+  // Set only when the database was fresh: demo mode loads its project then (below).
+  let newAdminPassword: string | null = null;
   if (!(await userRepo.hasAnyUser())) {
-    const initialAdmin = resolveInitialAdminPassword({ inMemory: !connectionString });
+    const initialAdmin = resolveInitialAdminPassword({ inMemory: !connectionString, demo });
     await userRepo.seedInitialAdmin(initialAdmin);
+    newAdminPassword = initialAdmin.password;
     if (initialAdmin.source === 'generated') {
       console.warn(
         [
@@ -232,6 +239,10 @@ export async function createServer(
 
   // GET /api/v1/health, for load balancers and uptime monitors (observability.ts).
   registerHealthRoute(app, db);
+  // GET /api/v1/instance, for the sign-in page: the demo admin's sign-in in demo mode. Its
+  // password only when it's the well-known demo one, never one chosen with ADMIN_PASSWORD.
+  const demoSignIn = demo ? { username: 'admin', password: process.env.ADMIN_PASSWORD ? null : DEMO_ADMIN_PASSWORD } : null;
+  registerInstanceRoute(app, demoSignIn);
 
   // Dave's TestLink REST API, answered as TestLink does, under /lib/api/rest/{v1,v2,custom} (testlinkCompat/).
   await registerTestLinkCompat(app, db);
@@ -242,7 +253,20 @@ export async function createServer(
   // answers unknown /api and /mcp addresses the same way).
   else app.setNotFoundHandler(sendUnknownAddress);
 
-  return { app, db, seed };
+  // Demo mode: on a fresh database, the Report Demo project, through the routes above as the
+  // first admin (demo/demoMode.ts). A failure is logged and leaves the demo without its project.
+  let demoProject: ReportDemo | null = null;
+  if (demo) {
+    if (newAdminPassword) {
+      demoProject = await loadDemoProject(app, { username: 'admin', password: newAdminPassword }).catch((err) => {
+        console.error('[tessick] Loading the demo project failed:', err);
+        return null;
+      });
+    }
+    if (process.env.NODE_ENV !== 'test') console.warn(demoBanner(demoSignIn!, demoProject));
+  }
+
+  return { app, db, seed, demoProject };
 }
 
 if (process.env.NODE_ENV !== 'test') {

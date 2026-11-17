@@ -42,6 +42,7 @@ npm run dev --workspace=apps/web         # web app on :3000, proxies /api to :30
 npm run build                            # production: apps/web/dist + apps/server/dist/server.js
 npm start                                # production: one process serving the API and web app (needs DATABASE_URL, JWT_SECRET)
 docker compose up -d                     # Tessick + PostgreSQL; copy .env.example to .env first
+docker compose -f docker-compose.demo.yml up   # the demo: published image, demo mode, Report Demo loaded, no .env
 npx tsx apps/server/scripts/report-demo.ts   # loads a demo project with 8 runs of results through the API
 npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Tessick's)
 ```
@@ -52,13 +53,15 @@ npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves
 - It seeds the role registry, an `admin` / `password` user, and fixture users for each built-in role with password `DevTest123!`: `test_lead`, `tester`, `viewer`, `automation_bot`, `project_admin`, `override_tester`.
 - It seeds no projects; run the demo script for data.
 - Backend or shared-package changes need a dev-server restart.
-- `.claude/launch.json` defines `api-server` and `web` for the preview tools.
+- `.claude/launch.json` defines `api-server` and `web` for the preview tools, and `api-server-demo` (the dev server in demo mode, instead of `api-server`).
 
 **Configuration** comes only from environment variables; there's no `.env` loader except Docker Compose's. A bad value stops startup with a `ConfigError` saying what to set. The full table is in `docs/deployment.md`. In short:
 - `DATABASE_URL` is required: a Postgres URL, or `memory` (refused with `NODE_ENV=production`).
 - `JWT_SECRET` (32+ characters) is required with a real database.
 - Evidence storage is required with a real database: `EVIDENCE_DIR` (local) or `EVIDENCE_STORAGE=s3` with `EVIDENCE_S3_*`; the in-memory database uses memory. Startup checks it's writable or reachable.
 - Also read: `SECRETS_KEY`, `ADMIN_PASSWORD`, `PORT`, `TRUST_PROXY`, `CORS_ORIGINS`, `LOG_LEVEL`, `WEB_DIST_DIR`, `SEED_SAMPLE_DATA`, `SEED_DEV_FIXTURES`, `WEBHOOK_ALLOW_LOCAL`, `EVIDENCE_MAX_FILE_MB`.
+- `TESSICK_DEMO=true` is demo mode (`docker-compose.demo.yml`, `src/demo/`): the first admin's password is `tessick-demo-admin` and `GET /api/v1/instance` gives it to the sign-in page (not when `ADMIN_PASSWORD` chose it); `JWT_SECRET`/`SECRETS_KEY` may be unset (random per start); and a fresh database (the first admin created on this start) gets the Report Demo project, loaded through the routes in-process (`app.inject`). Never for real data.
+- CI publishes the image to `ghcr.io/elliotnewtonmiller/tessick` (amd64 + arm64, `latest` and `sha-<commit>`) on each push to `main`, after the demo has been checked to start with its project.
 - All of it is parsed in `apps/server/src/config.ts`.
 
 **First admin on a real database:** username `admin`. The password is `ADMIN_PASSWORD` if set; otherwise a random one is printed once in the log, and Tessick makes the admin change it at first sign-in.
@@ -72,7 +75,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
   src/routes/      One file per area: auth, admin, projects (projects/plans/runs), specEditing (suites/cases/versions/move),
                    testPlanCases (spec tree, plan membership, Execute queue), customFields, caseSearch, ingestion (import),
                    exports, results (one result), batchExecution (CI results as JSON), junitResults (CI results as JUnit XML),
-                   bulkChanges (many cases in one call), webhooks, reports, reportEmail, emailAdmin, apiTokens, evidence.
+                   bulkChanges (many cases in one call), webhooks, reports, reportEmail, emailAdmin, apiTokens, evidence,
+                   instance (what the sign-in page reads first).
   src/services/    Logic shared by routes: adminGuard, caseFilterService, reportService, reportEmailService, mailer,
                    rateLimits, loginThrottle, resultValidation, resultOverwrite, stepValidation, secrets,
                    batchResults (recording a CI batch, JSON or JUnit), runByName (CI's run per build),
@@ -92,6 +96,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    spool.ts (an upload checked on its way in: size, SHA-256, type by contents), index.ts (createStorage).
   src/openapi/     The OpenAPI spec and /docs page: index.ts (setup, validation, test-time response check),
                    schemas.ts (shared schemas, helpers), areas/ (route schemas per area).
+  src/demo/        reportDemo.ts (the Report Demo project, loaded over any API caller: scripts/report-demo.ts over HTTP,
+                   demo mode in-process), demoMode.ts (loading it at startup, the log block).
   src/{config,errors,audit,observability,securityHeaders,storableInput,unknownAddress,webApp,sessionCookie,sessionLifetime,runAutoClose,internalRequests}.ts
   scripts/build.mjs        esbuild bundle (workspace packages bundled, other dependencies external).
 apps/web/          React + Vite. src/App.tsx (~680 lines) calls the hooks, provides the context, lays out panes and modals, wires hotkeys.
@@ -291,7 +297,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
   - New dependencies must have permissive licenses (MIT, Apache-2.0, ISC, BSD, BlueOak and the like). No GPL, LGPL, AGPL or other copyleft code, and no copying code or text from projects under such licenses.
   - Outside contributions need a contributor license agreement before they're merged.
 - **PostgreSQL only.** SQLite was dropped (native-binding problems), and PGlite is the zero-setup in-memory option. Don't add a second dialect.
-- **No sample projects on startup.** Users and roles are seeded, plus dev fixture users on the in-memory database. The sample project exists only for tests (`SEED_SAMPLE_DATA`).
+- **No sample projects on startup.** Users and roles are seeded, plus dev fixture users on the in-memory database. The sample project exists only for tests (`SEED_SAMPLE_DATA`). The one exception is opt-in demo mode (`TESSICK_DEMO`, set only by `docker-compose.demo.yml`), which loads the Report Demo into a fresh database (decided with Elliot, 2026-11-16).
 - **Role templates and template-based dev accounts stay** (audit scope).
 - **Custom field rules:** values are unversioned, required fields always have a default, CHECKBOX fields can't be required (see "Domain rules").
 - **Results:** notes are kept for every verdict, manual results aren't timed, auto-close happens once and never from CI uploads, results don't snapshot custom fields.

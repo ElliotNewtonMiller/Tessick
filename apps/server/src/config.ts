@@ -58,16 +58,20 @@ export function resolveDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Dat
  *
  * - `ADMIN_PASSWORD` set: that password (it must meet the password policy). Not forced to change.
  * - In-memory database (development/tests): `password`. That data is thrown away anyway.
+ * - Demo mode (TESSICK_DEMO): DEMO_ADMIN_PASSWORD, which the sign-in page shows.
  * - Otherwise: a random password, printed once at startup, which must be changed at first sign-in.
  */
 export interface InitialAdminPassword {
   password: string;
   mustChangePassword: boolean;
-  source: 'env' | 'in_memory_default' | 'generated';
+  source: 'env' | 'in_memory_default' | 'demo' | 'generated';
 }
 
+/** The first admin's password in demo mode: well known, so demo mode is for trying Tessick only. */
+export const DEMO_ADMIN_PASSWORD = 'tessick-demo-admin';
+
 export function resolveInitialAdminPassword(
-  { inMemory }: { inMemory: boolean },
+  { inMemory, demo = false }: { inMemory: boolean; demo?: boolean },
   env: NodeJS.ProcessEnv = process.env
 ): InitialAdminPassword {
   const fromEnv = env.ADMIN_PASSWORD;
@@ -76,6 +80,7 @@ export function resolveInitialAdminPassword(
     if (!check.valid) throw new ConfigError(`ADMIN_PASSWORD doesn't meet the password policy: ${check.reason}`);
     return { password: fromEnv, mustChangePassword: false, source: 'env' };
   }
+  if (demo) return { password: DEMO_ADMIN_PASSWORD, mustChangePassword: false, source: 'demo' };
   if (inMemory) return { password: 'password', mustChangePassword: false, source: 'in_memory_default' };
   // 24 characters: long enough that the policy needs no particular character types.
   return { password: randomBytes(18).toString('base64url'), mustChangePassword: true, source: 'generated' };
@@ -117,10 +122,11 @@ export function resolveCorsOrigins(env: NodeJS.ProcessEnv = process.env): string
  * same across restarts and instances -- if it changes, stored secrets must be entered again.
  *
  * - Set: used to encrypt and decrypt.
- * - Unset, in-memory database: a random key for this process (that data is thrown away anyway).
+ * - Unset, in-memory database or demo mode: a random key for this process (that data is thrown
+ *   away anyway, or only for trying Tessick).
  * - Unset, real database: null -- nothing secret can be stored (saving an SMTP password is refused).
  */
-export function resolveSecretsKey({ inMemory }: { inMemory: boolean }, env: NodeJS.ProcessEnv = process.env): SecretBox | null {
+export function resolveSecretsKey({ inMemory, demo = false }: { inMemory: boolean; demo?: boolean }, env: NodeJS.ProcessEnv = process.env): SecretBox | null {
   const secret = env.SECRETS_KEY;
   if (secret) {
     if (secret.length < 32) {
@@ -128,7 +134,7 @@ export function resolveSecretsKey({ inMemory }: { inMemory: boolean }, env: Node
     }
     return SecretBox.fromSecret(secret);
   }
-  return inMemory ? SecretBox.ephemeral() : null;
+  return inMemory || demo ? SecretBox.ephemeral() : null;
 }
 
 /** apps/web/dist: the same place whether this runs from src/ (tsx) or the dist/ bundle. */
@@ -159,10 +165,12 @@ export function resolveWebDistDir(env: NodeJS.ProcessEnv = process.env, defaultD
  * - Set: used as is.
  * - Unset, in-memory database: a random secret for this process (that data, sessions included,
  *   is thrown away anyway).
+ * - Unset, demo mode: a random secret for this process too, so the demo compose file needs no
+ *   secrets. A restart signs everyone out.
  * - Unset, real database: refused. A per-process secret would sign everyone out on every restart
  *   and make several instances reject each other's sign-ins.
  */
-export function resolveJwtSecret({ inMemory }: { inMemory: boolean }, env: NodeJS.ProcessEnv = process.env): string {
+export function resolveJwtSecret({ inMemory, demo = false }: { inMemory: boolean; demo?: boolean }, env: NodeJS.ProcessEnv = process.env): string {
   const secret = env.JWT_SECRET;
   if (secret) {
     if (secret.length < 32) {
@@ -170,7 +178,7 @@ export function resolveJwtSecret({ inMemory }: { inMemory: boolean }, env: NodeJ
     }
     return secret;
   }
-  if (inMemory) return randomBytes(32).toString('hex');
+  if (inMemory || demo) return randomBytes(32).toString('hex');
   throw new ConfigError(
     'JWT_SECRET is not set. Set it to a random string of at least 32 characters (e.g. the output of `openssl rand -hex 32`), ' +
       'the same on every server instance and across restarts -- it signs everyone\'s sign-ins.'
@@ -192,6 +200,19 @@ export function resolveLogLevel(env: NodeJS.ProcessEnv = process.env): LogLevel 
     throw new ConfigError(`LOG_LEVEL must be one of ${LOG_LEVELS.join(', ')} (got "${env.LOG_LEVEL}").`);
   }
   return raw as LogLevel;
+}
+
+/**
+ * TESSICK_DEMO=true runs Tessick as a demo for people trying it (docker-compose.demo.yml): the
+ * first admin's password is DEMO_ADMIN_PASSWORD and the sign-in page shows it, JWT_SECRET and
+ * SECRETS_KEY may be left unset, and an empty database gets the Report Demo project at startup
+ * (demo/demoMode.ts). Never for real data.
+ */
+export function resolveDemoMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env.TESSICK_DEMO?.trim().toLowerCase();
+  if (!raw || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new ConfigError(`TESSICK_DEMO must be true or false (got "${env.TESSICK_DEMO}").`);
 }
 
 /**
