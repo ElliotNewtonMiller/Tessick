@@ -94,3 +94,5 @@ Tessick is dual-licensed since `4e94dc3`: AGPL-3.0-only, or a commercial license
 
 - [ ] After the first push to `main` with the publish job, CI publishes `ghcr.io/elliotnewtonmiller/tessick`. GitHub makes a new package private, so the demo can't download it until you change that: on GitHub, your profile → **Packages** → **tessick** → **Package settings** → **Change visibility** → **Public**. While you're there, check that it's linked to the Tessick repository.
 
+**Already checked by the agent (2026-11-17):** the first publish (CI run 44021341974, commit `465b387`) pushed `latest` and `sha-465b387` for amd64 and arm64. Without signing in, the registry already serves the image's manifest, so it looks public already: it probably took the visibility of the public repository it's linked to. Confirm it on the package's settings page, and tick this box.
+
