@@ -76,7 +76,13 @@ Once CI has published the image and the package is public (see Elliot's other ta
 
 **Already checked by the agent** (on the dev server in demo mode, at `127.0.0.1:3000` in a separate tab): the note and the filled-in fields, signing in with them, the Overview report (88 results, the activity chart), and recording a Pass with `p` on DEMO-12 in Execute. The startup log's demo block, and `scripts/report-demo.ts` against the same server. CI starts the demo compose file from the image it builds and checks its sign-in and project.
 
-**Not checked by the agent:** the published image itself (it doesn't exist until the first push), the arm64 image, and how long a first start takes with the downloads.
+**Also checked by the agent (2026-11-17), with the published image on Linux (amd64):**
+- In an empty folder with no GHCR sign-in, I downloaded the compose file with the README's `curl` and ran `up -d`. The image pulled was the one CI published (`sha256:609f4a3e…`), and the server answered after 17 seconds, including that download (`postgres:17-alpine` was already on the machine).
+- `/instance` gave the demo sign-in, the API login worked, and the log showed the demo block with Report Demo (12 cases, 8 runs).
+- In a separate browser tab at `127.0.0.1:3001`, the sign-in page showed the note with the fields filled in, and Log In opened Report Demo with Release Regression and Run 1.0.8.
+- `down -v` removed the containers, volumes and network.
+
+**Not checked by the agent:** the arm64 image on a real Apple Silicon Mac, a first start with no images already on the machine, and the `claude mcp add` command from the log.
 
 ## Elliot's other tasks
 
