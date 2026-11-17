@@ -110,15 +110,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
+        # GHCR's package page reads a multi-platform image's description and license from the
+        # index's annotations, not the labels; without these it shows the repository's
+        # (GitHub reports the AGPL as "AGPL-3.0", as its text is the same for -only and -or-later).
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/elliotnewtonmiller/tessick
           tags: |
@@ -128,12 +133,17 @@ jobs:
             org.opencontainers.image.title=Tessick
             org.opencontainers.image.description=Self-hosted test case management: a modern replacement for TestLink.
             org.opencontainers.image.licenses=AGPL-3.0-only
-      - uses: docker/build-push-action@v6
+          annotations: |
+            org.opencontainers.image.title=Tessick
+            org.opencontainers.image.description=Self-hosted test case management: a modern replacement for TestLink.
+            org.opencontainers.image.licenses=AGPL-3.0-only
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
