@@ -4287,3 +4287,5 @@ It's linked from:
 - The guide's labels were checked against the app: Preview Import, Create New / Map to Existing / Drop, Run Import, User Roster → Reset Password. The counts and warnings are on the Duplicates step.
 - **Not verified:** a real TestLink's export, and the migration against a real TestLink database (as before: TestLink 1.9.20's PostgreSQL schema only). Both are in the backlog, and the guide says so.
 
+
+The root `npm test` passed: 117 files passed and 1 skipped, 885 tests passed and 4 skipped. Typecheck clean.
