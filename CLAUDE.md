@@ -361,4 +361,4 @@ These were chosen deliberately; don't reverse them without asking Elliot.
    - `docs/01_vertical_slices_roadmap.md`: what each build slice planned and delivered.
    - `docs/00_requirements_alignment.md` (identical to `.antigravity/requirements_alignment.md`): the locked intake decisions, with "As built" notes.
    - `.antigravity/agents/*.md`: the original planning briefs; they record what was asked for, not what was built.
-6. `docs/testlink_compat_api.md`: the TestLink-compatible API for Dave's TestLink clients: keys, paths, the model mapping, its phases and what can't be exact.
+6. `docs/testlink_compat_api.md`: the TestLink-compatible API for Dave's TestLink clients: keys, paths, the model mapping, its phases and what can't be exact. `docs/migrating_from_testlink.md`: the guide for TestLink admins moving in (XML export and Import wizard, or the database migration).

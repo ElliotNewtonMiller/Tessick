@@ -4245,3 +4245,45 @@ Each workspace's tests pass on their own (882 passed, 4 skipped: core 219, db 13
 - The root `npm test` on the laptop, twice in a row, with memory sampled every 5 seconds and a guard that would stop the workers below 1.5 GB free (it never fired): 117 files passed and 1 skipped, 882 tests passed and 4 skipped, in 349 and 376 seconds. The first run chose 4 workers (peak 5.4 GB together, at least 4.8 GB of RAM always free); the second, starting with less free memory, chose 3. Before, the same command had 7 workers holding 8 GB after 30 seconds and was stopped.
 - Typecheck clean.
 - On GitHub, after the push (CI run 44032849224, commit `3cffbc8`): every job passed, the tests in 6m25s with 3 workers as before, with no Node 20 warning. The publish took 32 seconds from the layer cache. The published `latest` index, read from the registry without signing in, has amd64 and arm64 and the annotations: title Tessick, our description, `AGPL-3.0-only`, the source repository and the commit.
+
+## Moving from TestLink: a guide, and TestLink's two other export shapes (2026-11-17)
+
+**Why:** TestLink admins looking for a way out are a large part of Tessick's audience, and nothing showed them the simplest path: TestLink's XML export, then Tessick's Import wizard. `deployment.md` had one paragraph pointing to the database migration, and `testlink_compat_api.md` covers that migration as a reference. Asked for by Elliot as one short Markdown guide.
+
+**The guide:** a new `docs/migrating_from_testlink.md`. It covers:
+- the two ways out, with a table of what each brings;
+- creating the project with TestLink's prefix;
+- TestLink's export and each step of the Import wizard;
+- what comes across and how;
+- importing from a script with `curl` and a project API token;
+- the database migration, including `mysql2` for MySQL/MariaDB and a `docker-compose.override.yml` that opens Tessick's database to the machine while migrating;
+- keeping TestLink scripts on the compat API;
+- what's different after the move.
+
+It's linked from:
+- the README's feature list;
+- `deployment.md`'s "Moving from TestLink";
+- CLAUDE.md/AGENTS.md's doc map.
+
+**Two gaps found while writing it,** both in `packages/core/src/ingestion/SaxXmlParser.ts`, and both confirmed by parsing hand-made files before changing anything:
+- **TestLink's export of a whole project** wraps its suites in a nameless `<testsuite id="" name="">`, the project itself. That became a top-level suite "Unnamed Suite" holding the whole tree. Now its suites are the top-level suites.
+- **TestLink's export of single test cases** (`<testcases>`, with no suite) imported nothing, without a word, since cases were only kept inside a suite.
+  - Now such cases go into one top-level suite, `Imported cases` (`LOOSE_CASES_SUITE_NAME`), each with a `CASE_OUTSIDE_SUITE` warning in the dry run.
+  - A file that starts with `<testcases` is also recognised without a `.xml` name.
+- RFC 03 §6.2's TestLink XML table has both.
+
+**Tests:**
+- `packages/core/tests/ingestion.test.ts` +2: the whole-project export, and `<testcases>`.
+- `apps/server/tests/testlink_xml_ids.test.ts` +1: a whole-project import keeps TestLink's suite ids at the top level. A `<testcases>` dry run warns and names the suite, and the import adds it with the case's TestLink id.
+
+**Verified:**
+- **Following the guide in the browser:** the dev server at `127.0.0.1:3000`, in a separate tab.
+  - Created the project Shop with prefix TL, then imported a hand-made whole-project export through every step of the wizard.
+  - Result: 3 suites at the top. TL-331 was HIGH, MANUAL, approved, with plain-text steps (`&mdash;` decoded), its Component value and both keywords.
+- **The guide's `curl` commands, with a project token holding `IMPORT_DATA`:**
+  - the same file again gave 3 new versions and no copies;
+  - a `<testcases>` file went into "Imported cases", with the warnings.
+- **`docker compose config`:** with the guide's override file, the database port is published on `127.0.0.1:5432`.
+- The guide's labels were checked against the app: Preview Import, Create New / Map to Existing / Drop, Run Import, User Roster → Reset Password. The counts and warnings are on the Duplicates step.
+- **Not verified:** a real TestLink's export, and the migration against a real TestLink database (as before: TestLink 1.9.20's PostgreSQL schema only). Both are in the backlog, and the guide says so.
+

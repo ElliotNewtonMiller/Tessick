@@ -84,6 +84,26 @@ Once CI has published the image and the package is public (see Elliot's other ta
 
 **Not checked by the agent:** the arm64 image on a real Apple Silicon Mac, a first start with no images already on the machine, and the `claude mcp add` command from the log.
 
+## Moving from TestLink: the guide, and two TestLink export shapes (2026-11-17)
+
+Read `docs/migrating_from_testlink.md` as a TestLink admin would. If you have a TestLink (or can start one), follow it with a real export:
+
+- [ ] TestLink's buttons are as the guide names them (Test Specification → the project → **Export All Test Suites**, XML, keywords and custom fields).
+- [ ] Importing that file with **📥 Import** gives the same suite tree as TestLink, with no extra top-level suite, and ids `PREFIX-n` matching TestLink's.
+- [ ] Exporting a single test case from TestLink and importing it puts the case in **Imported cases**.
+- [ ] Optional: the database migration's `--dry-run` against a copy of a real TestLink database (MySQL needs `mysql2`).
+
+**Already checked by the agent:**
+- **In the browser:** a hand-made export of a whole project (a nameless outer `<testsuite>`, nested suites, HTML steps, `&nbsp;`/`&mdash;`, a custom field, two keywords), on the dev server at `127.0.0.1:3000` in a separate tab. I followed the guide: created the project Shop with prefix TL, then Import, Preview Import, Create New for Component, Duplicates, and Run Import.
+  - 3 suites at the top (Checkout › Cards, Search) and no "Unnamed Suite".
+  - TL-331: HIGH, MANUAL, approved, plain-text steps, the Component value, and both keywords.
+- **With the guide's `curl` commands and a project API token:**
+  - the same file again gave 3 new versions and no copies;
+  - a `<testcases>` file of two cases went into "Imported cases", with a warning each, and the tree showed it.
+- **The migration section's `docker-compose.override.yml`:** `docker compose config` shows the database port published on `127.0.0.1:5432`.
+
+**Not checked by the agent:** a real TestLink's export (the files were written by hand from TestLink 1.9's format), and the database migration against a real TestLink.
+
 ## Elliot's other tasks
 
 ### Before selling a commercial license (2026-11-16)

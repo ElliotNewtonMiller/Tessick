@@ -9,6 +9,7 @@ Tessick is an open-source, self-hosted test case management app: a faster, more 
 - **Webhooks**: a project's events (a run finishing, tests failing, cases to review, imports) go to Slack, CI or your own code as they happen, signed, with retries.
 - **AI agents**: over MCP, an agent can also write test cases (as drafts for a person to approve), change many cases at once, manage plans and record results, with only the permissions its token has.
 - **Import and export**: TestLink XML, JUnit XML, TestRail CSV, CSV and JSON.
+- **Coming from TestLink?** [Moving from TestLink](docs/migrating_from_testlink.md) takes your cases across with TestLink's own XML export, or your whole database with its history. TestLink's API keeps working for your scripts.
 - **Access control**: roles you can edit, per-project roles and overrides, and project-scoped API tokens for CI.
 
 ## Try it in a minute
