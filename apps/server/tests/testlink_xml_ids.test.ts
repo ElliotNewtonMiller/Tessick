@@ -97,6 +97,22 @@ ${xml.replace(/^<\?xml[^>]*>\n/, '')}
     expect(cases.find((c: any) => c.id === 120)?.external_id).toBe('TL-4');
   });
 
+  it("keeps each case's TestLink status: drafts stay drafts, and a file without one is approved", async () => {
+    const project = body(await call('POST', '/api/v1/projects', { name: 'Statuses', prefix: 'ST' })).project;
+    const file = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite id="" name="" >
+<testsuite id="70" name="Mixed" >
+  <testcase internalid="140" name="A draft"><externalid><![CDATA[1]]></externalid><status>1</status><active>1</active></testcase>
+  <testcase internalid="141" name="A final"><externalid><![CDATA[2]]></externalid><status>7</status><active>1</active></testcase>
+  <testcase internalid="142" name="No status"><externalid><![CDATA[3]]></externalid></testcase>
+</testsuite>
+</testsuite>`;
+    expect((await call('POST', `/api/v1/projects/${project.id}/imports/execute`, { file_content: file })).statusCode).toBe(200);
+    const statuses = [];
+    for (const id of ['ST-1', 'ST-2', 'ST-3']) statuses.push(body(await call('GET', `/api/v1/cases/${id}/versions/latest`)));
+    expect(statuses.map((v: any) => v.version.status)).toEqual(['DRAFT', 'APPROVED', 'APPROVED']);
+  });
+
   it('keeps two TestLink cases that share a title in one suite apart, on import and re-import', async () => {
     // TestLink allows it; a case with an id in the file is matched by that id alone.
     const project = body(await call('POST', '/api/v1/projects', { name: 'Twins', prefix: 'TW' })).project;

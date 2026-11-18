@@ -634,6 +634,8 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
             let caseId: string;
             let caseVersionId: string;
             let versionNumber = 1;
+            // TestLink XML says each case's status (drafts stay drafts); other files' cases are approved.
+            const versionStatus = tc.status ?? 'APPROVED';
 
             if (!existingCase || action === 'CREATE_NEW') {
               caseId = uuidv4();
@@ -663,11 +665,11 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                   id: caseVersionId,
                   test_case_id: caseId,
                   version_number: versionNumber,
-                  status: 'APPROVED',
+                  status: versionStatus,
                   summary: tc.summary || null,
                   preconditions: tc.preconditions || null,
                   author_id: 'usr_importer_01',
-                  reviewer_id: 'usr_lead_01',
+                  reviewer_id: versionStatus === 'DRAFT' ? null : 'usr_lead_01',
                   created_at: now,
                   updated_at: now,
                 })
@@ -695,11 +697,11 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                   id: caseVersionId,
                   test_case_id: caseId,
                   version_number: versionNumber,
-                  status: 'APPROVED',
+                  status: versionStatus,
                   summary: tc.summary || null,
                   preconditions: tc.preconditions || null,
                   author_id: 'usr_importer_01',
-                  reviewer_id: 'usr_lead_01',
+                  reviewer_id: versionStatus === 'DRAFT' ? null : 'usr_lead_01',
                   created_at: now,
                   updated_at: now,
                 })
@@ -738,7 +740,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                     id: caseVersionId,
                     test_case_id: caseId,
                     version_number: 1,
-                    status: 'APPROVED',
+                    status: versionStatus,
                     summary: tc.summary || null,
                     preconditions: tc.preconditions || null,
                     author_id: 'usr_importer_01',

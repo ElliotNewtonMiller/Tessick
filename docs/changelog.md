@@ -4335,3 +4335,28 @@ The same function serves the XML import, the database migration and the TestLink
 
 
 The root `npm test` passed: 117 files passed and 1 skipped, 887 tests passed and 4 skipped. Typecheck clean.
+
+## TestLink XML imports keep TestLink's status (2026-11-18)
+
+**Decided with Elliot:** drafts stay drafts. Until now the TestLink XML import made every case APPROVED. In his real export that's 619 TestLink drafts (617 drafts plus one each in review and rework) shown as approved, beside 105 final cases. The database migration already kept TestLink's status.
+
+**Now:**
+- **The parser** (`SaxXmlParser.ts`) reads each case's `<status>` and `<active>` into `ParsedCase.status`, with the migration's own mapping (`versionStatusFromTestLink`): final → APPROVED, obsolete or `active` 0 → DEPRECATED, any other status → DRAFT. With only one of the two, it takes TestLink's default for the other (draft, active). With neither (older exports), `status` stays unset.
+- **The import** (`routes/ingestion.ts`) writes that status on a new case's version, on a VERSION_UP's new version, and on OVERWRITE's version when the case had none. A draft gets no reviewer. Unset means APPROVED, so CSV, JSON, JUnit and TestRail imports are unchanged.
+- OVERWRITE of an existing version keeps that version's status, as before. Webhooks are unchanged: an import sends only `import.completed`.
+
+**Docs:**
+- **The guide:** the status mapping. It says drafts must be approved before a plan can hold them, with **✓ Approve** or `POST /projects/:id/cases/bulk` with `action: "approve"` (up to 500 per call). It also says a re-import's versions take TestLink's status at the time.
+- RFC 03 §6.2 has a `<status>`/`<active>` row, and `testlink_compat_api.md` has the XML import's note.
+
+**Tests:**
+- `packages/core/tests/ingestion.test.ts` +1: statuses 7, 1, 2, 4 and 5, inactive, `<active>` alone, and no status.
+- `apps/server/tests/testlink_xml_ids.test.ts` +1: a draft, a final and a status-less case come in as DRAFT, APPROVED and APPROVED, read with `GET /cases/:caseId/versions/latest`.
+
+**Verified with the real export** (dev server, a fresh project):
+- 724 cases, of which 619 are DRAFT and 105 APPROVED. Each case's status was compared with its `<status>` in the file: no mismatches, and the same 724 ids.
+- In a separate tab at `127.0.0.1:3000`, the draft CT-1413 shows "v1 DRAFT" with **✓ Approve** and editable text boxes, and its "+ Add" to a plan is greyed out.
+- `cases/bulk` with `approve` approved two of the drafts.
+
+
+The root `npm test` passed: 117 files passed and 1 skipped, 889 tests passed and 4 skipped. Typecheck clean.

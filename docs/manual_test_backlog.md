@@ -116,6 +116,12 @@ Read `docs/migrating_from_testlink.md` as a TestLink admin would. If you have a 
 - [ ] Open a few approved cases with lists, tables or numbered steps: the read-only Spec pane and the Execute pane show their line breaks.
 - [ ] A draft case's text boxes look as before.
 
+**TestLink's status is kept (2026-11-18):** import a TestLink export with drafts and final cases.
+- [ ] TestLink's drafts show as DRAFT, with ✓ Approve, and can't be added to a plan until approved. Final cases are APPROVED.
+- [ ] Obsolete or inactive TestLink cases are hidden until **Show deprecated** is on.
+
+**Already checked by the agent:** with your real export, 619 drafts and 105 approved, each matching its `<status>` in the file. In the browser, CT-1413 shows v1 DRAFT with Approve and its "+ Add" greyed out. Bulk approve over the API approved two of them.
+
 ## Elliot's other tasks
 
 ### Before selling a commercial license (2026-11-16)

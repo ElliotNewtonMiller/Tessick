@@ -8,6 +8,7 @@ import type {
   ParsedStep,
 } from './types.js';
 import { normalizePriority, type ParsedPriority } from './types.js';
+import { versionStatusFromTestLink } from '../testlink/migration.js';
 
 /** sax's table of the HTML entities (missing from its type definitions). */
 const HTML_ENTITIES = (sax as unknown as { ENTITIES: Record<string, string | number | undefined> }).ENTITIES;
@@ -132,6 +133,8 @@ export class SaxXmlParser implements IFileParser {
     let currentCase: Partial<ParsedCase> | null = null;
     let currentStep: Partial<ParsedStep> | null = null;
     let currentCustomField: { name?: string; value?: string } | null = null;
+    // The current case's TestLink `<status>` and `<active>`, when the file has them.
+    let caseStatus: { status?: number; active?: number } = {};
 
     let tagStack: string[] = [];
     let textBuffer = '';
@@ -163,6 +166,7 @@ export class SaxXmlParser implements IFileParser {
         if (suiteStack.length === 0 && !attrName?.trim()) projectWrappers.add(suite);
         suiteStack.push(suite);
       } else if (tagName === 'testcase') {
+        caseStatus = {};
         currentCase = {
           title: attrName ? attrName.trim() : 'Unnamed Case',
           ...(idAttr('internalid') !== undefined ? { testlink_id: idAttr('internalid') } : {}),
@@ -237,7 +241,13 @@ export class SaxXmlParser implements IFileParser {
           currentCase.importance = mapImportance(textVal, options?.defaultImportance);
         } else if (name === 'execution_type') {
           currentCase.execution_type = mapExecutionType(textVal, options?.defaultExecutionType);
+        } else if ((name === 'status' || name === 'active') && /^\d+$/.test(textVal)) {
+          caseStatus[name] = Number(textVal);
         } else if (name === 'testcase') {
+          if (caseStatus.status !== undefined || caseStatus.active !== undefined) {
+            // A file with only one of them: TestLink's defaults, draft (1) and active.
+            currentCase.status = versionStatusFromTestLink(caseStatus.status ?? 1, caseStatus.active ?? 1);
+          }
           if (currentCase.title && currentCase.title.length > 255) {
             currentCase.title = currentCase.title.substring(0, 255);
           }

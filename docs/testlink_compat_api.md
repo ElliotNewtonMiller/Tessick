@@ -265,7 +265,8 @@ The report counts the requirements and attachments it left.
 
 **TestLink XML imports keep TestLink's ids too:**
 - suites keep their `id`, and cases their `internalid`, when Tessick hasn't used those numbers;
-- a case's keywords go into the project's `keywords` field.
+- a case's keywords go into the project's `keywords` field;
+- a case's `<status>` and `<active>` give its version's status, as in the migration (a case with neither is APPROVED).
 
 Versions and keywords have no ids in TestLink's XML, so they're numbered when first shown.
 

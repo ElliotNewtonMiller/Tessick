@@ -444,6 +444,7 @@ export interface IFileParser {
 | `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text (`cleanHtmlText`): the source's own line breaks and indents collapse to spaces, as in HTML; `<br>` and `</p>` become line breaks; list items become `- item` or `1. item` lines; a table row becomes one line of cells joined by ` \| `; other tags are removed; and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
 | `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
+| `<status>`, `<active>` | The version's status | As the migration maps them (`versionStatusFromTestLink`): final (`7`) → APPROVED, obsolete (`5`) or `active` `0` → DEPRECATED, any other status → DRAFT. A case with neither is APPROVED, as are every other format's cases. Decided with Elliot, 2026-11-18. |
 | `<steps><step>` | Steps | `<step_number>`, `<actions>`, `<expectedresults>`, cleaned like the summary. |
 | `<custom_fields><custom_field>` | Custom fields | `<name>` → column, `<value>` → value; mapped in the wizard (§6.4). |
 

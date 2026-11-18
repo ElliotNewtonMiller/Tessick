@@ -34,6 +34,11 @@ export interface ParsedCase {
   testlink_id?: number;
   /** TestLink XML: the case's keywords. */
   keywords?: string[];
+  /**
+   * TestLink XML: the version's status from TestLink's `<status>` and `<active>` (final APPROVED,
+   * obsolete or inactive DEPRECATED, the rest DRAFT). Unset when the file doesn't say: then APPROVED.
+   */
+  status?: 'DRAFT' | 'APPROVED' | 'DEPRECATED';
   title: string;
   summary?: string;
   preconditions?: string;

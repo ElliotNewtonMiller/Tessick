@@ -64,11 +64,23 @@ Click **📥 Import** in the header. The wizard has five steps:
 | Summary, preconditions, steps, expected results | The same, as plain text: paragraphs and line breaks stay, lists become `- item` or `1. item` lines, and a table row becomes one line with its cells separated by ` \| `. Other formatting (bold, links, colours) is removed |
 | Importance 1, 2, 3 | Priority LOW, MEDIUM, HIGH |
 | Execution type manual or automated | MANUAL or AUTOMATED |
+| Status final | Approved |
+| Status draft, review, rework or future | Draft |
+| Status obsolete, or an inactive case | Deprecated: hidden in the tree unless **Show deprecated** is on |
 | Keywords | The project's `keywords` field |
 | Custom fields | The fields you chose in Field Mapping |
 | TestLink's internal ids | Kept, for the [TestLink-compatible API](testlink_compat_api.md) |
 
-Imported cases are **approved**, so you can add them to a test plan straight away.
+**Drafts stay drafts.** Tessick only puts approved cases in a test plan, so approve the drafts you want to run:
+- one at a time with **✓ Approve** on the case;
+- or many at once over the API, up to 500 per call, with a project API token that has `SPEC_APPROVE`:
+  ```bash
+  curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+    -d '{"action":"approve","case_ids":["SHOP-12","SHOP-13"]}' \
+    "$TESSICK/api/v1/projects/$PROJECT/cases/bulk"
+  ```
+
+An export without statuses (older TestLink versions) is imported as approved. A re-import's new versions take TestLink's status at the time, so a case you approved in Tessick but that's still a draft in TestLink gets a new draft version. Approve in one place.
 
 **Not in TestLink's XML**, and so not imported this way: test plans, builds, results, users, requirements and attachments. To bring plans, builds, results and users, use the database migration.
 

@@ -148,6 +148,34 @@ describe('Core Ingestion Parsers', () => {
     expect(suites.flatMap((s) => s.test_cases).every((c) => !c.parser_warnings)).toBe(true);
   });
 
+  it("SaxXmlParser reads each case's TestLink status: final approved, obsolete or inactive deprecated, the rest draft", async () => {
+    const tcase = (name: string, extra: string) => `<testcase name="${name}">${extra}</testcase>`;
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Statuses">
+  ${tcase('final', '<status>7</status><active>1</active>')}
+  ${tcase('draft', '<status>1</status><active>1</active>')}
+  ${tcase('review', '<status>2</status><active>1</active>')}
+  ${tcase('rework', '<status>4</status><active>1</active>')}
+  ${tcase('obsolete', '<status>5</status><active>1</active>')}
+  ${tcase('inactive final', '<status>7</status><active>0</active>')}
+  ${tcase('active only', '<active>1</active>')}
+  ${tcase('no status', '')}
+</testsuite>`;
+
+    const suites = [];
+    for await (const suite of new SaxXmlParser().parseStream(Readable.from([xmlContent]))) suites.push(suite);
+    expect(suites[0].test_cases.map((c) => [c.title, c.status])).toEqual([
+      ['final', 'APPROVED'],
+      ['draft', 'DRAFT'],
+      ['review', 'DRAFT'],
+      ['rework', 'DRAFT'],
+      ['obsolete', 'DEPRECATED'],
+      ['inactive final', 'DEPRECATED'],
+      ['active only', 'DRAFT'],
+      ['no status', undefined],
+    ]);
+  });
+
   it("SaxXmlParser puts cases outside any suite (TestLink's <testcases> export) into one suite, with a warning", async () => {
     const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <testcases>
