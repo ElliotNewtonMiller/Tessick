@@ -62,4 +62,38 @@ describe('TestLink XML imports keep TestLink ids and keywords', () => {
     const copies = (await tl('/testprojects/CP/testcases')).items.map((c: any) => c.id);
     expect(copies.every((id: number) => ![100, 105].includes(id))).toBe(true);
   });
+
+  it("imports TestLink's export of a whole project with its suites at the top, and single cases into one suite", async () => {
+    const project = body(await call('POST', '/api/v1/projects', { name: 'Shop', prefix: 'TL' })).project;
+    // TestLink wraps a whole project's export in a nameless <testsuite>, the project itself.
+    const whole = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite id="" name="" >
+<node_order><![CDATA[]]></node_order>
+<details><![CDATA[]]></details>
+${xml.replace(/^<\?xml[^>]*>\n/, '')}
+<testsuite id="50" name="Search" >
+  <node_order><![CDATA[2]]></node_order>
+  <testcase internalid="110" name="Search by name"><externalid><![CDATA[3]]></externalid></testcase>
+</testsuite>
+</testsuite>`;
+    const done = await call('POST', `/api/v1/projects/${project.id}/imports/execute`, { file_content: whole, format: 'TESTLINK_XML' });
+    expect(done.statusCode, done.payload).toBe(200);
+    const tree = (await tl('/testprojects/TL/testsuites')).items;
+    expect(tree.map((s: any) => [s.id, s.name])).toEqual([[40, 'Authentication'], [50, 'Search']]);
+
+    // TestLink's export of single cases has no suite: the dry run says where they go.
+    const single = `<?xml version="1.0" encoding="UTF-8"?>
+<testcases>
+  <testcase internalid="120" name="Reset a password"><externalid><![CDATA[4]]></externalid></testcase>
+</testcases>`;
+    const preview = body(await call('POST', `/api/v1/projects/${project.id}/imports/dry-run`, { file_content: single }));
+    expect(preview.warnings.map((w: any) => [w.code, w.case_title, w.suite_path])).toEqual(
+      expect.arrayContaining([['CASE_OUTSIDE_SUITE', 'Reset a password', 'Imported cases']]),
+    );
+    expect((await call('POST', `/api/v1/projects/${project.id}/imports/execute`, { file_content: single })).statusCode).toBe(200);
+    const after = (await tl('/testprojects/TL/testsuites')).items;
+    expect(after.map((s: any) => s.name).sort()).toEqual(['Authentication', 'Imported cases', 'Search']);
+    const cases = (await tl('/testprojects/TL/testcases')).items;
+    expect(cases.find((c: any) => c.id === 120)?.external_id).toBe('TL-4');
+  });
 });

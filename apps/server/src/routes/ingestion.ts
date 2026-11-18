@@ -6,6 +6,7 @@ import type { Kysely } from 'kysely';
 import { CustomFieldRepository, TestCaseRepository, MAX_SUITE_PATH_LENGTH, suiteTooDeepError, type Database } from '@tessick/db';
 import {
   SaxXmlParser,
+  LOOSE_CASES_SUITE_NAME,
   JsonSchemaParser,
   CsvParser,
   JUnitXmlParser,
@@ -71,6 +72,7 @@ const PARSER_WARNING_MESSAGES: Record<string, string> = {
   STEP_EXPECTED_MISALIGNED:
     'The Steps and Expected Result columns have a different number of lines for this case, so the expected results were all put on its last step. Check its steps after importing.',
   CASE_ID_TOO_LONG: "This case's id in the file is over 100 characters, too long to keep; it gets the next id in the project instead.",
+  CASE_OUTSIDE_SUITE: `This case isn't in a suite in the file (as in TestLink's export of single test cases), so it goes into the top-level suite "${LOOSE_CASES_SUITE_NAME}".`,
 };
 
 export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<Database>, jwtSecret: string) {

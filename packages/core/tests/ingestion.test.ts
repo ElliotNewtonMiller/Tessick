@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Readable } from 'node:stream';
-import { SaxXmlParser, JsonSchemaParser, CsvParser } from '../src/index.js';
+import { SaxXmlParser, JsonSchemaParser, CsvParser, LOOSE_CASES_SUITE_NAME } from '../src/index.js';
 
 describe('Core Ingestion Parsers', () => {
   it('SaxXmlParser parses TestLink XML streaming payload', async () => {
@@ -78,6 +78,51 @@ describe('Core Ingestion Parsers', () => {
     // One pass: an escaped entity is text, not a second entity.
     expect(tc.steps[0].actions).toBe('Type &mdash; literally');
     expect(tc.steps[0].expected_results).toBe('Unknown &foo; and bad &#0; stay');
+  });
+
+  it("SaxXmlParser reads TestLink's export of a whole project: its suites are top-level suites", async () => {
+    // TestLink wraps a project's suites in a nameless <testsuite>, the project itself.
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite id="" name="" >
+<node_order><![CDATA[]]></node_order>
+<details><![CDATA[]]></details>
+<testsuite id="12" name="Checkout" >
+  <testsuite id="13" name="Cards" >
+    <testcase internalid="331" name="Pay with a saved card"><externalid><![CDATA[331]]></externalid></testcase>
+  </testsuite>
+  <testcase internalid="340" name="Apply a voucher"><externalid><![CDATA[340]]></externalid></testcase>
+</testsuite>
+<testsuite id="20" name="Search" >
+  <testcase internalid="350" name="Search by name"><externalid><![CDATA[350]]></externalid></testcase>
+</testsuite>
+</testsuite>`;
+
+    const suites = [];
+    for await (const suite of new SaxXmlParser().parseStream(Readable.from([xmlContent]))) suites.push(suite);
+    const outline = (s: any): unknown => [s.name, s.testlink_id, s.test_cases.map((c: any) => c.external_id), s.sub_suites.map(outline)];
+    expect(suites.map(outline)).toEqual([
+      ['Checkout', 12, ['340'], [['Cards', 13, ['331'], []]]],
+      ['Search', 20, ['350'], []],
+    ]);
+    expect(suites.flatMap((s) => s.test_cases).every((c) => !c.parser_warnings)).toBe(true);
+  });
+
+  it("SaxXmlParser puts cases outside any suite (TestLink's <testcases> export) into one suite, with a warning", async () => {
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<testcases>
+  <testcase internalid="360" name="Reset a password"><externalid><![CDATA[360]]></externalid></testcase>
+  <testcase internalid="361" name="Sign out"><externalid><![CDATA[361]]></externalid></testcase>
+</testcases>`;
+
+    const parser = new SaxXmlParser();
+    expect(parser.canHandle(Buffer.from(xmlContent), 'upload')).toBe(true);
+    const suites = [];
+    for await (const suite of parser.parseStream(Readable.from([xmlContent]))) suites.push(suite);
+    expect(suites.map((s) => [s.name, s.sub_suites.length])).toEqual([[LOOSE_CASES_SUITE_NAME, 0]]);
+    expect(suites[0].test_cases.map((c) => [c.title, c.testlink_id, c.parser_warnings])).toEqual([
+      ['Reset a password', 360, ['CASE_OUTSIDE_SUITE']],
+      ['Sign out', 361, ['CASE_OUTSIDE_SUITE']],
+    ]);
   });
 
   it('JsonSchemaParser parses Native JSON payload', async () => {

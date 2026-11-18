@@ -436,6 +436,8 @@ export interface IFileParser {
 | TestLink XML Element | Tessick Field | Rules |
 | :--- | :--- | :--- |
 | `<testsuite name="...">` | Suite name | Nesting preserved, at most 27 levels deep (deeper refuses the import). Over 255 characters is cut. |
+| A nameless top-level `<testsuite>` | (the project) | TestLink's export of a whole project wraps its suites in one. Its suites become top-level suites. |
+| `<testcases>`, or a case outside any suite | Suite `Imported cases` | TestLink's export of single cases. The cases go into one top-level suite named `Imported cases`, each with a `CASE_OUTSIDE_SUITE` warning. |
 | `<details>` | Suite details | |
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
 | `<externalid>` | Case external id | TestLink exports the number alone (`331`); it becomes `<project prefix>-331`. Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). An id over 100 characters is dropped, with a `CASE_ID_TOO_LONG` warning. |

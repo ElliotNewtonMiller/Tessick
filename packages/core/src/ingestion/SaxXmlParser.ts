@@ -58,13 +58,16 @@ function mapExecutionType(val?: string, defaultVal: string = 'MANUAL'): 'MANUAL'
   return 'MANUAL';
 }
 
+/** The top-level suite that takes a file's cases outside any suite (see parseStream). */
+export const LOOSE_CASES_SUITE_NAME = 'Imported cases';
+
 export class SaxXmlParser implements IFileParser {
   readonly formatId = 'TESTLINK_XML';
 
   canHandle(fileHeader: Buffer, filename: string): boolean {
     if (filename.toLowerCase().endsWith('.xml')) return true;
     const headerStr = fileHeader.toString('utf-8', 0, Math.min(fileHeader.length, 512)).trim();
-    return headerStr.startsWith('<?xml') || headerStr.includes('<testsuite') || headerStr.includes('<testsuites');
+    return headerStr.startsWith('<?xml') || headerStr.includes('<testsuite') || headerStr.includes('<testsuites') || headerStr.includes('<testcases');
   }
 
   async *parseStream(
@@ -74,6 +77,13 @@ export class SaxXmlParser implements IFileParser {
     const parser = sax.parser(false, { trim: true });
 
     const rootSuitesQueue: ParsedSuite[] = [];
+    // TestLink's export of a whole project wraps its suites in a nameless <testsuite>, the project
+    // itself: its suites come out as top-level suites instead. Cases outside any suite (a
+    // <testcases> export of single cases) go into one top-level suite, named LOOSE_CASES_SUITE_NAME.
+    const projectWrappers = new WeakSet<ParsedSuite>();
+    const looseCases: ParsedCase[] = [];
+    const keepLooseCase = (tc: ParsedCase) =>
+      looseCases.push({ ...tc, parser_warnings: [...(tc.parser_warnings ?? []), 'CASE_OUTSIDE_SUITE'] });
 
     // Parser State Stack
     const suiteStack: ParsedSuite[] = [];
@@ -108,6 +118,7 @@ export class SaxXmlParser implements IFileParser {
           sub_suites: [],
           test_cases: [],
         };
+        if (suiteStack.length === 0 && !attrName?.trim()) projectWrappers.add(suite);
         suiteStack.push(suite);
       } else if (tagName === 'testcase') {
         currentCase = {
@@ -191,6 +202,8 @@ export class SaxXmlParser implements IFileParser {
           const parentSuite = suiteStack[suiteStack.length - 1];
           if (parentSuite) {
             parentSuite.test_cases.push(currentCase as ParsedCase);
+          } else {
+            keepLooseCase(currentCase as ParsedCase);
           }
           currentCase = null;
         }
@@ -205,6 +218,9 @@ export class SaxXmlParser implements IFileParser {
           const completedSuite = suiteStack.pop()!;
           if (suiteStack.length > 0) {
             suiteStack[suiteStack.length - 1].sub_suites.push(completedSuite);
+          } else if (projectWrappers.has(completedSuite)) {
+            rootSuitesQueue.push(...completedSuite.sub_suites);
+            completedSuite.test_cases.forEach(keepLooseCase);
           } else {
             rootSuitesQueue.push(completedSuite);
           }
@@ -241,6 +257,9 @@ export class SaxXmlParser implements IFileParser {
     }
 
     parser.close();
+    if (looseCases.length > 0) {
+      rootSuitesQueue.push({ name: LOOSE_CASES_SUITE_NAME, details: '', node_order: 0, sub_suites: [], test_cases: looseCases });
+    }
     while (rootSuitesQueue.length > 0) {
       yield rootSuitesQueue.shift()!;
     }
