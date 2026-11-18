@@ -324,12 +324,13 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
             }
           }
 
-          // Duplicate resolution checking
-          const isDupByExtId = tc.external_id ? existingExternalIds.has(tc.external_id.toLowerCase()) : false;
-          const isDupByTitle = existingCases.some(
-            (ec) => ec.title.toLowerCase() === tc.title.toLowerCase() && ec.suite_name.toLowerCase() === suite.name.toLowerCase()
-          );
-          const isDuplicate = isDupByExtId || isDupByTitle;
+          // Duplicate resolution checking: by the case's id when the file gives one (TestLink allows
+          // two cases with one title in a suite), otherwise by title in the same suite.
+          const isDuplicate = tc.external_id
+            ? existingExternalIds.has(tc.external_id.toLowerCase())
+            : existingCases.some(
+                (ec) => ec.title.toLowerCase() === tc.title.toLowerCase() && ec.suite_name.toLowerCase() === suite.name.toLowerCase()
+              );
 
           if (!isDuplicate) {
             casesToCreate++;
@@ -602,17 +603,17 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
 
           // Import cases in suite
           for (const tc of suite.test_cases) {
-            // Check for duplicate test case in project
+            // Check for duplicate test case in project: by the case's id when the file gives one
+            // (TestLink allows two cases with one title in a suite), otherwise by title in the suite.
             let existingCase = await trx
               .selectFrom('test_cases')
               .selectAll()
               .where('project_id', '=', targetProjectId!)
-              .where((eb) => {
-                const conds = [];
-                if (tc.external_id) conds.push(eb('external_id', '=', tc.external_id));
-                conds.push(eb.and([eb('title', '=', tc.title), eb('test_suite_id', '=', suiteId)]));
-                return eb.or(conds);
-              })
+              .where((eb) =>
+                tc.external_id
+                  ? eb('external_id', '=', tc.external_id)
+                  : eb.and([eb('title', '=', tc.title), eb('test_suite_id', '=', suiteId)])
+              )
               .executeTakeFirst();
 
             let action = dupConfig.default_action || 'VERSION_UP';

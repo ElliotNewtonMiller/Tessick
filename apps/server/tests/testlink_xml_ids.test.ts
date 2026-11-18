@@ -96,4 +96,33 @@ ${xml.replace(/^<\?xml[^>]*>\n/, '')}
     const cases = (await tl('/testprojects/TL/testcases')).items;
     expect(cases.find((c: any) => c.id === 120)?.external_id).toBe('TL-4');
   });
+
+  it('keeps two TestLink cases that share a title in one suite apart, on import and re-import', async () => {
+    // TestLink allows it; a case with an id in the file is matched by that id alone.
+    const project = body(await call('POST', '/api/v1/projects', { name: 'Twins', prefix: 'TW' })).project;
+    const twins = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite id="" name="" >
+<testsuite id="60" name="Courses" >
+  <testcase internalid="130" name="Credits are routed"><externalid><![CDATA[7]]></externalid><summary><![CDATA[First]]></summary></testcase>
+  <testcase internalid="131" name="Credits are routed"><externalid><![CDATA[8]]></externalid><summary><![CDATA[Second]]></summary></testcase>
+</testsuite>
+</testsuite>`;
+    const importTwins = async () => {
+      const preview = body(await call('POST', `/api/v1/projects/${project.id}/imports/dry-run`, { file_content: twins }));
+      const done = await call('POST', `/api/v1/projects/${project.id}/imports/execute`, { file_content: twins });
+      expect(done.statusCode, done.payload).toBe(200);
+      return { preview: preview.dry_run_summary, done: body(done).summary };
+    };
+
+    const first = await importTwins();
+    expect([first.preview.cases_to_create, first.done.imported_cases_count, first.done.created_versions_count]).toEqual([2, 2, 2]);
+    const again = await importTwins();
+    expect([again.preview.cases_to_version_up, again.done.imported_cases_count, again.done.created_versions_count]).toEqual([2, 0, 2]);
+
+    const cases = (await tl('/testprojects/TW/testcases')).items;
+    expect(cases.map((c: any) => [c.external_id, c.summary, c.version]).sort()).toEqual([
+      ['TW-7', 'First', 2],
+      ['TW-8', 'Second', 2],
+    ]);
+  });
 });
