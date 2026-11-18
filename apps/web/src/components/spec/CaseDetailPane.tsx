@@ -390,7 +390,7 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
                         }}
                       />
                     ) : (
-                      <div style={{ fontSize: "12px", color: "#d1d5db" }}>
+                      <div style={{ fontSize: "12px", color: "#d1d5db", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                         {specVersionDetail?.summary}
                       </div>
                     )}
@@ -439,7 +439,7 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
                       }}
                     />
                   ) : (
-                    <div style={{ fontSize: "12px", color: "#d1d5db" }}>
+                    <div style={{ fontSize: "12px", color: "#d1d5db", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                       {specVersionDetail?.preconditions || "—"}
                     </div>
                   )}
@@ -614,8 +614,8 @@ export function CaseDetailPane({ editor, specSelectedCaseId }: CaseDetailPanePro
                           <td style={{ padding: "8px 6px", fontWeight: 600 }}>
                             {step.step_number}
                           </td>
-                          <td style={{ padding: "8px 6px" }}>{step.action}</td>
-                          <td style={{ padding: "8px 6px", color: "#a7f3d0" }}>
+                          <td style={{ padding: "8px 6px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{step.action}</td>
+                          <td style={{ padding: "8px 6px", color: "#a7f3d0", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                             {step.expected_result}
                           </td>
                         </tr>

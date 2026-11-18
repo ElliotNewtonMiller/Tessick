@@ -104,6 +104,18 @@ Read `docs/migrating_from_testlink.md` as a TestLink admin would. If you have a 
 
 **Not checked by the agent:** a real TestLink's export (the files were written by hand from TestLink 1.9's format), and the database migration against a real TestLink.
 
+**Then checked by the agent with a real export (2026-11-18):** Elliot's export of a whole project (724 cases, 178 suites), through the API on the dev server, then looked at in a separate tab at `127.0.0.1:3000`. That found and fixed three problems, below.
+- **What the import gave:**
+  - the 5 real top-level suites;
+  - all 724 TestLink ids as `CT-n`, none missing and none extra;
+  - 6 custom fields created, with no values skipped;
+  - a second import added a version to each case and created none.
+- **CT-1851 (a table) and CT-1818 (a list),** in Spec and in Execute (a plan and a run made for it): the table read as rows of cells and the list as `- ` lines, with the line breaks shown, and the Jira Key, Sprint, Type and Automation Status values were there.
+
+**For Elliot, after that:**
+- [ ] Open a few approved cases with lists, tables or numbered steps: the read-only Spec pane and the Execute pane show their line breaks.
+- [ ] A draft case's text boxes look as before.
+
 ## Elliot's other tasks
 
 ### Before selling a commercial license (2026-11-16)

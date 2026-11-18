@@ -49,7 +49,7 @@ Click **📥 Import** in the header. The wizard has five steps:
    - **Drop:** leave it out.
 
    A field with the same name as one the project already has is filled in without asking.
-3. **Duplicates.** The counts of suites and cases to create, and any warnings (for example, cases with no steps). If a case is already in the project (same id, or same title in the same suite), the default is to give it a new version, keeping its results. So you can import the same file again, for example after the last edits in TestLink, without making copies.
+3. **Duplicates.** The counts of suites and cases to create, and any warnings (for example, cases with no steps). If a case with the same id is already in the project, the default is to give it a new version, keeping its results. Cases are matched by their id only, so two TestLink cases with the same title stay two cases. So you can import the same file again, for example after the last edits in TestLink, without making copies.
 4. **Confirm.** A summary; **Run Import** writes it all, in one go.
 5. **Results.** What was imported, and any custom-field values that didn't fit their field.
 
@@ -61,7 +61,7 @@ Click **📥 Import** in the header. The wizard has five steps:
 | :--- | :--- |
 | Test suites, nested | Suites, in the same tree and order (up to 27 levels deep) |
 | Test case, with its external id (`331`) | A case with the id `PREFIX-331`. If that id is already taken, the case gets the project's next free number |
-| Summary, preconditions, steps, expected results | The same, as plain text: HTML formatting is removed, but line breaks and paragraphs stay |
+| Summary, preconditions, steps, expected results | The same, as plain text: paragraphs and line breaks stay, lists become `- item` or `1. item` lines, and a table row becomes one line with its cells separated by ` \| `. Other formatting (bold, links, colours) is removed |
 | Importance 1, 2, 3 | Priority LOW, MEDIUM, HIGH |
 | Execution type manual or automated | MANUAL or AUTOMATED |
 | Keywords | The project's `keywords` field |
@@ -152,4 +152,4 @@ Tessick also answers TestLink's REST API (v1, v2 and the custom one) under `/lib
 
 ---
 
-*Tested against TestLink 1.9's export format, using hand-written files, and the migration against TestLink 1.9.20's PostgreSQL schema. If something from your TestLink doesn't come across as described here, please [open an issue](https://github.com/ElliotNewtonMiller/Tessick/issues) with what it was.*
+*Tested with a real TestLink 1.9 export of a whole project (724 cases in 178 suites, with lists, tables and ten custom fields), and the migration against TestLink 1.9.20's PostgreSQL schema. If something from your TestLink doesn't come across as described here, please [open an issue](https://github.com/ElliotNewtonMiller/Tessick/issues) with what it was.*

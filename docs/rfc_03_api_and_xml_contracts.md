@@ -441,7 +441,7 @@ export interface IFileParser {
 | `<details>` | Suite details | |
 | `<testcase name="...">` | Case title | Over 255 characters is trimmed, with a `TITLE_TRUNCATED` warning. |
 | `<externalid>` | Case external id | TestLink exports the number alone (`331`); it becomes `<project prefix>-331`. Kept if free in the project; otherwise the next free `PREFIX-n` (§6.4). An id over 100 characters is dropped, with a `CASE_ID_TOO_LONG` warning. |
-| `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text: tags removed, `<br>` and `</p>` become line breaks, and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
+| `<summary>`, `<preconditions>` | Version summary / preconditions | HTML cleaned to plain text (`cleanHtmlText`): the source's own line breaks and indents collapse to spaces, as in HTML; `<br>` and `</p>` become line breaks; list items become `- item` or `1. item` lines; a table row becomes one line of cells joined by ` \| `; other tags are removed; and every HTML entity decoded once (`&mdash;`, `&#8212;`, `&rsquo;`, ...; `&nbsp;` becomes a space; an unknown one stays as written). Step actions, expected results and suite details are cleaned the same way. |
 | `<importance>` | Case priority | `1` → LOW, `2` → MEDIUM, `3` → HIGH (a priority name also works). |
 | `<execution_type>` | Execution type | `1` → MANUAL, `2` → AUTOMATED. |
 | `<steps><step>` | Steps | `<step_number>`, `<actions>`, `<expectedresults>`, cleaned like the summary. |
@@ -501,7 +501,7 @@ Values are validated like any other custom-field value. A value that doesn't fit
 ```
 
 #### Duplicates
-A case counts as a duplicate when its external id matches a case in the project, or its title matches a case in the same suite. Actions:
+A case counts as a duplicate when its external id matches a case in the project. A case with no id in the file (a CSV row without one, say) is a duplicate when its title matches a case in the same suite. A case with an id is never matched by title: TestLink allows two cases with one title in a suite, and an import must keep both. Actions:
 - `VERSION_UP` (default): add a new version to the existing case, keeping its results.
 - `OVERWRITE`: replace the latest version's content.
 - `CREATE_NEW`: create a separate case titled `<title> (Copy)`, with a fresh external id.

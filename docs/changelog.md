@@ -4289,3 +4289,49 @@ It's linked from:
 
 
 The root `npm test` passed: 117 files passed and 1 skipped, 885 tests passed and 4 skipped. Typecheck clean.
+
+## A real TestLink export: lists and tables, cases sharing a title, line breaks on screen (2026-11-18)
+
+**Why:** Elliot gave a real TestLink 1.9 export of a whole project to test the migration guide with: 724 cases in 178 suites, 1.9 MB. It's the whole-project shape fixed on 2026-11-17 (a nameless outer `<testsuite>`), and it came in with its real top-level suites. It also found three problems that hand-made files hadn't.
+
+**1. HTML lists, tables and editor whitespace** (`cleanHtmlText` in `packages/core/src/ingestion/SaxXmlParser.ts`). TestLink's editor indents its HTML and wraps list items and table cells in `<p>`. The old cleaner only removed tags. So list items lost their bullets and were separated by blank lines and tabs, and table cells ran together. Now:
+- In text with HTML tags, the source's own line breaks and indents collapse to spaces, as a browser shows them.
+- `<br>` and paragraphs make the lines.
+- `<ul>` items become `- item` lines, and `<ol>` items `1. item` lines (nested lists numbered separately).
+- A table row becomes one line, with its cells joined by ` | `.
+- There's at most one blank line, and none between a list's items.
+- Text without tags keeps its own line breaks, as before. This matters for TestLink API clients and CSV.
+
+The same function serves the XML import, the database migration and the TestLink-compatible API's writes, so all three get this.
+
+**Left as they are:** two cases whose HTML is escaped twice inside TestLink itself (`&lt;p&gt;`, and one literal `\u2014`). TestLink shows those as text too, so Tessick keeps what TestLink holds.
+
+**2. Two TestLink cases with one title in a suite became one** (`routes/ingestion.ts`).
+- TestLink allows that (here cases 1388 and 1451). A case counted as a duplicate when its id or its title-in-suite matched. So the second case matched the first, created moments earlier in the same import, and became its version 2: one case lost, and the import said 723 cases from 724.
+- The import also asked for "id or title" in one query, so a re-import could version the wrong case.
+- **Now:** a case that has an id in the file is matched by that id only. Title in the same suite is used only for cases without an id. This applies to the dry run and the import.
+- RFC 03 §6.4 and the guide say so.
+
+**3. Line breaks on screen** (`spec/CaseDetailPane.tsx`, `execute/ExecutionPane.tsx`). An approved case's summary, preconditions and step cells were plain blocks, so every line break in them showed as a space: lists and tables ran into one paragraph. (Drafts use text boxes, which is why this hadn't shown.) Imported cases arrive approved, so every TestLink case looked like that. Those blocks now use `white-space: pre-wrap`, with `overflow-wrap: anywhere` for long URLs.
+
+**Docs:**
+- the guide: what the text becomes, the duplicate rule, and its tested-with line (now the real export, without its name);
+- RFC 03 §6.2 (the conversion) and §6.4 (the duplicate rule);
+- the backlog.
+
+**Tests:**
+- `packages/core/tests/ingestion.test.ts` +1: lists (with a nested numbered list), a table with paragraphs in its cells, editor whitespace, and plain text keeping its line breaks.
+- `apps/server/tests/testlink_xml_ids.test.ts` +1: two cases with one title in a suite are two cases on import, and each gets its own version on re-import. It fails on the old matching.
+
+**Verified with the real file:**
+- **Dry run:** 0.2 seconds, 724 cases to create, 10 custom fields to map.
+- **Import:** 7 seconds, with the mappings someone would choose (Type and automationStatus as single selects; Sprint, References, automationReference and jiraKey as text; the 4 empty ones dropped). 178 suites and 724 cases, every TestLink id there as `CT-n` (checked against the file: none missing, none extra), and 6 fields created, with no values skipped.
+- **A second import:** 724 versions, no new cases.
+- **In a separate tab at `127.0.0.1:3000`:**
+  - CT-1851's table reads as rows, and CT-1818's list as `- ` lines, in the Spec pane and, after adding both to a plan and run, in the Execute pane.
+  - CT-1818's Automation Status, Jira Key, Sprint and Type are there.
+
+**Not changed, for Elliot to decide:** TestLink's workflow status isn't read from XML, so every imported case is APPROVED. In this file, 617 cases are drafts in TestLink (status 1), 105 are final (7), and 2 are in review or rework. The database migration does map the status.
+
+
+The root `npm test` passed: 117 files passed and 1 skipped, 887 tests passed and 4 skipped. Typecheck clean.

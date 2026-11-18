@@ -86,7 +86,7 @@ export function ExecutionPane({ execution, executionWorkspace, evidence }: Execu
                 v{activeCase.version_number} APPROVED
               </span>
             </div>
-            <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
               {activeCase.summary}
             </div>
           </div>
@@ -131,7 +131,7 @@ export function ExecutionPane({ execution, executionWorkspace, evidence }: Execu
             >
               Preconditions
             </div>
-            <div style={{ fontSize: "12px", color: "#d1d5db" }}>
+            <div style={{ fontSize: "12px", color: "#d1d5db", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
               {activeCase.preconditions}
             </div>
           </div>
@@ -180,8 +180,8 @@ export function ExecutionPane({ execution, executionWorkspace, evidence }: Execu
                   <td style={{ padding: "8px 6px", fontWeight: 600 }}>
                     {step.step_number}
                   </td>
-                  <td style={{ padding: "8px 6px" }}>{step.action}</td>
-                  <td style={{ padding: "8px 6px", color: "#a7f3d0" }}>
+                  <td style={{ padding: "8px 6px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{step.action}</td>
+                  <td style={{ padding: "8px 6px", color: "#a7f3d0", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                     {step.expected_result}
                   </td>
                 </tr>
