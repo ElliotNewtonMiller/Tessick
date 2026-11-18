@@ -122,6 +122,14 @@ Read `docs/migrating_from_testlink.md` as a TestLink admin would. If you have a 
 
 **Already checked by the agent:** with your real export, 619 drafts and 105 approved, each matching its `<status>` in the file. In the browser, CT-1413 shows v1 DRAFT with Approve and its "+ Add" greyed out. Bulk approve over the API approved two of them.
 
+## MCP can approve; the token form warns (2026-11-18)
+
+In Admin Panel → API Tokens → New Token:
+- [ ] Turn SPEC_APPROVE on: the amber warning appears under the capabilities. With "REST API only" it goes away; with "MCP only" or "REST API and MCP" it's there. Turning SPEC_APPROVE off removes it.
+- [ ] Create an MCP-only token with SPEC_VIEW, SPEC_CREATE and SPEC_APPROVE, connect Claude Code with it, and ask it to write a case and then approve it. Without being asked, it shouldn't approve.
+
+**Already checked by the agent:** the warning in each of those states. A token made from the form: over `/mcp` it was offered `approve_cases`, made TL-351 as a draft and approved it, and got 403 on the REST API. The audit rows mark the approval as made through MCP. Not checked: a real agent deciding when to approve.
+
 ## Elliot's other tasks
 
 ### Before selling a commercial license (2026-11-16)

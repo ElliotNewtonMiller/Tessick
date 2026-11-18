@@ -80,8 +80,8 @@ A retry with the same `Idempotency-Key` header gets the first answer back instea
 ## MCP (for AI agents)
 
 The API server also serves the reports, and tools to change test cases, plans and results, as an MCP server, built in at `POST /mcp`. It uses the Streamable HTTP transport, stateless, with JSON responses. It authenticates exactly like the REST API, so the best credential is an API token made for the agent:
-- **With just the capabilities it should have:** `SPEC_VIEW` alone for an agent that only reads.
-- **Works with: MCP only** (`"interfaces": "MCP"`). Such a token is refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), so an agent can't step around MCP's limits (drafts only, no approve or delete tools, changes marked "via Tessick MCP") by calling REST routes with the same token. A token for both is the default.
+- **With just the capabilities it should have:** `SPEC_VIEW` alone for an agent that only reads. Leave `SPEC_APPROVE` off unless the agent should approve cases: the token form warns when a token MCP can use gets it.
+- **Works with: MCP only** (`"interfaces": "MCP"`). Such a token is refused on the rest of the API (`403 TOKEN_INTERFACE_NOT_ALLOWED`), so an agent can't step around MCP's limits (new cases are drafts, no deprecate or delete tools, changes marked "via Tessick MCP") by calling REST routes with the same token. A token for both is the default.
 
 The address is Tessick's own plus `/mcp`. Tessick serves plain HTTP; HTTPS comes from a reverse proxy in front (`docs/deployment.md`). So a local or Docker instance is `http://`, and a hosted one is usually `https://`:
 
@@ -120,6 +120,7 @@ Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever
 | `duplicate_case` | A copy of a case (fields, latest content, custom fields) with any changes, in one call, as a **DRAFT** | `SPEC_CREATE` |
 | `update_case` | Title, priority, execution type, custom fields; summary, preconditions and steps on the DRAFT (an approved case gets a **new DRAFT version**) | `SPEC_EDIT` (`PLAN_MANAGE` for custom fields) |
 | `update_cases` | Priority, execution type, suite or custom fields of up to 500 cases | as above |
+| `approve_cases` | Approves up to 500 cases' DRAFT versions, each on its own, and moves active plans to them | `SPEC_APPROVE` |
 | `create_run` | A run of a plan | `RUN_MANAGE` |
 | `record_results` | Up to 500 results in a run; each recorded one answers its `test_result_id` | `EXECUTE_RUN` (`EXECUTE_OVERWRITE` to change others' results) |
 | `update_plan_cases` | Add or remove up to 500 cases in a plan; cases with results are retired only with `retire_if_has_results` | `PLAN_MANAGE` |
@@ -129,7 +130,7 @@ Every tool checks `SPEC_VIEW` on the project it's asked about. A token only ever
 
 How the write tools are kept safe:
 - **They act as the caller.** Each one calls the REST routes with the caller's credential, so an agent can do exactly what its token or user may, with the same rules and errors. An API token is offered only the tools its capabilities allow.
-- **A person approves agents' cases.** Cases an agent creates start as DRAFT even if the token holds `SPEC_AUTO_APPROVE`, and editing an approved case's content creates a new DRAFT version. Only approved cases can join a plan or get results. There are no tools to approve, deprecate, restore or delete; people do that in the web app, or scripts through the REST API.
+- **A person approves agents' cases, unless the agent may.** Cases an agent creates start as DRAFT even if the token holds `SPEC_AUTO_APPROVE`, and editing an approved case's content creates a new DRAFT version. Only approved cases can join a plan or get results. An agent whose token holds `SPEC_APPROVE` can approve with `approve_cases`, its own drafts included; it's told to do so only when the user asks, and the token form warns when that capability is given to a token MCP can use (decided with Elliot, 2026-11-18). There are no tools to deprecate, restore or delete; people do that in the web app, or scripts through the REST API.
 - **Everything is audit-logged.** Each change writes its usual audit row (e.g. `CASE_CREATED`), with "(via Tessick MCP)" added to its User-Agent, and each write-tool call writes an `MCP_WRITE` row (tool, success or error) to the Security Audit Log in the Admin Panel.
 
 **Evidence through MCP** follows the REST rules (RFC 03 §5): the case needs a result first, files are recognised by contents, and after a run closes only whoever recorded the result may add files, for 24 hours. There's no tool to delete evidence. An upload link is its own credential, so its `curl` command works for an MCP-only token too; with local storage the PUT records the file at once, and `complete_evidence_upload` then just answers it. `/mcp` takes requests of up to 8 MB, for a 5 MB file as base64.

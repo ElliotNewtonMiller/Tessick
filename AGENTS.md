@@ -307,7 +307,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 - **The Execute-mode suite filter** (`execSuiteFilterId`) is separate from Spec-mode suite selection.
 - **Pane widths aren't persisted.**
 - **No platforms feature.** TestLink's platforms are kept by the TestLink-compatible API only as plain runs, one per (build, platform); teams tell platforms apart their own way.
-- **AI agents (MCP):** cases they create or duplicate are always DRAFT, editing an approved case makes a new DRAFT, and there are no MCP tools to approve, deprecate, restore or delete. Write tools act only as the caller, through the REST routes.
+- **AI agents (MCP):** cases they create or duplicate are always DRAFT, and editing an approved case makes a new DRAFT. An agent whose token holds `SPEC_APPROVE` may approve with `approve_cases`; the token form shows an amber warning when that capability is on for a token MCP can use (decided with Elliot, 2026-11-18). There are no MCP tools to deprecate, restore or delete. Write tools act only as the caller, through the REST routes.
 
 ## Known gaps
 

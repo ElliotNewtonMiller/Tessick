@@ -198,7 +198,7 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 **Status:** Done (2026-10-12, with step 9).
 - **Tools:** `create_suite`, `create_case`, `update_case`, `update_cases`, `create_run`, `record_results`, `update_plan_cases`, plus `list_suites` for reading. Later: `add_evidence`, `create_evidence_upload` and `complete_evidence_upload`, with `list_evidence` and `get_evidence` for reading (evidence, 2026-11-09); `duplicate_case` (2026-11-15).
 - **As the caller:** each calls the REST routes with the caller's credential, so the token's capabilities decide, and a token is offered only the tools it may use.
-- **People approve:** agent-made cases are always DRAFT, and editing an approved case makes a new DRAFT. There are no approve, deprecate or delete tools.
+- **People approve:** agent-made cases are always DRAFT, and editing an approved case makes a new DRAFT. Since 2026-11-18 an agent whose token holds `SPEC_APPROVE` can approve with `approve_cases` (the token form warns about it). There are no deprecate, restore or delete tools.
 - **Audit:** changes are marked "via Tessick MCP" in their audit rows, and every call writes an `MCP_WRITE` row to the Security Audit Log.
 
 **What:** MCP tools that change things, such as creating and editing test cases, recording results, creating plans and runs, and adding cases to plans.
@@ -335,3 +335,4 @@ Elliot asked for a critical look at the whole API. The probing was done live, on
 | 2026-10-26 | TestLink's whole history is migrated, keeping its ids and keys. | Decided with Elliot (phase 5). |
 | 2026-10-26 | No platforms feature in Tessick. The TestLink-compatible API keeps TestLink's platform data as one plain run per (build, platform). | Decided with Elliot: teams that want to tell platforms apart do it their own way; Tessick doesn't decipher platforms. |
 | 2026-10-26 | The SWAG file (`/swagfile`) needs a TestLink key to read and `PLAN_MANAGE` to replace, though TestLink serves it to anyone. | It holds every project's API key. To confirm with Dave: his `manageSWAGS.html` must send an `APIKEY` header. |
+| 2026-11-18 | Agents may approve cases: `approve_cases` (up to 500, through the bulk route), offered to tokens with `SPEC_APPROVE`. Still not deprecate, restore or delete. | Decided with Elliot, changing 2026-10-12's "not approve". The token form shows an amber warning when `SPEC_APPROVE` is on for a token MCP can use, and the tool tells agents to approve only when the user asks. |

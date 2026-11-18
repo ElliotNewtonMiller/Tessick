@@ -4360,3 +4360,46 @@ The root `npm test` passed: 117 files passed and 1 skipped, 887 tests passed and
 
 
 The root `npm test` passed: 117 files passed and 1 skipped, 889 tests passed and 4 skipped. Typecheck clean.
+
+## MCP can approve test cases; the token form warns about it (2026-11-18)
+
+**Decided with Elliot:** AI agents may approve test cases over MCP, with a warning in the token form when that's switched on. This changes the 2026-10-12 decision that MCP has no approve tool. Deprecate, restore and delete stay off MCP.
+
+**What blocked it:** only the missing tool. `SPEC_APPROVE` could already be given to a token, and the approve routes don't refuse MCP's inner requests.
+
+**The tool:** `approve_cases` (`apps/server/src/mcp/writeTools.ts`).
+- It takes `project_id` and up to 500 case ids or readable ids, and calls `POST /projects/:id/cases/bulk` with `action: "approve"` as the caller. Each case succeeds or fails on its own: a case with no DRAFT, or a required custom field unset, gets the route's message.
+- It's offered to API tokens holding `SPEC_APPROVE` (`write.permissions`), and an MCP-only token can use it.
+- Its description and the MCP instructions (`mcpServer.ts`) tell the agent to approve only when the user asks, and to say which cases it approved.
+- Audit: the approval's `CASE_VERSION_APPROVED` row says "(via Tessick MCP)", with the token as a `SERVICE_ACCOUNT`, beside the usual `MCP_WRITE` row.
+
+**The warning** (`AdminPanelModal.tsx`, API Tokens, New Token):
+- An amber banner shows while SPEC_APPROVE is on and the token works with MCP ("REST API and MCP" or "MCP only"). It says an agent could approve drafts, its own included, skipping a person's review. It doesn't block Create Token.
+- The "MCP only" hint no longer says "no approving".
+
+**Docs:**
+- CLAUDE.md/AGENTS.md (Decisions to keep: AI agents);
+- `reports_api_and_mcp.md` (the token advice, the tool table, how write tools are kept safe);
+- RFC 04's threat model;
+- `api_roadmap.md` (step 6, and the Decisions row);
+- the README.
+
+**Tests:**
+- `apps/server/tests/mcp_write.test.ts` +1:
+  - an MCP-only token with SPEC_APPROVE is offered `approve_cases`, and a token without it isn't (calling it says it lacks SPEC_APPROVE);
+  - it approves the agent's own draft, while an approved case fails on its own;
+  - the approval's audit row is marked as made through MCP;
+  - the token is refused on the REST route itself.
+- `mcp.test.ts`: `approve_cases` is in the write tools' list (`readOnlyHint: false`).
+
+**Verified live** (dev servers, a separate tab at `127.0.0.1:3000`):
+- **In Admin Panel → API Tokens:** turning SPEC_APPROVE on with "REST API and MCP" showed the warning. "REST API only" hid it, "MCP only" brought it back, and turning SPEC_APPROVE off hid it.
+- **Then an MCP-only token** with SPEC_VIEW, SPEC_CREATE and SPEC_APPROVE was created from the form. With it, over `/mcp`:
+  - `tools/list` had `approve_cases`;
+  - `create_case` made TL-351 as a DRAFT, and `approve_cases` approved it;
+  - approving an already approved case failed alone with `VERSION_NOT_DRAFT`;
+  - the token got 403 on the REST API.
+- **The audit log:** `MCP_WRITE` rows for each call, and the `CASE_VERSION_APPROVED` row with "claude-code/2.0 (via Tessick MCP)".
+
+
+The root `npm test` passed: 117 files passed and 1 skipped, 890 tests passed and 4 skipped. Typecheck clean.
