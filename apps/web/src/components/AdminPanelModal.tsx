@@ -126,7 +126,7 @@ const TOKEN_INTERFACE_CHOICES: Array<{ value: TokenInterfaces; label: string; hi
   {
     value: "MCP",
     label: "MCP only",
-    hint: "For an AI agent: refused on the REST API, so it can't step around MCP's limits (drafts only, no approving or deleting).",
+    hint: "For an AI agent: refused on the REST API, so it can't step around MCP's limits (new cases are drafts; no deprecating or deleting).",
   },
   { value: "REST", label: "REST API only", hint: "For CI and scripts: refused by MCP." },
 ];
@@ -3455,6 +3455,27 @@ export function AdminPanelModal({
                     </div>
                   </div>
                 ))}
+                {/* SPEC_APPROVE on a token MCP can use lets an agent approve cases (approve_cases),
+                    its own drafts included: allowed, but said plainly (decided with Elliot). */}
+                {newTokenCapabilities.has("SPEC_APPROVE") && newTokenInterfaces !== "REST" && (
+                  <div
+                    role="alert"
+                    style={{
+                      padding: "10px 12px",
+                      marginBottom: "10px",
+                      backgroundColor: "#78350f",
+                      border: "1px solid #92400e",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                      color: "#fde68a",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <strong style={{ color: "#fbbf24" }}>⚠ An AI agent with this token can approve test cases.</strong> Over MCP
+                    it can approve drafts, including ones it wrote itself, which skips a person's review. Give it only
+                    to an agent you trust to approve, or leave SPEC_APPROVE off so a person approves in Tessick.
+                  </div>
+                )}
                 {issuerCapabilityCeiling.filter((k) => k !== "SYSTEM_ADMIN").length === 0 && (
                   <div style={{ color: "#64748b", fontSize: "11px", marginBottom: "10px" }}>
                     You have no grantable permissions on this project.
