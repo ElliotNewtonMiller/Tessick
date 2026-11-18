@@ -61,7 +61,7 @@ npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves
 - Evidence storage is required with a real database: `EVIDENCE_DIR` (local) or `EVIDENCE_STORAGE=s3` with `EVIDENCE_S3_*`; the in-memory database uses memory. Startup checks it's writable or reachable.
 - Also read: `SECRETS_KEY`, `ADMIN_PASSWORD`, `PORT`, `TRUST_PROXY`, `CORS_ORIGINS`, `LOG_LEVEL`, `WEB_DIST_DIR`, `SEED_SAMPLE_DATA`, `SEED_DEV_FIXTURES`, `WEBHOOK_ALLOW_LOCAL`, `EVIDENCE_MAX_FILE_MB`.
 - `TESSICK_DEMO=true` is demo mode (`docker-compose.demo.yml`, `src/demo/`): the first admin's password is `tessick-demo-admin` and `GET /api/v1/instance` gives it to the sign-in page (not when `ADMIN_PASSWORD` chose it); `JWT_SECRET`/`SECRETS_KEY` may be unset (random per start); and a fresh database (the first admin created on this start) gets the Report Demo project, loaded through the routes in-process (`app.inject`). Never for real data.
-- CI publishes the image to `ghcr.io/elliotnewtonmiller/tessick` (amd64 + arm64, `latest` and `sha-<commit>`) on each push to `main`, after the demo has been checked to start with its project.
+- CI publishes the image to `ghcr.io/elliotnewtonmiller/tessick` (amd64 + arm64) after the demo has been checked to start with its project: each push to `main` as `latest` and `sha-<commit>`, and a version tag `v1.2.3` as `1.2.3`, `1.2` and `1`. Then it starts the published arm64 image's demo on GitHub's arm64 runner. Releases are git tags `v<version>` with a GitHub release; the root `package.json` version matches.
 - All of it is parsed in `apps/server/src/config.ts`.
 
 **First admin on a real database:** username `admin`. The password is `ADMIN_PASSWORD` if set; otherwise a random one is printed once in the log, and Tessick makes the admin change it at first sign-in.
@@ -295,7 +295,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 
 - **License: AGPL-3.0-only plus a commercial license** (dual licensing, decided with Elliot on 2026-11-16). Selling the commercial license needs Elliot to hold the rights to everything in the repo, so:
   - New dependencies must have permissive licenses (MIT, Apache-2.0, ISC, BSD, BlueOak and the like). No GPL, LGPL, AGPL or other copyleft code, and no copying code or text from projects under such licenses.
-  - Outside contributions need a contributor license agreement before they're merged.
+  - Outside contributions aren't accepted for now (decided with Elliot, 2026-11-18): the README says so, and no one else's code is merged. If that changes, a contributor license agreement comes first.
 - **PostgreSQL only.** SQLite was dropped (native-binding problems), and PGlite is the zero-setup in-memory option. Don't add a second dialect.
 - **No sample projects on startup.** Users and roles are seeded, plus dev fixture users on the in-memory database. The sample project exists only for tests (`SEED_SAMPLE_DATA`). The one exception is opt-in demo mode (`TESSICK_DEMO`, set only by `docker-compose.demo.yml`), which loads the Report Demo into a fresh database (decided with Elliot, 2026-11-16).
 - **Role templates and template-based dev accounts stay** (audit scope).

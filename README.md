@@ -2,6 +2,8 @@
 
 Tessick is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 
+**Coming from TestLink?** [Moving from TestLink](docs/migrating_from_testlink.md) takes your test cases across with TestLink's own XML export, or your whole database with its history, users and API keys. Scripts written for TestLink's REST API keep working with only the address changed.
+
 - **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types, for all projects or chosen ones.
 - **Execution**: test plans and test runs, with a keyboard-driven queue (`j`/`k` to move, `p`/`f`/`b`/`s` to record a verdict). CI systems send their JUnit XML reports, or results as JSON, through the API.
 - **Reports**: run summaries compared with the previous run, plan trends, flaky and slow tests, case history and breakdowns. They're available in the app, over the REST API, by email and over MCP for AI agents.
@@ -9,7 +11,6 @@ Tessick is an open-source, self-hosted test case management app: a faster, more 
 - **Webhooks**: a project's events (a run finishing, tests failing, cases to review, imports) go to Slack, CI or your own code as they happen, signed, with retries.
 - **AI agents**: over MCP, an agent can also write test cases (as drafts for a person to approve, or for the agent to approve if its token allows), change many cases at once, manage plans and record results, with only the permissions its token has.
 - **Import and export**: TestLink XML, JUnit XML, TestRail CSV, CSV and JSON.
-- **Coming from TestLink?** [Moving from TestLink](docs/migrating_from_testlink.md) takes your cases across with TestLink's own XML export, or your whole database with its history. TestLink's API keeps working for your scripts.
 - **Access control**: roles you can edit, per-project roles and overrides, and project-scoped API tokens for CI.
 
 ## Try it in a minute
@@ -24,24 +25,6 @@ docker compose -f docker-compose.demo.yml up
 Open http://localhost:3001 and sign in as `admin` / `tessick-demo-admin` (the sign-in page shows it). A demo project is loaded, with eight runs of results to explore in Reports and an open run to try the keyboard-driven execution on. If port 3001 is taken, start it with `TESSICK_PORT=3002` in front. `docker compose -f docker-compose.demo.yml down -v` removes it all.
 
 The demo's password is public, so it only listens on your own machine. To keep real data, see [Running it for real](#running-it-for-real).
-
-## Quick start (development)
-
-Needs Node.js 22 or newer.
-
-```bash
-npm install
-npm run dev --workspace=apps/server   # API on http://localhost:3001
-npm run dev --workspace=apps/web      # web app on http://localhost:3000 (in a second terminal)
-```
-
-Open http://localhost:3000 and sign in as `admin` / `password`.
-
-The development server uses a throwaway in-memory database, so every restart starts empty. It also creates test users for each built-in role, all with the password `DevTest123!`: `test_lead`, `tester`, `viewer`, `automation_bot`, `project_admin` and `override_tester`. To load a demo project with eight runs of results, run:
-
-```bash
-npx tsx apps/server/scripts/report-demo.ts
-```
 
 ## Running it for real
 
@@ -65,7 +48,35 @@ DATABASE_URL=postgres://user:pass@host:5432/tessick JWT_SECRET=$(openssl rand -h
 
 [docs/deployment.md](docs/deployment.md) covers configuration, HTTPS and reverse proxies, backups, upgrades and running more than one instance.
 
+## API and integrations
+
+- **Getting started**: [docs/api_getting_started.md](docs/api_getting_started.md) takes you from making an API token to a CI pipeline that records its results (with examples for GitHub Actions, GitLab CI, Jenkins and Azure DevOps).
+- **REST API**: sign in with `POST /api/v1/auth/login`, or use an API token from Admin Panel → API Tokens (`Authorization: Bearer tk_ci_...`).
+- **API docs page**: open `/docs` on your server (e.g. `http://localhost:3001/docs`) to browse the routes and try them; the OpenAPI spec is at `/docs/json`. Every route is on it.
+- **Results from CI**: upload the JUnit XML report your tests already write (`POST /api/v1/plans/:planId/results/junit?run_name=...`), or send JSON (`POST /api/v1/runs/:runId/results/batch`).
+- **API reference**: [docs/rfc_03_api_and_xml_contracts.md](docs/rfc_03_api_and_xml_contracts.md) §1-4 has the conventions, every route and the error codes.
+- **Reports and MCP**: [docs/reports_api_and_mcp.md](docs/reports_api_and_mcp.md) describes every report, how to send results that make good reports, and how to connect an AI agent to `/mcp`, and what agents may change.
+- **Health check**: `GET /api/v1/health`.
+
 ## Development
+
+Needs Node.js 22 or newer. To run it from source:
+
+```bash
+npm install
+npm run dev --workspace=apps/server   # API on http://localhost:3001
+npm run dev --workspace=apps/web      # web app on http://localhost:3000 (in a second terminal)
+```
+
+Open http://localhost:3000 and sign in as `admin` / `password`.
+
+The development server uses a throwaway in-memory database, so every restart starts empty. It also creates test users for each built-in role, all with the password `DevTest123!`: `test_lead`, `tester`, `viewer`, `automation_bot`, `project_admin` and `override_tester`. To load a demo project with eight runs of results, run:
+
+```bash
+npx tsx apps/server/scripts/report-demo.ts
+```
+
+Tests and builds:
 
 ```bash
 npm test             # every test, in all workspaces (Vitest)
@@ -84,17 +95,7 @@ The code is split into npm workspaces:
 
 Schema changes always go in a new migration in `packages/db/src/migrations/`; never edit one that has shipped. CI (`.github/workflows/ci.yml`) typechecks, tests and builds every push. It also starts the production build on a real PostgreSQL and checks that the Docker image builds.
 
-`CLAUDE.md` is the detailed guide for contributors and AI agents: what's built, why, and the conventions to follow. The design documents are in `docs/`.
-
-## API and integrations
-
-- **Getting started**: [docs/api_getting_started.md](docs/api_getting_started.md) takes you from making an API token to a CI pipeline that records its results (with examples for GitHub Actions, GitLab CI, Jenkins and Azure DevOps).
-- **REST API**: sign in with `POST /api/v1/auth/login`, or use an API token from Admin Panel → API Tokens (`Authorization: Bearer tk_ci_...`).
-- **API docs page**: open `/docs` on your server (e.g. `http://localhost:3001/docs`) to browse the routes and try them; the OpenAPI spec is at `/docs/json`. Every route is on it.
-- **Results from CI**: upload the JUnit XML report your tests already write (`POST /api/v1/plans/:planId/results/junit?run_name=...`), or send JSON (`POST /api/v1/runs/:runId/results/batch`).
-- **API reference**: [docs/rfc_03_api_and_xml_contracts.md](docs/rfc_03_api_and_xml_contracts.md) §1-4 has the conventions, every route and the error codes.
-- **Reports and MCP**: [docs/reports_api_and_mcp.md](docs/reports_api_and_mcp.md) describes every report, how to send results that make good reports, and how to connect an AI agent to `/mcp`, and what agents may change.
-- **Health check**: `GET /api/v1/health`.
+`CLAUDE.md` is the detailed guide for AI coding agents and anyone reading the code: what's built, why, and the conventions to follow. The design documents are in `docs/`.
 
 ## License
 
@@ -107,4 +108,4 @@ Tessick is dual-licensed:
 
 Versions published before 2026-11-16 (up to commit `f530a5c`) were released under the MIT license, and remain available under it.
 
-**Contributing:** outside contributions need a contributor license agreement, so that Tessick can keep being offered under both licenses. Please open an issue before sending a pull request.
+**Contributing:** Tessick isn't accepting outside contributions (pull requests) at this time. Bug reports and ideas are welcome as [issues](https://github.com/ElliotNewtonMiller/Tessick/issues).

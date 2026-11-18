@@ -65,7 +65,7 @@ Import a Playwright (or Vitest) JUnit report, e.g. the `results.xml` from 2026-1
 
 ## The one-command demo (2026-11-16)
 
-Once CI has published the image and the package is public (see Elliot's other tasks), on a machine without the repo (a Mac with Apple Silicon if you can, to check the arm64 image):
+Once CI has published the image and the package is public (see Elliot's other tasks), on a machine without the repo (CI checks the arm64 image for Apple Silicon Macs; see below):
 
 - [ ] In an empty folder, run the two commands from the README's "Try it in a minute". Note how long it takes until the sign-in page loads.
 - [ ] The sign-in page shows the amber "Demo instance" note, with `admin` and `tessick-demo-admin` already filled in; Log In works.
@@ -82,7 +82,9 @@ Once CI has published the image and the package is public (see Elliot's other ta
 - In a separate browser tab at `127.0.0.1:3001`, the sign-in page showed the note with the fields filled in, and Log In opened Report Demo with Release Regression and Run 1.0.8.
 - `down -v` removed the containers, volumes and network.
 
-**Not checked by the agent:** the arm64 image on a real Apple Silicon Mac, a first start with no images already on the machine, and the `claude mcp add` command from the log.
+**Not checked by the agent:** a first start with no images already on the machine, and the `claude mcp add` command from the log.
+
+**The arm64 image (2026-11-18):** no Mac is needed. Docker on an Apple Silicon Mac runs the image's linux/arm64 build, and CI now starts that published build's demo on GitHub's arm64 runner after every publish ("The published image runs on arm64"), with the same checks as the amd64 demo.
 
 ## Moving from TestLink: the guide, and two TestLink export shapes (2026-11-17)
 
@@ -132,12 +134,29 @@ In Admin Panel → API Tokens → New Token:
 
 ## Elliot's other tasks
 
+### Launch (2026-11-18)
+
+In this order, so the GIFs, videos and website all show the final logo:
+- [ ] **Replace the logo.** The app shows a ⚡ emoji beside "TESSICK" (header and sign-in page) and has no favicon.
+- [ ] **README images:** one short hero GIF (10 to 20 seconds, e.g. recording verdicts with the keyboard) right under the first paragraph, and a couple of screenshots (a report, the case editor). A GIF plays by itself in a README; an mp4 also works if dragged into GitHub's web editor, but has to be started.
+- [ ] **Demo videos** for the website.
+- [ ] **The website.**
+- [ ] **With the website, on the GitHub repository** (its ⚙ next to About):
+  - the website link;
+  - topics, e.g. `testlink`, `test-management`, `test-case-management`, `qa`, `self-hosted`, `mcp`;
+  - a social preview image (Settings → Social preview), shown when the repository's link is shared;
+  - the description, which now reads "An open-source, self-hostable, free, replacement for Testlink, test management software." For example: "Self-hosted, open-source test case management: a modern replacement for TestLink."
+- [ ] **A way to reach you about the commercial license.** The README says to contact you on GitHub, which has no private messages: give an email address, or the website's contact page.
+- [ ] **Optional:** the README's first line calls Tessick "faster" than TestLink. Keep it if you can show it (in the GIF, say), or drop the word.
+
+**Already done by the agent:** the README now has the TestLink pitch under its first line and its sections in the order a visitor needs them (demo, real install, API, development), and says contributions aren't accepted. Releases are versioned: `v1.0.0` is a git tag and GitHub release, and a version tag publishes the image as `1.0.0`, `1.0` and `1`.
+
 ### Before selling a commercial license (2026-11-16)
 
 Tessick is dual-licensed since `4e94dc3`: AGPL-3.0-only, or a commercial license from Elliot. Selling the commercial one needs these first; a lawyer should look at each.
 
 - [ ] **Commercial license terms:** what a buyer may do (use, change, host, resell), for how long, on how many installations, and at what price. Nothing like this exists yet; the README only says to ask.
-- [ ] **A contributor license agreement (CLA):** needed before merging anyone else's code, so you keep the right to sell it commercially. Also decide how contributors sign it (for example a CLA bot on pull requests). Until then, the README asks contributors to open an issue first.
+- **Contributions:** not accepted for now (decided 2026-11-18); the README says so, and asks for bug reports and ideas as issues. A contributor license agreement is needed only if that changes, before merging anyone else's code.
 - [ ] **Rights to AI-generated code:** most of Tessick was written with Claude's help, and whether such code can be owned and licensed (by country) is unsettled. Ask how that affects a commercial license and what a buyer should be told.
 
 **Already done by the agent:** checked that every commit is yours and that no one else has contributed; checked that every production dependency has a permissive license; switched `LICENSE`, the `package.json` files and the README; and added the rule that new dependencies must be permissive (CLAUDE.md, "Decisions to keep").

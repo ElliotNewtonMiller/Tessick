@@ -29,14 +29,17 @@ It runs in demo mode (`TESSICK_DEMO=true`): the admin password is well known, an
 
 Tessick listens on port 3001; set `TESSICK_PORT` in `.env` to use another port on the host. To upgrade, pull the new code and run `docker compose up -d --build`.
 
-The image (`Dockerfile`) works on its own too. Each push to `main` publishes it as `ghcr.io/elliotnewtonmiller/tessick`, for amd64 and arm64, tagged `latest` and `sha-<commit>`:
+The image (`Dockerfile`) works on its own too. It's published as `ghcr.io/elliotnewtonmiller/tessick`, for amd64 and arm64:
+- **A release** (`v1.2.3`) is tagged `1.2.3`, `1.2` and `1`. Pin one of these for a real installation: `1` gets fixes and features without breaking changes, and `1.2.3` changes only when you change it.
+- **Each push to `main`** is tagged `latest` (the newest code, which may not be released yet) and `sha-<commit>`.
+
 
 ```bash
-docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... -e EVIDENCE_DIR=/data/evidence ghcr.io/elliotnewtonmiller/tessick:latest
+docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... -e EVIDENCE_DIR=/data/evidence ghcr.io/elliotnewtonmiller/tessick:1
 # or build it yourself: docker build -t tessick .
 ```
 
-`docker-compose.yml` builds the image from the code (`build: .`); to use the published one instead, replace that line with `image: ghcr.io/elliotnewtonmiller/tessick:latest`.
+`docker-compose.yml` builds the image from the code (`build: .`); to use the published one instead, replace that line with `image: ghcr.io/elliotnewtonmiller/tessick:1` (and remove the `image: tessick:latest` line under it).
 
 It runs as the unprivileged `node` user, and Docker checks its health through `GET /api/v1/health`.
 

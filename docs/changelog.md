@@ -4403,3 +4403,34 @@ The root `npm test` passed: 117 files passed and 1 skipped, 889 tests passed and
 
 
 The root `npm test` passed: 117 files passed and 1 skipped, 890 tests passed and 4 skipped. Typecheck clean.
+
+## Ready to go public: the README, releases, and the arm64 image checked in CI (2026-11-18)
+
+**Why:** Elliot is preparing the launch (logo, GIFs, a website), and asked whether the README is ready to be public.
+
+**README:**
+- "Coming from TestLink?" now sits right under the first line, rather than as the 8th feature bullet. TestLink admins are the main audience.
+- The sections are in a visitor's order: try it, run it for real, the API, then development. The development quick start is merged into Development.
+- **Contributions:** not accepted for now (decided with Elliot): the README says so and asks for bug reports and ideas as issues. The contributor license agreement it promised is gone. CLAUDE.md/AGENTS.md (Decisions to keep) say a CLA comes first if that changes.
+
+**Releases** (`.github/workflows/ci.yml`):
+- A git tag `v1.2.3` runs CI and publishes the image as `1.2.3`, `1.2` and `1`.
+- `latest` is now only `main`'s newest image, so a tag doesn't move it. `sha-<commit>` stays.
+- `deployment.md` recommends pinning `1` or a full version for a real installation, and its `docker run` and compose examples use `:1`.
+- `v1.0.0` is to be the first release (root `package.json` 1.0.0), with a GitHub release.
+
+**arm64 checked in CI:** a new job, "The published image runs on arm64", runs after each publish on GitHub's arm64 runner (`ubuntu-24.04-arm`).
+- It pulls the image just published (by its `sha-` tag), checks it's arm64, and starts the demo with the same checks as the amd64 job: the sign-in, and Report Demo loaded.
+- Docker on an Apple Silicon Mac runs this same linux/arm64 image, so it stands in for the Mac check in the backlog, which Elliot can't do. The job reads the token with `python3`, since the arm64 runner's image may not have Node.
+
+**Backlog:** Elliot's launch tasks, in order:
+1. the logo;
+2. the README's hero GIF and screenshots;
+3. demo videos;
+4. the website;
+5. then on GitHub: the website link, topics, a social preview image and a new description (suggested);
+6. a way to reach him about the commercial license;
+7. optionally, the word "faster".
+
+The CLA task became a note, and the Mac check points to CI.
+

@@ -1,7 +1,8 @@
 # Typecheck, test and build on every push and pull request, then check the production build
 # against a real PostgreSQL (the test suite uses an in-memory one), that the Docker image builds
-# and the demo (docker-compose.demo.yml) starts with its project. Pushes to main then publish the
-# image to ghcr.io/elliotnewtonmiller/tessick, for amd64 and arm64.
+# and the demo (docker-compose.demo.yml) starts with its project. Pushes to main, and version tags
+# (v1.2.3), then publish the image to ghcr.io/elliotnewtonmiller/tessick, for amd64 and arm64, and
+# start the published arm64 image's demo on an arm64 runner (as on an Apple Silicon Mac).
 name: CI
 
 on:
@@ -102,7 +103,7 @@ jobs:
 
   publish:
     name: Publish the Docker image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [test, postgres, docker]
     runs-on: ubuntu-latest
     permissions:
@@ -126,8 +127,12 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/elliotnewtonmiller/tessick
+          # main is `latest`; a version tag v1.2.3 adds 1.2.3, 1.2 and 1.
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha,prefix=sha-
           labels: |
             org.opencontainers.image.title=Tessick
@@ -147,3 +152,27 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  arm64:
+    name: The published image runs on arm64
+    needs: publish
+    # GitHub's arm64 runner. Docker on an Apple Silicon Mac runs this same linux/arm64 image.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      # The image this run published (by its commit), under the name the demo compose file uses.
+      - run: |
+          docker pull ghcr.io/elliotnewtonmiller/tessick:sha-${GITHUB_SHA::7}
+          docker tag ghcr.io/elliotnewtonmiller/tessick:sha-${GITHUB_SHA::7} ghcr.io/elliotnewtonmiller/tessick:latest
+          docker image inspect ghcr.io/elliotnewtonmiller/tessick:latest --format '{{.Architecture}}' | grep -qx arm64
+      - name: Start the demo
+        run: docker compose -f docker-compose.demo.yml up -d --wait --wait-timeout 180
+      - name: The demo shows its sign-in and has its project
+        run: |
+          curl -sf http://127.0.0.1:3001/api/v1/instance | grep -q '"password":"tessick-demo-admin"'
+          TOKEN=$(curl -sf -X POST http://127.0.0.1:3001/api/v1/auth/login -H 'content-type: application/json' \
+            -d '{"username":"admin","password":"tessick-demo-admin"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -sf -H "authorization: Bearer $TOKEN" http://127.0.0.1:3001/api/v1/projects | grep -q 'Report Demo'
+      - name: Demo log
+        if: always()
+        run: docker compose -f docker-compose.demo.yml logs tessick
