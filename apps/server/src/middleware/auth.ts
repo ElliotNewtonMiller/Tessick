@@ -304,7 +304,7 @@ async function authenticateApiToken(
 
   // ...and only through the interfaces it's made for. An MCP-only token (an AI agent's) works on
   // /mcp and on the requests MCP's write tools make on its behalf (internalRequests.ts), never on
-  // the rest of the REST API, where MCP's own limits (drafts only, no approve or delete tools)
+  // the rest of the REST API, where MCP's own limits (drafts only, no deprecate or delete tools)
   // don't apply. A REST-only token can't be used for MCP.
   const onMcp = routeUrl === MCP_ROUTE || internalVia(request) === 'mcp';
   if ((token.interfaces === 'MCP' && !onMcp) || (token.interfaces === 'REST' && routeUrl === MCP_ROUTE)) {

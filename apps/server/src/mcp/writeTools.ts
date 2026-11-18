@@ -11,7 +11,9 @@ import { ToolError, json, type JsonSchema, type ToolDef } from './toolTypes.js';
  * caller (internalRequests.ts), so an agent can do exactly what its token or user may, with the
  * same rules, errors and audit rows. On top of that:
  * - cases it creates start as DRAFT, and editing an approved case makes a new DRAFT: a person
- *   approves agents' work (there's no approve, deprecate or delete tool);
+ *   approves agents' work, unless the caller holds SPEC_APPROVE and asks the agent to
+ *   (approve_cases; the token form warns when it's given to an MCP token). There's no deprecate,
+ *   restore or delete tool;
  * - its changes' audit rows say "via Tessick MCP" in their User-Agent, and every call writes an
  *   MCP_WRITE row to the Security Audit Log (mcpServer.ts).
  */
@@ -279,6 +281,23 @@ export function writeTools({ db, requireProject, findCase }: WriteToolDeps): Too
         const project = await requireProject(user, args.project_id);
         const changes = Object.fromEntries(['priority', 'execution_type', 'test_suite_id', 'custom_fields'].filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
         const out = await call(request, 'POST', `/api/v1/projects/${project}/cases/bulk`, { action: 'update', case_ids: args.case_ids, changes });
+        return json({ summary: out.summary, results: out.results });
+      },
+    },
+    {
+      name: 'approve_cases',
+      description:
+        "Approve test cases (up to 500): each case's latest DRAFT version becomes APPROVED, so it can be added to plans and tested, and every active plan that has the case moves to this version. Approving stands in for a person's review: approve only when the user asks you to, and tell them which cases you approved. Each case succeeds or fails on its own (one that has no DRAFT, or misses a required custom field, fails); the answer lists every case.",
+      write: { permissions: ['SPEC_APPROVE'] },
+      inputSchema: {
+        type: 'object',
+        properties: { project_id: projectId, case_ids: caseRefs },
+        required: ['project_id', 'case_ids'],
+        additionalProperties: false,
+      },
+      run: async (args, user, request) => {
+        const project = await requireProject(user, args.project_id);
+        const out = await call(request, 'POST', `/api/v1/projects/${project}/cases/bulk`, { action: 'approve', case_ids: args.case_ids });
         return json({ summary: out.summary, results: out.results });
       },
     },

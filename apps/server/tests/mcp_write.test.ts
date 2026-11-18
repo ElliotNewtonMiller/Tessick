@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer } from '../src/server.js';
 
-/** MCP write tools (API roadmap step 6): agents change things as their caller, and a person approves their cases. */
+/** MCP write tools (API roadmap step 6): agents change things as their caller, and a person approves their cases unless the caller may approve (approve_cases). */
 describe('MCP write tools', () => {
   let app: any;
   let seed: any;
@@ -147,6 +147,40 @@ describe('MCP write tools', () => {
 
     // Ids from elsewhere are refused.
     expect((await tool(agent, 'create_run', { project_id: p, test_plan_id: 'nope', name: 'x' })).error).toMatch(/not found in this project/);
+  });
+
+  it('approve_cases approves drafts for a token with SPEC_APPROVE, case by case, marked as made through MCP', async () => {
+    const p = seed.projectId;
+    // An agent's MCP-only token that may approve.
+    const approver = body(
+      await rest(admin, 'POST', `/api/v1/projects/${p}/api-tokens`, {
+        name: 'approving agent',
+        capabilities: ['SPEC_VIEW', 'SPEC_CREATE', 'SPEC_APPROVE'],
+        interfaces: 'MCP',
+      }),
+    ).plaintext;
+    expect((await rpc(approver, 'tools/list')).result.tools.map((t: any) => t.name)).toContain('approve_cases');
+    // Without SPEC_APPROVE the tool isn't offered, and calling it says why.
+    const writer = await token(['SPEC_VIEW', 'SPEC_CREATE', 'SPEC_EDIT']);
+    expect((await rpc(writer, 'tools/list')).result.tools.map((t: any) => t.name)).not.toContain('approve_cases');
+    expect((await tool(writer, 'approve_cases', { project_id: p, case_ids: ['SHOP-101'] })).error).toMatch(/lacks SPEC_APPROVE/);
+
+    const draft = await tool(approver, 'create_case', { project_id: p, test_suite_id: seed.suiteId, title: 'Approved by an agent' });
+    expect(draft.version.status).toBe('DRAFT');
+    // SHOP-101 is already approved: it fails on its own.
+    const out = await tool(approver, 'approve_cases', { project_id: p, case_ids: [draft.external_id, 'SHOP-101'] });
+    expect(out.summary).toEqual({ total: 2, succeeded: 1, failed: 1 });
+    expect(out.results.map((r: any) => [r.external_id, r.status])).toEqual([
+      [draft.external_id, 200],
+      ['SHOP-101', expect.any(Number)],
+    ]);
+    expect(out.results[1].status).toBeGreaterThanOrEqual(400);
+    expect(body(await rest(admin, 'GET', `/api/v1/cases/${draft.external_id}/versions/latest`)).version.status).toBe('APPROVED');
+
+    // The MCP-only token works through the tool, and the approval is marked as made through MCP.
+    const approvals = body(await rest(admin, 'GET', '/api/v1/admin/audit-logs?action=CASE_VERSION_APPROVED')).audit_logs;
+    expect(approvals.map((r: any) => [r.user_agent, r.actor_type])).toEqual([['claude-code/2.0 (via Tessick MCP)', 'SERVICE_ACCOUNT']]);
+    expect((await rest(approver, 'POST', `/api/v1/projects/${p}/cases/bulk`, { action: 'approve', case_ids: ['SHOP-102'] })).statusCode).toBe(403);
   });
 
   it('an agent can do only what its token may: a read-only token gets no write tools', async () => {
