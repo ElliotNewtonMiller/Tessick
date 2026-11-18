@@ -32,15 +32,57 @@ function decodeHtmlEntities(text: string): string {
   });
 }
 
-/** TestLink's HTML (summaries, steps) as plain text: paragraphs and line breaks kept, tags dropped, entities decoded. */
+/** Marks a table cell's end while tags are removed; each line's cells are joined with " | " afterwards. */
+const CELL_END = '\u0001';
+
+/**
+ * TestLink's HTML (summaries, steps) as plain text: paragraphs and line breaks kept, lists as
+ * "- item" or "1. item" lines, a table row as one line of cells joined by " | ", tags dropped,
+ * entities decoded. In HTML the source's own line breaks and indents are only spaces (TestLink's
+ * editor writes many), so they're collapsed; text without tags keeps its line breaks.
+ */
 export function cleanHtmlText(html: string): string {
   if (!html) return '';
-  const text = html
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
+  let text = html.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1');
+  if (!/<\/?[a-z][^>]*>/i.test(text)) return decodeHtmlEntities(text).trim();
+
+  text = text
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s+/g, ' ')
+    // A paragraph that is a whole table cell or list item is part of that line.
+    .replace(/<\/p\s*>\s*(?=<\/(?:t[dh]|li)\s*>)/gi, '');
+  // Numbered lists first, innermost first, so a list inside a list keeps its own numbers.
+  const innermostList = /<ol\b[^>]*>((?:(?!<ol\b)[\s\S])*?)<\/ol\s*>/i;
+  while (innermostList.test(text)) {
+    text = text.replace(innermostList, (_list, items: string) => {
+      let n = 0;
+      return `\n${items.replace(/<li\b[^>]*>/gi, () => `\n${++n}. `)}\n`;
+    });
+  }
+  text = text
+    .replace(/<li\b[^>]*>/gi, '\n- ')
+    .replace(/<\/(?:li|ul|ol|tr|div|h[1-6]|blockquote|pre)\s*>|<(?:ul|ol|table)\b[^>]*>|<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|table)\s*>/gi, '\n\n')
+    .replace(/<\/t[dh]\s*>/gi, CELL_END)
     .replace(/<[^>]+>/g, '');
-  return decodeHtmlEntities(text).trim();
+
+  const lines = decodeHtmlEntities(text)
+    .split('\n')
+    .map((line) => {
+      if (!line.includes(CELL_END)) return line.trim();
+      const cells = line.split(CELL_END).map((cell) => cell.trim());
+      while (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+      return cells.join(' | ');
+    });
+  return (
+    lines
+      .join('\n')
+      // At most one blank line, and none between a list's items (TestLink wraps each in a <p>).
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/\n\n(?=- |\d+\. )/g, '\n')
+      .replace(/^(- |\d+\. ) +/gm, '$1')
+      .trim()
+  );
 }
 
 /** TestLink importance: 1-3 (low, medium, high), or a priority name. */

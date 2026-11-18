@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Readable } from 'node:stream';
-import { SaxXmlParser, JsonSchemaParser, CsvParser, LOOSE_CASES_SUITE_NAME } from '../src/index.js';
+import { SaxXmlParser, JsonSchemaParser, CsvParser, LOOSE_CASES_SUITE_NAME, cleanHtmlText } from '../src/index.js';
 
 describe('Core Ingestion Parsers', () => {
   it('SaxXmlParser parses TestLink XML streaming payload', async () => {
@@ -78,6 +78,47 @@ describe('Core Ingestion Parsers', () => {
     // One pass: an escaped entity is text, not a second entity.
     expect(tc.steps[0].actions).toBe('Type &mdash; literally');
     expect(tc.steps[0].expected_results).toBe('Unknown &foo; and bad &#0; stay');
+  });
+
+  it("cleanHtmlText turns TestLink's lists, tables and editor whitespace into readable lines", () => {
+    // TestLink's editor indents its HTML and wraps list items and table cells in paragraphs.
+    const list = `<p>Filters:</p>
+
+<ul>
+	<li>
+	<p>By type</p>
+	</li>
+	<li>
+	<p>By &lsquo;length&rsquo;</p>
+	</li>
+</ul>
+<ol><li>Open the page</li><li>Apply a filter<ol><li>first</li><li>second</li></ol></li></ol>`;
+    expect(cleanHtmlText(list)).toBe('Filters:\n- By type\n- By ‘length’\n1. Open the page\n2. Apply a filter\n1. first\n2. second');
+
+    const table = `<p>Files:</p>
+
+<table border="1">
+	<tbody>
+		<tr>
+			<td><strong>Type</strong></td>
+			<td><strong>Name</strong></td>
+		</tr>
+		<tr>
+			<td>.docx</td>
+			<td>
+			<p>Plan &amp; guide</p>
+			</td>
+		</tr>
+	</tbody>
+</table>
+
+<p>&nbsp;</p>`;
+    expect(cleanHtmlText(table)).toBe('Files:\n\nType | Name\n.docx | Plan & guide');
+
+    // In HTML the source's line breaks are spaces; <br> and paragraphs make the lines.
+    expect(cleanHtmlText('<p>One\n\t two<br />\nthree</p>\n\n<p>four</p>')).toBe('One two\nthree\n\nfour');
+    // Text without tags keeps its own line breaks.
+    expect(cleanHtmlText('First line\n  indented line\n\nlast &amp; done')).toBe('First line\n  indented line\n\nlast & done');
   });
 
   it("SaxXmlParser reads TestLink's export of a whole project: its suites are top-level suites", async () => {
