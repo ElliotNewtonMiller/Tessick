@@ -1,6 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useApp } from "../../app/AppContext";
 import { PickerMenu } from "./PickerMenu";
+import tessickMark from "../../assets/tessick-mark.svg";
+import tessickWordmark from "../../assets/tessick-wordmark.webp";
 
 /** Value of the Plan dropdown's "Show/Hide archived plans" entry -- never a real plan id. */
 const TOGGLE_ARCHIVED_PLANS_VALUE = "__toggle_archived_plans__";
@@ -124,15 +126,9 @@ export function AppHeader({
           flexWrap: "wrap",
         }}
       >
-        <span
-          style={{
-            fontWeight: 800,
-            color: "#3b82f6",
-            letterSpacing: "0.75px",
-            fontSize: "17px",
-          }}
-        >
-          ⚡ TESSICK
+        <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+          <img src={tessickMark} alt="" style={{ height: "22px", display: "block" }} />
+          <img src={tessickWordmark} alt="Tessick" style={{ height: "13px", display: "block" }} />
         </span>
         <Divider />
 

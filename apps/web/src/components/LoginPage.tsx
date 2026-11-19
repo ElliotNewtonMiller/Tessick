@@ -4,6 +4,8 @@ import { jsonHeaders } from '../utils/session';
 
 import { errorMessage as apiErrorMessage } from "../api/errors";
 import { api } from "../api/routes";
+import tessickMark from "../assets/tessick-mark.svg";
+import tessickWordmark from "../assets/tessick-wordmark.webp";
 interface LoginPageProps {
   onLoginSuccess: (user: UserProfile) => void;
   /** Why you're back here, e.g. the sign-in ended while you were working. */
@@ -136,34 +138,9 @@ export function LoginPage({ onLoginSuccess, notice }: LoginPageProps) {
       >
         {/* LOGO & TITLE */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '48px',
-              height: '48px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              fontSize: '24px',
-              marginBottom: '12px',
-            }}
-          >
-            ⚡
-          </div>
-          <h1
-            style={{
-              fontSize: '22px',
-              fontWeight: 800,
-              margin: '0 0 6px 0',
-              letterSpacing: '-0.5px',
-              background: 'linear-gradient(to right, #60a5fa, #a78bfa)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            TESSICK
+          <img src={tessickMark} alt="" style={{ height: '56px', display: 'block', margin: '0 auto 16px' }} />
+          <h1 style={{ margin: '0 0 10px 0', lineHeight: 0 }}>
+            <img src={tessickWordmark} alt="Tessick" style={{ height: '24px' }} />
           </h1>
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
             Enterprise Test Execution & Quality Assurance

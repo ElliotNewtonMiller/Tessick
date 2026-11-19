@@ -34,6 +34,7 @@ import { CaseDetailPane } from "./components/spec/CaseDetailPane";
 import { SuiteDetailsPane } from "./components/spec/SuiteDetailsPane";
 import { SuiteTreePane } from "./components/workspace/SuiteTreePane";
 import { CaseListPane } from "./components/workspace/CaseListPane";
+import tessickMark from "./assets/tessick-mark.svg";
 
 /** A Reports link (#/reports/...) opened directly: the view, tab and scope to start on. */
 const INITIAL_REPORTS_LINK = typeof window !== "undefined" ? parseReportsHash(window.location.hash) : null;
@@ -415,9 +416,11 @@ export default function App() {
           color: "#9ca3af",
           fontFamily: "Inter, sans-serif",
           fontSize: "14px",
+          gap: "10px",
         }}
       >
-        ⚡ Initializing Tessick...
+        <img src={tessickMark} alt="" style={{ height: "18px" }} />
+        Initializing Tessick...
       </div>
     );
   }

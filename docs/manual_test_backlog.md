@@ -132,12 +132,23 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the warning in each of those states. A token made from the form: over `/mcp` it was offered `approve_cases`, made TL-351 as a draft and approved it, and got 403 on the REST API. The audit rows mark the approval as made through MCP. Not checked: a real agent deciding when to approve.
 
+## The logo in the app (2026-11-18)
+
+- [ ] The sign-in page: the mark above the wordmark, both sharp (on a high-DPI screen too).
+- [ ] Signed in, the top bar starts with the mark and the wordmark, before Spec / Execute / Reports, and nothing wraps that didn't before.
+- [ ] The browser tab shows the mark as its icon (Chrome, Firefox; a hard reload may be needed). Small, it's the T and the check: say if it needs a simpler favicon.
+- [ ] The loading screen ("Initializing Tessick...", for a moment after a reload) shows the mark.
+
+**Already checked by the agent** (dev server, `127.0.0.1:3000` in a separate tab): the sign-in page and the top bar (the logo takes 119 px against about 105 px for the old "⚡ TESSICK", so both parts stay), the favicon address answering `image/svg+xml`, and the production build hashing both files and rewriting the favicon link.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)
 
 In this order, so the GIFs, videos and website all show the final logo:
-- [ ] **Replace the logo.** The app shows a ⚡ emoji beside "TESSICK" (header and sign-in page) and has no favicon.
+- [x] **Replace the logo.** Done: your mark and wordmark are in `branding/` and in the app (header, sign-in page, loading screen, browser-tab icon). Check them in the app (below). For the website, README and social preview you may still want:
+  - the wordmark as an SVG (the WebP is 376 × 62, fine in the app but soft when large);
+  - a dark wordmark for light backgrounds (the white one disappears on GitHub's light theme, so the README shows only the mark).
 - [ ] **README images:** one short hero GIF (10 to 20 seconds, e.g. recording verdicts with the keyboard) right under the first paragraph, and a couple of screenshots (a report, the case editor). A GIF plays by itself in a README; an mp4 also works if dragged into GitHub's web editor, but has to be started.
 - [ ] **Demo videos** for the website.
 - [ ] **The website.**

@@ -4434,3 +4434,24 @@ The root `npm test` passed: 117 files passed and 1 skipped, 890 tests passed and
 
 The CLA task became a note, and the Mac check points to CI.
 
+## The logo: Elliot's mark and wordmark replace the ⚡ emoji (2026-11-18)
+
+**Why:** Elliot made the logo (a mark, the T with a check, as SVG; and a white "TESSiCK" wordmark, as WebP) and asked for it in the app in place of "⚡ TESSICK", keeping only the mark in the top bar if both took too much room.
+
+**Files** (moved from the repo root, where Elliot put them):
+- `branding/`:
+  - `tessick-mark.inkscape.svg` is his file, unchanged, for editing;
+  - `tessick-mark.svg` is a clean copy: 2 KB instead of 79 KB (Inkscape had kept 94 gradients, of which 7 are used, plus an unused shadow filter), and its `viewBox` cropped to the artwork, so it sizes like the art in a line of text;
+  - `tessick-wordmark.webp`;
+  - `README.md` says which file is which, and how to make a clean copy after editing.
+- `apps/web/src/assets/` has the app's copies (the Dockerfile copies only `apps/` and `packages/`). Vite hashes them in the build; the small mark is inlined as a `data:` URL, which the page's CSP already allows (`img-src 'self' data:`).
+
+**In the app:**
+- **Top bar:** the mark at 22 px, then the wordmark at 13 px. Together 119 px wide, against about 105 px for the old text, so both stay.
+- **Sign-in page:** the mark at 56 px above the wordmark (inside the `h1`, alt "Tessick"), in place of the emoji box and the gradient text.
+- **Loading screen:** the mark before "Initializing Tessick...".
+- **Favicon:** the mark (`index.html`; there was none).
+
+**README:** the mark before the title. The white wordmark would disappear on GitHub's light theme, so it isn't used there.
+
+**Verified:** typecheck and the web tests; live at `127.0.0.1:3000` (the sign-in page, the top bar, the images loaded, the favicon answering `image/svg+xml`); `npm run build` gives hashed files and rewrites the favicon link.

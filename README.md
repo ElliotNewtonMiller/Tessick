@@ -1,4 +1,4 @@
-# Tessick
+# <img src="branding/tessick-mark.svg" height="36" alt=""> Tessick
 
 Tessick is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 
