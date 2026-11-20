@@ -42,6 +42,17 @@ describe('Case external ids', () => {
     for (const r of responses) expect(body(r).version.steps).toHaveLength(1);
   });
 
+  it('lists cases in number order: SHOP-2 before SHOP-10', async () => {
+    const { project } = body(await app.inject({ method: 'POST', url: '/api/v1/projects', headers, payload: { name: 'Order', prefix: 'ORD' } }));
+    const { suite } = body(await app.inject({ method: 'POST', url: `/api/v1/projects/${project.id}/suites`, headers, payload: { name: 'All' } }));
+    for (let i = 1; i <= 11; i++) {
+      await app.inject({ method: 'POST', url: `/api/v1/projects/${project.id}/cases`, headers, payload: { test_suite_id: suite.id, title: `Case ${i}` } });
+    }
+    const expected = Array.from({ length: 11 }, (_, i) => `ORD-${i + 1}`);
+    const tree = body(await app.inject({ method: 'GET', url: `/api/v1/projects/${project.id}/spec-tree`, headers }));
+    expect(tree.cases.map((c: any) => c.external_id)).toEqual(expected);
+  });
+
   it('two creations whose transactions overlap still get distinct ids', async () => {
     // Each transaction pauses after picking its id, so the second request reaches its
     // transaction while the first is still open. With a Postgres pool, lockExternalIds makes

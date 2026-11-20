@@ -12,6 +12,10 @@ export interface CaseListRow extends TestCase {
 
 /** First key of the advisory lock that serializes external id assignment (second: the project). */
 const EXTERNAL_ID_LOCK_NAMESPACE = 0x7e57;
+
+/** Readable ids in number order: SHOP-2 before SHOP-10 (the database's text order puts it after). */
+const byExternalId = (a: { external_id: string }, b: { external_id: string }) =>
+  a.external_id.localeCompare(b.external_id, 'en', { numeric: true });
 export type NewTestCase = Insertable<TestCasesTable>;
 export type TestCaseUpdate = Updateable<TestCasesTable>;
 
@@ -82,23 +86,15 @@ export class TestCaseRepository {
   }
 
   async findByProject(projectId: string): Promise<TestCase[]> {
-    return await this.db
-      .selectFrom('test_cases')
-      .selectAll()
-      .where('project_id', '=', projectId)
-      .orderBy('external_id', 'asc')
-      .execute();
+    const rows = await this.db.selectFrom('test_cases').selectAll().where('project_id', '=', projectId).execute();
+    return rows.sort(byExternalId);
   }
 
   async findBySuiteIds(testSuiteIds: string[]): Promise<TestCase[]> {
     if (testSuiteIds.length === 0) return [];
 
-    return await this.db
-      .selectFrom('test_cases')
-      .selectAll()
-      .where('test_suite_id', 'in', testSuiteIds)
-      .orderBy('external_id', 'asc')
-      .execute();
+    const rows = await this.db.selectFrom('test_cases').selectAll().where('test_suite_id', 'in', testSuiteIds).execute();
+    return rows.sort(byExternalId);
   }
 
   /**
