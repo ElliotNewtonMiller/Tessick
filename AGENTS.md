@@ -44,6 +44,7 @@ npm start                                # production: one process serving the A
 docker compose up -d                     # Tessick + PostgreSQL; copy .env.example to .env first
 docker compose -f docker-compose.demo.yml up   # the demo: published image, demo mode, Report Demo loaded, no .env
 npx tsx apps/server/scripts/report-demo.ts   # loads a demo project with 8 runs of results through the API
+npx tsx apps/server/scripts/showcase/load-showcase.ts   # the "Storefront" project for filming demo clips (its folder has a TestLink export and a JUnit file to use on camera)
 npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Tessick's)
 ```
 

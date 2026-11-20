@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite id="" name="" >
+<node_order><![CDATA[]]></node_order>
+<details><![CDATA[]]></details> 
+<testsuite id="501" name="Onboarding" >
+<node_order><![CDATA[1]]></node_order>
+<details><![CDATA[]]></details> 
+<testsuite id="502" name="Sign-up" >
+<node_order><![CDATA[1]]></node_order>
+<details><![CDATA[]]></details> 
+<testcase internalid="2003" name="Open an account with a passport">
+	<node_order><![CDATA[1]]></node_order>
+	<externalid><![CDATA[101]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A new customer opens a current account using a passport scan and a selfie.</p>]]></summary>
+	<preconditions><![CDATA[<ul><li>App installed, no account yet</li><li>A valid test passport</li></ul>]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Tap <b>Open an account</b> and enter name, date of birth and phone number.</p>]]></actions>
+	<expectedresults><![CDATA[<p>A code is sent by SMS and the next screen asks for it.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[2]]></step_number>
+	<actions><![CDATA[<p>Enter the SMS code.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The ID check starts.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[3]]></step_number>
+	<actions><![CDATA[<p>Scan the passport photo page, then take a selfie.</p>]]></actions>
+	<expectedresults><![CDATA[<ol><li>Both images are accepted.</li><li>The status shows <i>Checking your ID</i>.</li></ol>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[4]]></step_number>
+	<actions><![CDATA[<p>Wait for the check to finish.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The account is opened with a sort code and account number.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Onboarding]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="smoke"><notes><![CDATA[]]></notes></keyword><keyword name="kyc"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2006" name="Sign-up refused under 18">
+	<node_order><![CDATA[2]]></node_order>
+	<externalid><![CDATA[102]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>Applicants under 18 are refused before any ID is collected.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Start sign-up with a date of birth 17 years ago.</p>]]></actions>
+	<expectedresults><![CDATA[<p><i>You need to be 18 or over</i> is shown and sign-up stops.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Onboarding]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="kyc"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+</testsuite>
+<testsuite id="503" name="Identity checks" >
+<node_order><![CDATA[2]]></node_order>
+<details><![CDATA[]]></details> 
+<testcase internalid="2009" name="Blurry passport photo is asked again">
+	<node_order><![CDATA[1]]></node_order>
+	<externalid><![CDATA[103]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A photo the ID service can't read is retaken, not refused.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[2]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Scan a deliberately blurred passport photo.</p>]]></actions>
+	<expectedresults><![CDATA[<p><i>We couldn't read that</i> appears with tips, and the camera opens again.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Onboarding]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="kyc"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2012" name="Manual review when the selfie doesn't match">
+	<node_order><![CDATA[2]]></node_order>
+	<externalid><![CDATA[104]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A selfie that doesn't match the passport goes to a person.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[2]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>1</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Complete sign-up with a selfie of someone else.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The status shows <i>We're checking your details</i>; a case appears in the review queue.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Onboarding]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+</testcase>
+</testsuite>
+</testsuite>
+<testsuite id="504" name="Payments" >
+<node_order><![CDATA[2]]></node_order>
+<details><![CDATA[]]></details> 
+<testsuite id="505" name="Transfers" >
+<node_order><![CDATA[1]]></node_order>
+<details><![CDATA[]]></details> 
+<testcase internalid="2015" name="Send money to a saved payee">
+	<node_order><![CDATA[1]]></node_order>
+	<externalid><![CDATA[105]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A customer sends money to someone they've paid before.</p>]]></summary>
+	<preconditions><![CDATA[<p>Account balance at least 100.00; payee <b>Sam Taylor</b> saved.</p>]]></preconditions>
+	<execution_type><![CDATA[2]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Tap <b>Pay</b>, choose Sam Taylor and enter 25.00.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The summary shows the payee, amount and arrival time.</p>]]></expectedresults>
+	<execution_type><![CDATA[2]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[2]]></step_number>
+	<actions><![CDATA[<p>Confirm with Face ID.</p>]]></actions>
+	<expectedresults><![CDATA[<p><i>Sent</i> is shown and the balance drops by 25.00.</p>]]></expectedresults>
+	<execution_type><![CDATA[2]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Payments]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="smoke"><notes><![CDATA[]]></notes></keyword><keyword name="regression"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2018" name="Confirmation of Payee warns on a name mismatch">
+	<node_order><![CDATA[2]]></node_order>
+	<externalid><![CDATA[106]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>The bank's name check warns before money goes to the wrong person.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Add a new payee with a correct account number but the name <i>Sam Tailor</i>.</p>]]></actions>
+	<expectedresults><![CDATA[<p>A warning shows the close match <i>Sam Taylor</i>, with options to use it or continue.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[2]]></step_number>
+	<actions><![CDATA[<p>Choose <b>Continue anyway</b>.</p>]]></actions>
+	<expectedresults><![CDATA[<p>A second warning explains the money may not be recoverable.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Payments]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="regression"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2021" name="Daily transfer limit">
+	<node_order><![CDATA[3]]></node_order>
+	<externalid><![CDATA[107]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>Transfers above the daily limit are refused.</p>]]></summary>
+	<preconditions><![CDATA[<p>Daily limit 10,000.00.</p>]]></preconditions>
+	<execution_type><![CDATA[2]]></execution_type>
+	<importance><![CDATA[2]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Send 9,000.00, then try to send 2,000.00.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The second transfer is refused: <i>This would go over your daily limit of 10,000.00</i>.</p>]]></expectedresults>
+	<execution_type><![CDATA[2]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Payments]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="regression"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+</testsuite>
+<testsuite id="506" name="Cards" >
+<node_order><![CDATA[2]]></node_order>
+<details><![CDATA[]]></details> 
+<testcase internalid="2024" name="Freeze and unfreeze a card">
+	<node_order><![CDATA[1]]></node_order>
+	<externalid><![CDATA[108]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A frozen card declines payments until it is unfrozen.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Open the card and tap <b>Freeze</b>.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The card shows <i>Frozen</i>.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[2]]></step_number>
+	<actions><![CDATA[<p>Make a test card payment.</p>]]></actions>
+	<expectedresults><![CDATA[<p>It is declined, and a notification says the card is frozen.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[3]]></step_number>
+	<actions><![CDATA[<p>Tap <b>Unfreeze</b> and pay again.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The payment goes through.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Cards]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="smoke"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2027" name="Show the PIN after Face ID">
+	<node_order><![CDATA[2]]></node_order>
+	<externalid><![CDATA[109]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>The PIN is shown only after the customer authenticates.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[2]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Tap <b>Show PIN</b>.</p>]]></actions>
+	<expectedresults><![CDATA[<p>Face ID is asked for.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+<step>
+	<step_number><![CDATA[2]]></step_number>
+	<actions><![CDATA[<p>Authenticate.</p>]]></actions>
+	<expectedresults><![CDATA[<p>The PIN is shown for 10 seconds, then hidden again.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Cards]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+</testcase>
+<testcase internalid="2030" name="Order a replacement card">
+	<node_order><![CDATA[3]]></node_order>
+	<externalid><![CDATA[110]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>A lost card is cancelled and a new one ordered in one flow.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[2]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>1</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Choose <b>Report lost</b> and confirm the address.</p>]]></actions>
+	<expectedresults><![CDATA[<table><tr><td>Old card</td><td>Cancelled</td></tr><tr><td>New card</td><td>Ordered, arrives in 3 to 5 days</td></tr></table>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Cards]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+</testcase>
+</testsuite>
+</testsuite>
+<testsuite id="507" name="Security" >
+<node_order><![CDATA[3]]></node_order>
+<details><![CDATA[]]></details> 
+<testcase internalid="2033" name="Log out after 5 minutes in the background">
+	<node_order><![CDATA[1]]></node_order>
+	<externalid><![CDATA[111]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>The app locks itself when left in the background.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[2]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Sign in, then send the app to the background for 5 minutes.</p>]]></actions>
+	<expectedresults><![CDATA[<p>Reopening it asks for Face ID or the passcode.</p>]]></expectedresults>
+	<execution_type><![CDATA[2]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Security]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="regression"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2036" name="New device needs an SMS code">
+	<node_order><![CDATA[2]]></node_order>
+	<externalid><![CDATA[112]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>Signing in on a new phone is confirmed by SMS.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[3]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>7</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Install the app on a second phone and sign in.</p>]]></actions>
+	<expectedresults><![CDATA[<p>An SMS code is asked for, and the first phone gets a notification.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Security]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[Yes]]></value>
+</custom_field>
+</custom_fields>
+<keywords><keyword name="smoke"><notes><![CDATA[]]></notes></keyword></keywords>
+</testcase>
+<testcase internalid="2039" name="Jailbroken device warning">
+	<node_order><![CDATA[3]]></node_order>
+	<externalid><![CDATA[113]]></externalid>
+	<version><![CDATA[1]]></version>
+	<summary><![CDATA[<p>Old check, replaced by the device integrity service.</p>]]></summary>
+	<preconditions><![CDATA[]]></preconditions>
+	<execution_type><![CDATA[1]]></execution_type>
+	<importance><![CDATA[1]]></importance>
+	<estimated_exec_duration></estimated_exec_duration>
+	<status>5</status>
+	<is_open>1</is_open>
+	<active>1</active>
+<steps>
+<step>
+	<step_number><![CDATA[1]]></step_number>
+	<actions><![CDATA[<p>Open the app on a jailbroken phone.</p>]]></actions>
+	<expectedresults><![CDATA[<p>A warning is shown.</p>]]></expectedresults>
+	<execution_type><![CDATA[1]]></execution_type>
+</step>
+</steps>
+<custom_fields>
+<custom_field>
+	<name><![CDATA[Component]]></name>
+	<value><![CDATA[Security]]></value>
+</custom_field>
+<custom_field>
+	<name><![CDATA[Regulatory requirement]]></name>
+	<value><![CDATA[No]]></value>
+</custom_field>
+</custom_fields>
+</testcase>
+</testsuite>
+</testsuite>

@@ -141,6 +141,13 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent** (dev server, `127.0.0.1:3000` in a separate tab): the sign-in page and the top bar (the logo takes 119 px against about 105 px for the old "⚡ TESSICK", so both parts stay), the favicon address answering `image/svg+xml`, and the production build hashing both files and rewriting the favicon link.
 
+## The filming project; case order; checkbox imports (2026-11-20)
+
+- [ ] The Storefront's cases are listed SHOP-1, SHOP-2 ... SHOP-10 (number order), in Spec and Execute.
+- [ ] In the Import wizard, the sample `testlink-export.xml` into a new project with the prefix BANK: Field Mapping suggests a checkbox for "Regulatory requirement"; after Run Import, BANK-101 shows it ticked and Component "Onboarding".
+
+**Already checked by the agent:** the load, and Storefront in Spec, Execute and Reports (`127.0.0.1:3000`, a separate tab); both fixes by tests and over the API (the spec tree's order, the TestLink file's 26 field values).
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

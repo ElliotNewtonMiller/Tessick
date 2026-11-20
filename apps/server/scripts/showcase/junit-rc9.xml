@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="storefront e2e" tests="22" failures="1" skipped="1" time="47.280">
+  <testsuite name="storefront.e2e.accounts.Sign-in" tests="4" failures="0" skipped="1" time="10.100">
+    <testcase classname="storefront.e2e.accounts.Sign-in" name="Sign in with email and password" time="1.400"/>
+    <testcase classname="storefront.e2e.accounts.Sign-in" name="Wrong password shows an error" time="0.900"/>
+    <testcase classname="storefront.e2e.accounts.Sign-in" name="Account locks after 5 failed attempts" time="5.200"/>
+    <testcase classname="storefront.e2e.accounts.Sign-in" name="Sign in with Google" time="2.600">
+      <skipped message="Google test account is rate-limited"/>
+    </testcase>
+  </testsuite>
+  <testsuite name="storefront.e2e.accounts.Password reset" tests="2" failures="0" skipped="0" time="4.900">
+    <testcase classname="storefront.e2e.accounts.Password reset" name="Request a password reset email" time="3.100"/>
+    <testcase classname="storefront.e2e.accounts.Password reset" name="Reset link expires after one hour" time="1.800"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.catalog.Search" tests="3" failures="0" skipped="0" time="5.910">
+    <testcase classname="storefront.e2e.catalog.Search" name="Search by product name" time="3.510"/>
+    <testcase classname="storefront.e2e.catalog.Search" name="Search tolerates typos" time="1.100"/>
+    <testcase classname="storefront.e2e.catalog.Search" name="Search results paginate" time="1.300"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.catalog.Filters" tests="2" failures="0" skipped="0" time="1.750">
+    <testcase classname="storefront.e2e.catalog.Filters" name="Filter by price range" time="0.800"/>
+    <testcase classname="storefront.e2e.catalog.Filters" name="Filter by brand and size together" time="0.950"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.catalog.Product page" tests="1" failures="0" skipped="0" time="0.700">
+    <testcase classname="storefront.e2e.catalog.Product page" name="Out-of-stock size can't be added" time="0.700"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.cartcheckout.Cart" tests="3" failures="1" skipped="0" time="3.670">
+    <testcase classname="storefront.e2e.cartcheckout.Cart" name="Add an item to the cart" time="0.750"/>
+    <testcase classname="storefront.e2e.cartcheckout.Cart" name="Change quantity in the cart" time="0.820"/>
+    <testcase classname="storefront.e2e.cartcheckout.Cart" name="Cart is kept after signing out and in" time="2.100">
+      <failure message="Expected 2 items in the cart after signing in again, found 0" type="AssertionError">AssertionError: Expected 2 items in the cart after signing in again, found 0
+    at e2e/cart.spec.ts:41:9</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="storefront.e2e.cartcheckout.Payment" tests="3" failures="0" skipped="0" time="10.700">
+    <testcase classname="storefront.e2e.cartcheckout.Payment" name="Pay with a new card" time="4.200"/>
+    <testcase classname="storefront.e2e.cartcheckout.Payment" name="Pay with a saved card" time="3.600"/>
+    <testcase classname="storefront.e2e.cartcheckout.Payment" name="Declined card shows a clear message" time="2.900"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.cartcheckout.Shipping" tests="1" failures="0" skipped="0" time="1.200">
+    <testcase classname="storefront.e2e.cartcheckout.Shipping" name="Free shipping over $50" time="1.200"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.cartcheckout.Discounts" tests="2" failures="0" skipped="0" time="1.850">
+    <testcase classname="storefront.e2e.cartcheckout.Discounts" name="Apply a discount code" time="1.000"/>
+    <testcase classname="storefront.e2e.cartcheckout.Discounts" name="Expired code is refused" time="0.850"/>
+  </testsuite>
+  <testsuite name="storefront.e2e.Orders" tests="1" failures="0" skipped="0" time="6.500">
+    <testcase classname="storefront.e2e.Orders" name="Order confirmation email" time="6.500"/>
+  </testsuite>
+</testsuites>

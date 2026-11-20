@@ -4455,3 +4455,23 @@ The CLA task became a note, and the Mac check points to CI.
 **README:** the mark before the title. The white wordmark would disappear on GitHub's light theme, so it isn't used there.
 
 **Verified:** typecheck and the web tests; live at `127.0.0.1:3000` (the sign-in page, the top bar, the images loaded, the favicon answering `image/svg+xml`); `npm run build` gives hashed files and rewrites the favicon link.
+
+## A project for filming, plus two fixes it turned up: case order and checkbox imports (2026-11-20)
+
+**Why:** Elliot is making the demo clips for the README and website. The Report Demo's cases have placeholder steps ("Do: Add item to cart" / "It works"), which look thin on camera, and the TestLink import clip needed a TestLink export that isn't anyone's real data.
+
+**The showcase** (`apps/server/scripts/showcase/`):
+- `load-showcase.ts` loads "Storefront" (SHOP) into a running server over the API: 34 cases in 14 suites (accounts, catalog, cart and checkout, orders) with real summaries, preconditions and steps, a Platforms multi-select field, and the plan "Release 2.4 Regression" with runs `2.4.0-rc.1` to `rc.8`, two days apart.
+  - The history gives every report something: a flaky case (Pay with a saved card), a regression (Apply a discount code), a new failure (the cart after signing in again), a slowing case (Search by product name), a pass on retry, a blocked result.
+  - `rc.8` is left open: CI has recorded its 22 automated cases (20 passed, 2 failed), and its 12 manual cases wait for the keyboard-execution clip.
+  - The manual results of earlier runs go in as a batch with their run's date. One at a time, the API dates them now, and the Overview's activity chart became one spike on today. So they count as API results; the first results "by people" are the ones recorded on camera.
+  - At the end, it prints the commands for the CI clip, with the token and plan id to set off camera.
+  - The case data is in `cases.ts`.
+- `junit-rc9.xml`: the CI clip's report, 22 tests named by suite (class) and title, with one failure and one skip. Checked: all 22 match their cases.
+- `testlink-export.xml`: a TestLink 1.9 "Export All Test Suites" file for a made-up "Mobile Banking" project (prefix BANK): 13 cases in 7 suites, HTML lists and a table in steps, two custom fields (Component; "Regulatory requirement", Yes/No), keywords, two drafts and an obsolete case. Checked: the import gives BANK-101 to BANK-113, the drafts and the deprecated case, and every field value.
+
+**Fix: cases listed in number order.** The spec tree and searches listed SHOP-1, SHOP-10, SHOP-11 ... SHOP-19, SHOP-2: the database's text order. `TestCaseRepository.findByProject` and `findBySuiteIds` now sort with numbers in order (`localeCompare` with `numeric`, as reports already did). Test: `external_ids.test.ts` (11 cases come back ORD-1 to ORD-11).
+
+**Fix: CHECKBOX values in imports.** The import's preview suggests a checkbox for a field whose values are all yes/no, true/false or 1/0, but the import then refused every such value ("expected a boolean"), since text was passed through as it was. Every "Regulatory requirement" value in the sample export was skipped. Now `checkboxFromText` (`packages/core/src/ingestion/importFieldValues.ts`) reads those six words in any case, and anything else is skipped with `Not yes or no: "…"`. RFC 03 §6 says so. Tests: `importFieldValues.test.ts`, and `import_ids_and_numbers.test.ts` (a TestLink file's Yes, No and "maybe").
+
+**Verified:** typecheck and the full test suite. On the dev server: the load, the Storefront in Spec, Execute (`rc.8`) and Reports at `127.0.0.1:3000` in a separate tab, the JUnit file into a throwaway run (deleted after), and the TestLink file into a throwaway BANK project (the server was restarted after, so both clips start clean).
