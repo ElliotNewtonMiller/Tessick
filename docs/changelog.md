@@ -4493,3 +4493,10 @@ The CLA task became a note, and the Mac check points to CI.
 **Verified:** the header and sign-in page at `127.0.0.1:3000` (a separate tab); both full logos in Chrome on dark and light backgrounds, and rendered with Inkscape; the web tests and the production build.
 
 **Update (same day):** Elliot moved the wordmark's dot down, closer to the "i" (both Inkscape files), and deleted the clean copies and full logos so they'd be remade. They're rebuilt from his files the same way (the clean copies render as his do, up to anti-aliasing), with the app's copy (`apps/web/src/assets/tessick-wordmark.svg`); checked on the sign-in page.
+
+## Released: Tessick 1.0.0 (2026-11-20)
+
+The tag `v1.0.0` (commit `fd71c4a`) and its [GitHub release](https://github.com/ElliotNewtonMiller/Tessick/releases/tag/v1.0.0), with notes on trying it, the image tags, what's in it and moving from TestLink.
+
+- **CI:** the `main` run (44827338963) and the tag's run (44828445291) passed every job, including the arm64 check. The tag's run published `ghcr.io/elliotnewtonmiller/tessick:1.0.0`, `1.0` and `1`. Checked with `docker manifest inspect`: each holds amd64 and arm64.
+- **Versions from here** (asked by Elliot): semantic versioning, as CLAUDE.md now says. A patch is fixes only (1.0.1), a minor adds without breaking (1.1.0), a major breaks something users rely on (2.0.0). To release: change the root `package.json` version, push a `v<version>` tag, and write the GitHub release from the changelog's entries since the last tag.
