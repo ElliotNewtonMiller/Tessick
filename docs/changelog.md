@@ -4475,3 +4475,19 @@ The CLA task became a note, and the Mac check points to CI.
 **Fix: CHECKBOX values in imports.** The import's preview suggests a checkbox for a field whose values are all yes/no, true/false or 1/0, but the import then refused every such value ("expected a boolean"), since text was passed through as it was. Every "Regulatory requirement" value in the sample export was skipped. Now `checkboxFromText` (`packages/core/src/ingestion/importFieldValues.ts`) reads those six words in any case, and anything else is skipped with `Not yes or no: "…"`. RFC 03 §6 says so. Tests: `importFieldValues.test.ts`, and `import_ids_and_numbers.test.ts` (a TestLink file's Yes, No and "maybe").
 
 **Verified:** typecheck and the full test suite. On the dev server: the load, the Storefront in Spec, Execute (`rc.8`) and Reports at `127.0.0.1:3000` in a separate tab, the JUnit file into a throwaway run (deleted after), and the TestLink file into a throwaway BANK project (the server was restarted after, so both clips start clean).
+
+## The SVG wordmarks, and the full logo in the README (2026-11-20)
+
+**Why:** Elliot made the wordmark as SVG, in white and black, and asked for them in place of the WebP.
+
+**Files** (`branding/`, its README says which is which):
+- `tessick-wordmark-white.svg` and `-black.svg`: clean copies of his files (about 5 KB instead of 8): no Inkscape metadata, and without an empty `<text>` element left in them. The letters were already a path, so no font is needed. Drawn the same as his files (Inkscape renders differ only by anti-aliasing).
+- `tessick-wordmark-white.inkscape.svg` and `-black.inkscape.svg`: his files, renamed to match the mark's (`tessick-logo-text-*.svg` before).
+- `tessick-logo-white.svg` and `-black.svg`: new, the full logo, the mark and the wordmark side by side (the word 13/22 of the mark's height, centred, as in the app's header; the gap 5/22). GitHub can't line up two images or style them, so the README's heading needs one image; also for the website and social preview.
+- `tessick-wordmark.webp` is removed, from `branding/` and the app.
+
+**App:** `apps/web/src/assets/tessick-wordmark.svg` (the white one) in the header and on the sign-in page. The header's gap between the mark and the word is 5 px, as in the full logo.
+
+**README:** the heading is the full logo in a `<picture>`: the white one when GitHub is dark (`prefers-color-scheme: dark`), the black one otherwise. Its text (`alt`) is "Tessick".
+
+**Verified:** the header and sign-in page at `127.0.0.1:3000` (a separate tab); both full logos in Chrome on dark and light backgrounds, and rendered with Inkscape; the web tests and the production build.

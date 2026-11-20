@@ -1,4 +1,9 @@
-# <img src="branding/tessick-mark.svg" height="36" alt=""> Tessick
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/tessick-logo-white.svg">
+    <img src="branding/tessick-logo-black.svg" alt="Tessick" height="56">
+  </picture>
+</h1>
 
 Tessick is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 

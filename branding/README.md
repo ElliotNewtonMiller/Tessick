@@ -2,10 +2,15 @@
 
 | File | What it is |
 | --- | --- |
-| `tessick-mark.svg` | The mark (the T with a check), cropped to the artwork and stripped to what it draws. Use this one. |
-| `tessick-mark.inkscape.svg` | The same mark as drawn in Inkscape, on its 120 × 100 canvas. Edit this one, then export a clean copy (below). |
-| `tessick-wordmark.webp` | The word "TESSiCK" in white, for dark backgrounds (376 × 62). |
+| `tessick-logo-white.svg` | The full logo, the mark and the word, for dark backgrounds. |
+| `tessick-logo-black.svg` | The same for light backgrounds. The README shows one or the other, following GitHub's theme. |
+| `tessick-mark.svg` | The mark alone (the T with a check): the favicon, and wherever space is short. |
+| `tessick-wordmark-white.svg` | The word "TESSiCK" alone, white with the gradient dot, for dark backgrounds. |
+| `tessick-wordmark-black.svg` | The same in black, for light backgrounds. |
+| `*.inkscape.svg` | Elliot's Inkscape files for the mark and the wordmarks: edit these, then make clean copies (below). |
 
-The web app has its own copies in `apps/web/src/assets/`: the header, the sign-in page, the loading screen and the browser tab's icon. After changing a logo here, copy it there too.
+The clean copies keep only what they draw: no editor metadata or unused gradients, the mark cropped to its artwork (`viewBox` `10 14 108 72`), and the word already turned into a path, so no font is needed to show it.
 
-**After editing the mark in Inkscape,** make the clean copy: File → Save As → Optimized SVG, or remove the editor's metadata and unused gradients by hand. Then set `viewBox` to the artwork's bounds plus a small margin (now `10 14 108 72`).
+**The full logos** are the mark and a wordmark side by side: the word is 13/22 of the mark's height, centred on it, with a gap of 5/22 of its height. After changing the mark or a wordmark, rebuild them to match.
+
+**The web app** has its own copies in `apps/web/src/assets/`: `tessick-mark.svg` (the header, the sign-in page, the loading screen and the favicon) and `tessick-wordmark.svg` (the white wordmark: the header and the sign-in page). After changing a logo here, copy it there too.

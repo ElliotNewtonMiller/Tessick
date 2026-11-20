@@ -148,14 +148,19 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the load, and Storefront in Spec, Execute and Reports (`127.0.0.1:3000`, a separate tab); both fixes by tests and over the API (the spec tree's order, the TestLink file's 26 field values).
 
+## The SVG wordmarks; the full logo in the README (2026-11-20)
+
+- [ ] On GitHub (once pushed), the README's heading shows the full logo: black letters on the light theme, white on the dark theme (switch it in GitHub's appearance settings).
+- [ ] The header and sign-in page's wordmark is sharp at any zoom.
+
+**Already checked by the agent:** the header and sign-in page at `127.0.0.1:3000` (a separate tab); both full logos drawn by Chrome, on dark and light, and by Inkscape; the cleaned wordmarks drawn the same as your files; the production build.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)
 
 In this order, so the GIFs, videos and website all show the final logo:
-- [x] **Replace the logo.** Done: your mark and wordmark are in `branding/` and in the app (header, sign-in page, loading screen, browser-tab icon). Check them in the app (below). For the website, README and social preview you may still want:
-  - the wordmark as an SVG (the WebP is 376 × 62, fine in the app but soft when large);
-  - a dark wordmark for light backgrounds (the white one disappears on GitHub's light theme, so the README shows only the mark).
+- [x] **Replace the logo.** Done: your mark and wordmark are in `branding/` and in the app (header, sign-in page, loading screen, browser-tab icon). Check them in the app (below). Your white and black SVG wordmarks replaced the WebP (2026-11-20), and `branding/tessick-logo-white.svg` / `-black.svg` are the full logo for the website and social preview.
 - [ ] **README images:** one short hero GIF (10 to 20 seconds, e.g. recording verdicts with the keyboard) right under the first paragraph, and a couple of screenshots (a report, the case editor). A GIF plays by itself in a README; an mp4 also works if dragged into GitHub's web editor, but has to be started.
 - [ ] **Demo videos** for the website.
 - [ ] **The website.**

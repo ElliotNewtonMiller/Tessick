@@ -5,7 +5,7 @@ import { jsonHeaders } from '../utils/session';
 import { errorMessage as apiErrorMessage } from "../api/errors";
 import { api } from "../api/routes";
 import tessickMark from "../assets/tessick-mark.svg";
-import tessickWordmark from "../assets/tessick-wordmark.webp";
+import tessickWordmark from "../assets/tessick-wordmark.svg";
 interface LoginPageProps {
   onLoginSuccess: (user: UserProfile) => void;
   /** Why you're back here, e.g. the sign-in ended while you were working. */
