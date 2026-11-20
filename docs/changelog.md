@@ -4491,3 +4491,5 @@ The CLA task became a note, and the Mac check points to CI.
 **README:** the heading is the full logo in a `<picture>`: the white one when GitHub is dark (`prefers-color-scheme: dark`), the black one otherwise. Its text (`alt`) is "Tessick".
 
 **Verified:** the header and sign-in page at `127.0.0.1:3000` (a separate tab); both full logos in Chrome on dark and light backgrounds, and rendered with Inkscape; the web tests and the production build.
+
+**Update (same day):** Elliot moved the wordmark's dot down, closer to the "i" (both Inkscape files), and deleted the clean copies and full logos so they'd be remade. They're rebuilt from his files the same way (the clean copies render as his do, up to anti-aliasing), with the app's copy (`apps/web/src/assets/tessick-wordmark.svg`); checked on the sign-in page.
