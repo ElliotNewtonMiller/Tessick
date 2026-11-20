@@ -70,6 +70,21 @@ export function numberFromText(value: unknown): number | null {
 }
 
 /**
+ * The value of a CHECKBOX field from imported text: "yes", "true" and "1" are ticked, "no",
+ * "false" and "0" aren't (any case, spaces around ignored), which are the values the field-type
+ * guess (inferFieldType) reads as a checkbox. null for anything else.
+ */
+export function checkboxFromText(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === 0) return value === 1;
+  if (typeof value !== 'string') return null;
+  const v = value.trim().toLowerCase();
+  if (v === 'yes' || v === 'true' || v === '1') return true;
+  if (v === 'no' || v === 'false' || v === '0') return false;
+  return null;
+}
+
+/**
  * A case id from an import file as this project's id: the project's prefix and the file's
  * number. "331" (TestLink exports the number alone), "CON-331" and "OLD-331" all become
  * "CON-331" in a project whose prefix is CON. Anything else (TestRail's "C501", ids with more

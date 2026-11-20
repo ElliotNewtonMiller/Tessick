@@ -14,7 +14,7 @@ ${cases
   .join('\n')}
 </testsuite>`;
 
-describe('Imports keep case ids, and NUMBER fields keep the number', () => {
+describe('Imports keep case ids, NUMBER fields keep the number, and CHECKBOX fields read yes and no', () => {
   let app: any;
   let token: string;
 
@@ -84,5 +84,31 @@ describe('Imports keep case ids, and NUMBER fields keep the number', () => {
     expect(await sprintOf('NUM-1')).toBe(34);
     expect(await sprintOf('NUM-2')).toBe(7);
     expect(await sprintOf('NUM-3')).toBeNull();
+  });
+
+  it('a CHECKBOX field reads "Yes" and "No", as TestLink exports them, and skips other text', async () => {
+    const project = body(await call('POST', '/api/v1/projects', { name: 'Checks', prefix: 'CHK' })).project;
+    const file = testlinkXml([
+      { id: '1', name: 'Regulated', sprint: 'Yes' },
+      { id: '2', name: 'Not regulated', sprint: 'No' },
+      { id: '3', name: 'Unclear', sprint: 'maybe' },
+    ]);
+    const preview = body(await call('POST', `/api/v1/projects/${project.id}/imports/dry-run`, { file_content: file, format: 'TESTLINK_XML' }));
+    expect(preview.unmapped_custom_fields[0]).toMatchObject({ incoming_key: 'sprint', detected_type: 'TEXT' });
+    const done = await call('POST', `/api/v1/projects/${project.id}/imports/execute`, {
+      file_content: file,
+      format: 'TESTLINK_XML',
+      configuration: { field_mappings: [{ incoming_key: 'sprint', action: 'AUTO_CREATE', field_type: 'CHECKBOX', field_name: 'Regulated' }] },
+    });
+    expect(done.statusCode, done.payload).toBe(200);
+    expect(body(done).skipped_custom_field_value_warnings).toEqual([
+      expect.objectContaining({ case_external_id_or_title: 'CHK-3', incoming_key: 'sprint', reason: 'Not yes or no: "maybe"' }),
+    ]);
+    const tickOf = async (id: string) => {
+      const values = body(await call('GET', `/api/v1/cases/${id}/custom-fields`)).values;
+      return values.find((v: any) => v.definition.name === 'sprint')?.value ?? null;
+    };
+    expect(await tickOf('CHK-1')).toBe(true);
+    expect(await tickOf('CHK-2')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectImportFieldOptions, splitMultiSelectValue, numberFromText, projectCaseId, applyProjectCaseIds, type ParsedSuite } from '../src/index.js';
+import { collectImportFieldOptions, splitMultiSelectValue, numberFromText, checkboxFromText, projectCaseId, applyProjectCaseIds, type ParsedSuite } from '../src/index.js';
 
 const suite = (cases: Array<Record<string, string>>, sub: ParsedSuite[] = []): ParsedSuite => ({
   name: 'S',
@@ -43,6 +43,17 @@ describe('numbers for NUMBER fields', () => {
 
   it('gives null when there is no number', () => {
     for (const v of ['none', '', 'N/A', null, undefined, true]) expect(numberFromText(v)).toBeNull();
+  });
+});
+
+describe('ticks for CHECKBOX fields', () => {
+  it('reads yes/no, true/false and 1/0, in any case', () => {
+    for (const v of ['Yes', 'yes', ' TRUE ', '1', 1, true]) expect(checkboxFromText(v)).toBe(true);
+    for (const v of ['No', 'no', 'False', '0', 0, false]) expect(checkboxFromText(v)).toBe(false);
+  });
+
+  it('gives null for anything else', () => {
+    for (const v of ['maybe', '', 'N/A', '2', 2, null, undefined]) expect(checkboxFromText(v)).toBeNull();
   });
 });
 

@@ -16,6 +16,7 @@ import {
   collectImportFieldOptions,
   splitMultiSelectValue,
   numberFromText,
+  checkboxFromText,
   applyProjectCaseIds,
   storableSuites,
   withoutNul,
@@ -789,9 +790,14 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
                     // A NUMBER field keeps the number and drops the text around it ("Sprint 34" -> 34).
                     const number = fieldType === 'NUMBER' ? numberFromText(v) : null;
                     if (fieldType === 'NUMBER' && number === null) throw new Error(`No number in "${String(v).slice(0, 60)}"`);
+                    // A CHECKBOX field reads "Yes"/"No" (TestLink's checkbox fields), "true"/"false" and "1"/"0".
+                    const ticked = fieldType === 'CHECKBOX' ? checkboxFromText(v) : null;
+                    if (fieldType === 'CHECKBOX' && ticked === null) throw new Error(`Not yes or no: "${String(v).slice(0, 60)}"`);
                     const value =
                       fieldType === 'NUMBER'
                         ? number
+                        : fieldType === 'CHECKBOX'
+                          ? ticked
                         : fieldType === 'MULTI_SELECT' && typeof v === 'string'
                           ? splitMultiSelectValue(v)
                           : typeof v === 'string' && fieldType === 'SINGLE_SELECT'

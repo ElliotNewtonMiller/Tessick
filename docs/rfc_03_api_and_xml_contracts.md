@@ -487,7 +487,7 @@ The user picks an action for each:
 - `AUTO_CREATE`: create a new custom field for this project (TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT or MULTI_SELECT). A select field's options are every distinct value in the file; multi-select splits values on commas. In the Admin Panel's Custom Fields tab it can then be edited, deleted, or given more projects.
 - `ROUTE_TO_EXISTING`: put the values into an existing global or project custom field.
 
-Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import. A NUMBER field keeps the first number in a value and drops the text around it ("Sprint 34" → 34; a minus counts only at the start or after a space); a value with no number is skipped (`No number in "…"`).
+Values are validated like any other custom-field value. A value that doesn't fit is skipped and reported (`skipped_custom_field_value_warnings`) without failing the import. A NUMBER field keeps the first number in a value and drops the text around it ("Sprint 34" → 34; a minus counts only at the start or after a space); a value with no number is skipped (`No number in "…"`). A CHECKBOX field reads "yes", "true" and "1" as ticked and "no", "false" and "0" as not (any case; TestLink exports its checkboxes as "Yes"/"No"); anything else is skipped (`Not yes or no: "…"`).
 
 **Case ids**, in every format: an id that is a number, or a prefix, a dash and a number (`331`, `CON-331`, `OLD-331`), becomes the project's prefix and that number (`CON-331`). Other ids (TestRail's `C501`) are kept as written. Duplicates are matched on the rewritten id, and cases created later continue from the highest number.
 
