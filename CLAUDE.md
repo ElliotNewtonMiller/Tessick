@@ -230,7 +230,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
 
 - **Routes** (conventions, the full route map and the error codes are in `docs/rfc_03_api_and_xml_contracts.md` §1-4; keep it current when a route changes):
   - Lists and creation sit under the parent (`/projects/:projectId/plans`); each item has its own address (`/plans/:planId`, `/runs/:runId`, `/cases/:caseId`, ...).
-  - `authenticateRequest` works out the project from every id the request names (path, query and JSON body) and stores it as `request.projectId`; ids from two projects get `400 PROJECTS_DIFFER`. Routes still check that other ids in the request belong to that project.
+  - `authenticateRequest` works out the project from every id the request names (path, query and JSON body) and stores it as `request.projectId`; ids from two projects get `400 PROJECTS_DIFFER`, and a `:projectId` that doesn't exist `404 Project not found` (`sendIfProjectMissing`). Routes still check that other ids in the request belong to that project.
   - Verbs: `PATCH` for a partial update; `PUT` only to replace a whole thing (a custom-field value, a user's override set, a report schedule, the email settings); `?force=true` for "delete anyway".
   - Responses: create answers 201 with the item wrapped in its name (`{ "plan": {...} }`), update 200 the same way, delete 204 with no body. Lists are `{ "plans": [...] }`.
   - Lists that grow (a project's cases, a run's results, a plan's runs, the audit log, case history) are paged: `limit` and `cursor` in, `next_cursor` out (null on the last page). Keyset helpers are in `packages/db/src/paging.ts`; routes read the page with `readPage` (`apps/server/src/paging.ts`), which answers `400 INVALID_CURSOR`. Short lists stay whole.

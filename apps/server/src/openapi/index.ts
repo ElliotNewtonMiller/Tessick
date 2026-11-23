@@ -221,13 +221,22 @@ export function operationIdFrom(summary: string, method = 'GET'): string {
 }
 
 /**
- * A documented route's schema with what every operation should have: an `operationId`, and a 400
- * when it takes a body or a query string (any field can be wrong or unknown there). Several write
- * routes didn't document their 400.
+ * A documented route's schema with what every operation should have: an `operationId`, a 400
+ * when it takes a body or a query string (any field can be wrong or unknown there), and a 404 when
+ * it names a project. Several write routes didn't document their 400.
  */
-function completeOperation<S extends { summary?: string; operationId?: string; body?: unknown; querystring?: unknown; response?: Record<string, unknown> }>(schema: S, method: string): S {
+function completeOperation<S extends { summary?: string; operationId?: string; body?: unknown; querystring?: unknown; params?: unknown; response?: Record<string, unknown> }>(schema: S, method: string): S {
   const out = { ...schema };
   if (!out.operationId && out.summary) out.operationId = operationIdFrom(out.summary, method);
+  // A project that doesn't exist is a 404 on every route that names one (sendIfProjectMissing in
+  // middleware/auth.ts).
+  const params = out.params as { properties?: Record<string, unknown> } | undefined;
+  if (params?.properties?.projectId && out.response && !out.response['404']) {
+    out.response = {
+      ...out.response,
+      404: { description: 'Not found: `Project not found` when the project doesn\'t exist', content: { 'application/problem+json': { schema: { $ref: 'Problem#' } } } },
+    };
+  }
   if ((out.body || out.querystring) && out.response && !out.response['400']) {
     out.response = {
       ...out.response,

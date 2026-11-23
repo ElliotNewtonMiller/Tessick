@@ -119,8 +119,9 @@ export function ExportModal({ isOpen, onClose, projects, defaultProjectId }: Exp
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
 
+  // Opens on the selected project; a chosen one that leaves the list falls back to it.
   useEffect(() => {
-    if (isOpen && !targetProjectId) {
+    if (isOpen && !projects.some((p) => p.id === targetProjectId)) {
       setTargetProjectId(defaultProjectId || projects[0]?.id || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,6 +131,7 @@ export function ExportModal({ isOpen, onClose, projects, defaultProjectId }: Exp
     if (!isOpen) {
       setErrorMessage(null);
       setSuccessMessage(null);
+      setTargetProjectId(""); // the next opening starts on the project selected then
     }
   }, [isOpen]);
 

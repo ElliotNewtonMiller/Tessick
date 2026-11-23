@@ -4534,3 +4534,27 @@ The tag `v1.0.0` (commit `fd71c4a`) and its [GitHub release](https://github.com/
 - **Clip 7:** an MCP-only token creates a draft through `/mcp`, which appears in Payment on focus, and REST refuses the token; `claude mcp add`'s syntax checked against `claude mcp add --help`.
 
 The dev server was then restarted and Storefront reloaded, so the clips start clean.
+
+## A token for a project that's gone: a 500, from a picker that kept a stale project (2026-11-23)
+
+**Why:** Elliot, filming clip 7, got `500` from `POST /projects/01a205c6…/api-tokens`. That project was Mobile Banking, made in the agent's test run and wiped when the dev server restarted for his clean start.
+
+**What happened:**
+- `useScope` lives in `App`, which stays mounted across a sign-out, so the project list from before the restart was still there when he signed in again.
+- The Admin Panel's token form took that list's first project (Mobile Banking) a moment before the fresh list arrived, and never checked again.
+- The picker then *showed* Storefront, while tokens went to the missing project.
+- The server let the insert reach the database, whose foreign key refused it: a 500.
+
+**Fixes:**
+- **Server:** `authenticateRequest` answers `404 Project not found` when a known caller names a `:projectId` that doesn't exist (`sendIfProjectMissing` in `middleware/auth.ts`; the old body is now `authenticateCaller`). It covers every route, whether it authenticates through `requirePermission` or directly. Creating a token, a suite or a webhook in a missing project were all 500s, and several lists answered 200 with nothing. Someone not signed in still gets 401, so the check tells them nothing. The OpenAPI spec documents the 404 on every route naming a project (`completeOperation`).
+- **Web:** signing out clears the project list (`useScope`), so the next sign-in, perhaps as someone else, never works with the last one's. And every project picker falls back to a project that exists when its choice leaves the list:
+  - the Admin Panel's token form;
+  - the Webhooks panel;
+  - the Export and Import dialogs, which also open on the current project each time.
+
+**Tests:** `missing_project.test.ts`:
+- creating a token, a suite or a webhook in a missing project is a 404;
+- every documented `/projects/{projectId}` route answers 404 (or 400 where body validation runs first), never 500, and documents its 404;
+- without a sign-in it's still 401.
+
+**Verified live** (the agent's tab, without restarting the API, so Elliot's recording data stayed): a throwaway project was chosen in the token form, then deleted; after signing out and in again in the same page, the form pointed at Storefront and created a token (201). The test token was revoked afterwards. The server's 404 reaches the dev server at its next restart.

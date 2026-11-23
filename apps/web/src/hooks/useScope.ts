@@ -612,6 +612,10 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
     // Not until a forced password change is done: the server refuses everything else until then.
     if (currentUser && !currentUser.must_change_password) {
       loadProjects();
+    } else {
+      // Signed out: the list was the last user's (and, after a server restart, may name projects
+      // that are gone). Clearing it keeps the next sign-in from briefly working with it.
+      setProjectsList([]);
     }
   }, [currentUser, loadProjects]);
 

@@ -163,6 +163,13 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** all three live in its own tab at `127.0.0.1:3000` (focus events dispatched in the page), plus every clip in `apps/server/scripts/showcase/README.md`; the first by a new smoke test.
 
+## A deleted project no longer haunts the pickers (2026-11-23)
+
+- [ ] Delete a project while the Admin Panel's API Tokens tab has it chosen, then reopen the tab: it shows another project, and Create Token works.
+- [ ] Sign out and in as another user: the project picker never shows the first user's projects, even briefly.
+
+**Already checked by the agent:** the first, live in its own tab (with a sign-out and sign-in in the same page); the server's 404s by `missing_project.test.ts`.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

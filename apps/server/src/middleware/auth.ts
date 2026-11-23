@@ -353,6 +353,20 @@ async function authenticateApiToken(
 const PASSWORD_CHANGE_ALLOWED_ROUTES = new Set(['/api/v1/auth/me']);
 
 /**
+ * A route naming a project that doesn't exist (deleted, or a page still showing it after a dev
+ * server's restart) answers 404 before its handler runs: several handlers wrote straight away and
+ * got the database's foreign-key error, a 500. Checked once the caller is known, so it tells
+ * nothing to someone who isn't signed in.
+ */
+async function sendIfProjectMissing(request: FastifyRequest, reply: FastifyReply, db: Kysely<Database>): Promise<boolean> {
+  const projectId = (request.params as Record<string, string | undefined> | undefined)?.projectId;
+  if (!projectId) return false;
+  if (await db.selectFrom('projects').select('id').where('id', '=', projectId).executeTakeFirst()) return false;
+  sendError(reply, 404, 'Project not found');
+  return true;
+}
+
+/**
  * Authenticates a request from its `Authorization: Bearer <...>` header -- either a
  * human JWT or a machine API token (tk_ci_...), dispatched by prefix -- or, failing that,
  * from the web app's session cookie (a JWT; see sessionCookie.ts).
@@ -363,8 +377,21 @@ const PASSWORD_CHANGE_ALLOWED_ROUTES = new Set(['/api/v1/auth/me']);
  * one let a request act as any user, including the initial admin, with zero proof of
  * identity). A request with no valid token is simply unauthenticated: this returns
  * null and the caller replies 401.
+ *
+ * A known caller naming a project that doesn't exist gets 404 here too (sendIfProjectMissing).
  */
 export async function authenticateRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: Kysely<Database>,
+  jwtSecret: string
+): Promise<AuthenticatedUser | null> {
+  const user = await authenticateCaller(request, reply, db, jwtSecret);
+  if (!user || (await sendIfProjectMissing(request, reply, db))) return null;
+  return user;
+}
+
+async function authenticateCaller(
   request: FastifyRequest,
   reply: FastifyReply,
   db: Kysely<Database>,

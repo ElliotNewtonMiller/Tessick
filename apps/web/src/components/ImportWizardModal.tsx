@@ -183,7 +183,7 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
   const [executeResult, setExecuteResult] = useState<ImportExecuteResult | null>(null);
 
   useEffect(() => {
-    if (isOpen && !targetProjectId) {
+    if (isOpen && !projects.some((p) => p.id === targetProjectId)) {
       setTargetProjectId(defaultProjectId || projects[0]?.id || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

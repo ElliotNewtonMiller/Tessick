@@ -172,7 +172,8 @@ export function WebhooksPanel({ projects }: { projects: ProjectOption[] }) {
   }, [secret, notice, formOpen]);
 
   useEffect(() => {
-    if (!projectId && manageable[0]) setProjectId(manageable[0].id);
+    // Also when the chosen project leaves the list (deleted, or replaced after a sign-in).
+    if (!manageable.some((p) => p.id === projectId)) setProjectId(manageable[0]?.id ?? "");
   }, [manageable, projectId]);
 
   useEffect(() => {

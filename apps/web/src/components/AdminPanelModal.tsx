@@ -332,10 +332,12 @@ export function AdminPanelModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId, overrideScope, activeTab]);
 
-  // Default the token tab's project scope once the project list is available.
+  // Default the token tab's project scope to the first project, and again whenever the chosen
+  // one leaves the list (deleted, or a list from before a sign-in replaced by the new one):
+  // otherwise the picker shows the first project while tokens are made for the missing one.
   useEffect(() => {
-    if (!tokenProjectScope && projects.length > 0) {
-      setTokenProjectScope(projects[0].id);
+    if (!projects.some((p) => p.id === tokenProjectScope)) {
+      setTokenProjectScope(projects[0]?.id ?? "");
     }
   }, [projects, tokenProjectScope]);
 
