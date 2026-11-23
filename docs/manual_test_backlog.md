@@ -170,6 +170,13 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the first, live in its own tab (with a sign-out and sign-in in the same page); the server's 404s by `missing_project.test.ts`.
 
+## The README's GIF and screenshots; the social preview (2026-11-23)
+
+- [ ] After the next push, open the repo on GitHub: the GIF plays under the first line, and the two screenshots sit side by side under the feature list, in light and dark themes.
+- [ ] Upload `branding/tessick-social-preview-logo.png` in the repo's **Settings → General → Social preview**, then check a shared link shows it.
+
+**Already checked by the agent:** the GIF (from `clip1_processed.mp4`: 960 × 545, 15 fps, 3.8 MB, under GitHub's 10 MB limit) by looking at frames from it; that every image path in the README exists; that `git` ignores the `.xcf`. Not checked: how GitHub draws the README, until it's pushed.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

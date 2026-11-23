@@ -7,6 +7,8 @@
 
 Tessick is an open-source, self-hosted test case management app: a faster, more modern replacement for TestLink.
 
+<img src="docs/media/tessick-keyboard-execution.gif" alt="Executing a test run from the keyboard: each key records a verdict and moves to the next case, and a failure takes a note">
+
 **Coming from TestLink?** [Moving from TestLink](docs/migrating_from_testlink.md) takes your test cases across with TestLink's own XML export, or your whole database with its history, users and API keys. Scripts written for TestLink's REST API keep working with only the address changed.
 
 - **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types, for all projects or chosen ones.
@@ -17,6 +19,17 @@ Tessick is an open-source, self-hosted test case management app: a faster, more 
 - **AI agents**: over MCP, an agent can also write test cases (as drafts for a person to approve, or for the agent to approve if its token allows), change many cases at once, manage plans and record results, with only the permissions its token has.
 - **Import and export**: TestLink XML, JUnit XML, TestRail CSV, CSV and JSON.
 - **Access control**: roles you can edit, per-project roles and overrides, and project-scoped API tokens for CI.
+
+<table>
+  <tr>
+    <td><img src="docs/media/tessick-reports-overview.png" alt="The Reports overview: a plan's pass rate with its new failures and fixes, case counts, and a chart of testing activity"></td>
+    <td><img src="docs/media/tessick-edit-testcase.png" alt="Editing a test case: the suite tree, the case list, and a draft's summary, preconditions and steps"></td>
+  </tr>
+  <tr>
+    <td align="center">Reports: the plan at a glance</td>
+    <td align="center">Writing a test case's steps</td>
+  </tr>
+</table>
 
 ## Try it in a minute
 

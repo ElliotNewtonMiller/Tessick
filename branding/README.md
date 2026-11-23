@@ -7,6 +7,7 @@
 | `tessick-mark.svg` | The mark alone (the T with a check): the favicon, and wherever space is short. |
 | `tessick-wordmark-white.svg` | The word "TESSiCK" alone, white with the gradient dot, for dark backgrounds. |
 | `tessick-wordmark-black.svg` | The same in black, for light backgrounds. |
+| `tessick-social-preview-logo.png` | GitHub's social preview (1280 × 640), shown when a link to the repo is shared. It's uploaded in the repo's Settings → General, so changing this file alone changes nothing. Its GIMP file (`.xcf`) is kept out of git. |
 | `*.inkscape.svg` | Elliot's Inkscape files for the mark and the wordmarks: edit these, then make clean copies (below). |
 
 The clean copies keep only what they draw: no editor metadata or unused gradients, the mark cropped to its artwork (`viewBox` `10 14 108 72`), and the word already turned into a path, so no font is needed to show it.

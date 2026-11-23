@@ -4558,3 +4558,18 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 - without a sign-in it's still 401.
 
 **Verified live** (the agent's tab, without restarting the API, so Elliot's recording data stayed): a throwaway project was chosen in the token form, then deleted; after signing out and in again in the same page, the form pointed at Storefront and created a token (201). The test token was revoked afterwards. The server's 404 reaches the dev server at its next restart.
+
+## The README gets a GIF and screenshots; GitHub's social preview image (2026-11-23)
+
+**Why:** the README was text only, and visitors decide in seconds. Elliot filmed the demo clips (`apps/server/scripts/showcase/README.md`) and took two screenshots from the Storefront project.
+
+**What changed:**
+- **`docs/media/`**, a new folder for the README's images:
+  - `tessick-keyboard-execution.gif`: clip 1 (keyboard execution), under the README's first line. Elliot's own GIF of it was 45 MB at 1378 × 782 and 100 fps, over GitHub's 10 MB limit for showing an image. This one is made from his `clip1_processed.mp4` with ffmpeg at 960 px wide, 15 fps and a 256-colour palette: 3.8 MB, still 15 s. A 128-colour version (2.9 MB) made the small text softer; a full-width one (5.9 MB) is shown smaller on GitHub anyway.
+  - `tessick-reports-overview.png` and `tessick-edit-testcase.png`: Elliot's screenshots, side by side under the feature list, with captions.
+  - The other clips (2-8) are for the website and stay out of the repo, so cloning it stays light.
+- **`branding/tessick-social-preview-logo.png`**: Elliot's 1280 × 640 image for GitHub's social preview (uploaded in the repo's settings; `branding/README.md` says so). Its GIMP file is kept out of git: `.gitignore` now ignores `*.xcf`.
+- CLAUDE.md and AGENTS.md list `docs/media/` and the social preview.
+
+**Verified:** frames from the GIF read clearly (case titles, steps, the note being typed, the status bar); every image path in the README exists; `git check-ignore` ignores the `.xcf`. How GitHub draws the README is checked after the next push (manual test backlog).
+

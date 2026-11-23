@@ -118,8 +118,9 @@ packages/core/     Domain logic with no database, each module unit-tested: inges
                    evidence/ (evidence files: sniffing by contents, file names, ranges, the window after a run closes).
 packages/db/       Kysely, Postgres-compatible SQL only. createDbClient(): no connection string = in-memory PGlite,
                    otherwise pg. migrations/ (tracked), repositories/, seeds/ (rbac registry, sample project, dev fixtures).
-branding/          The logo: the full logo (white and black), the mark and the wordmarks, clean SVGs plus Inkscape sources (README.md says which to use).
+branding/          The logo: the full logo (white and black), the mark and the wordmarks, clean SVGs plus Inkscape sources, and GitHub's social preview (README.md says which to use).
 docs/              changelog.md, api_roadmap.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).
+  media/           The README's GIF and screenshots (the full demo clips aren't in the repo).
 ```
 
 ## Domain rules
