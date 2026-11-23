@@ -155,6 +155,14 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the header and sign-in page at `127.0.0.1:3000` (a separate tab); both full logos drawn by Chrome, on dark and light, and by Inkscape; the cleaned wordmarks drawn the same as your files; the production build.
 
+## Demo clips: new runs on focus, imports end in Spec (2026-11-23)
+
+- [ ] With the app open, upload a JUnit file with a new `run_name` from a terminal, then click back into the browser: the run is in the Run picker without a reload, and the run you had chosen stays chosen.
+- [ ] Import a file into a new project while in Execute mode: after Run Import, the app is in Spec mode on that project.
+- [ ] Import into one project, close the wizard, switch projects and open it again: it shows the current project.
+
+**Already checked by the agent:** all three live in its own tab at `127.0.0.1:3000` (focus events dispatched in the page), plus every clip in `apps/server/scripts/showcase/README.md`; the first by a new smoke test.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

@@ -9,8 +9,9 @@
  * Env: TESSICK_URL (default http://localhost:3001), TESSICK_USER / TESSICK_PASSWORD
  * (default admin / password; the user needs to be an admin, for the custom field).
  *
- * Also in this folder: testlink-export.xml (a TestLink project to import on camera) and
- * junit-rc9.xml (a CI report for this project; the end of the output shows how to send it).
+ * Also in this folder: testlink-export.xml (a TestLink project to import on camera),
+ * junit-rc9.xml (a CI report for this project; the end of the output shows how to send it), and
+ * README.md, the clips and how to record each.
  */
 import { CASES, RUNS, runName, type ShowcaseCase } from './cases.js';
 
@@ -170,7 +171,7 @@ async function main() {
   console.log(`  export TESSICK_TOKEN=${ciToken}`);
   console.log(`then on camera:`);
   console.log(`  curl -s -X POST "$TESSICK/api/v1/plans/$PLAN_ID/results/junit?run_name=2.4.0-rc.9&ci_name=GitHub%20Actions" \\`);
-  console.log(`    -H "Authorization: Bearer $TESSICK_TOKEN" --data-binary @apps/server/scripts/showcase/junit-rc9.xml`);
+  console.log(`    -H "Authorization: Bearer $TESSICK_TOKEN" --data-binary @apps/server/scripts/showcase/junit-rc9.xml | jq -c '.summary, .run'`);
 }
 
 main().catch((err) => {

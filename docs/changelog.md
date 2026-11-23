@@ -4500,3 +4500,37 @@ The tag `v1.0.0` (commit `fd71c4a`) and its [GitHub release](https://github.com/
 
 - **CI:** the `main` run (44827338963) and the tag's run (44828445291) passed every job, including the arm64 check. The tag's run published `ghcr.io/elliotnewtonmiller/tessick:1.0.0`, `1.0` and `1`. Checked with `docker manifest inspect`: each holds amd64 and arm64.
 - **Versions from here** (asked by Elliot): semantic versioning, as CLAUDE.md now says. A patch is fixes only (1.0.1), a minor adds without breaking (1.1.0), a major breaks something users rely on (2.0.0). To release: change the root `package.json` version, push a `v<version>` tag, and write the GitHub release from the changelog's entries since the last tag.
+
+## The demo clips run through: three fixes, and a tested filming guide (2026-11-23)
+
+**Why:** Elliot started recording the clips from the list the agent gave him, and they "quickly failed". The agent ran every clip itself, at `127.0.0.1:3000` in its own tab.
+
+**What went wrong in the instructions** (not the app):
+- **Clip 1** said to click the **Accounts** suite in Execute mode and press `j` to SHOP-4, 8 and 9. In Execute mode a suite shows only its *own* cases (decided 2026-11-15), and Accounts has none, only sub-suites, so the queue was empty ("None of this suite's cases are in this test plan"); `j` also stays within one suite. The rule is kept. The clip now filters the queue to **Verdict: UNTESTED**: each `p` records, the case drops off, the next one opens.
+- **Clip 2** said the discount code shows under Test Health's "Always failing"; it has failed twice, not enough for that list.
+- **Clip 5** said to add steps and then Approve, but an admin's new case starts approved (`SPEC_AUTO_APPROVE`, as for Test Lead); steps go in a draft made with **Edit**, or a **Duplicate**.
+
+**Fixes in the app:**
+- **New runs show up without a reload.** After CI made `2.4.0-rc.9` (a JUnit upload with `run_name`), the Run picker didn't list it until the page was reloaded, which also drops you into Spec mode. Now the window's `focus` event refreshes what the app shows (`App.tsx`):
+  - the spec tree;
+  - in Execute mode, the queue with its runs; elsewhere, the run list.
+
+  So a run CI made, its results, and cases an agent wrote over MCP appear when you come back from the terminal. Selections stay. Execute mode refreshes the whole queue rather than the run list alone, because the two share a request sequence and the runs-only request would cancel a queue load in flight.
+- **An import ends where its cases are.** After importing into a new project from Execute mode, the wizard closed onto an empty screen (no plan yet). Now a successful import switches to Spec mode, and to the project the file went into (`onImportComplete(projectId)`).
+- **The Import wizard follows the current project.** Reopened, it kept the project of its previous import, even after switching projects: an easy way to import into the wrong one. Closing it now forgets the project; "Import Another File" (same session) still keeps it.
+- A comment in `registry.ts` still said MCP has no approve tool; fixed.
+
+**The filming guide:** `apps/server/scripts/showcase/README.md`, the eight clips with the steps as run, in recording order. The loader's printed `curl` now pipes to `jq -c '.summary, .run'`, two lines instead of a screen of JSON.
+
+**Tests:** `app.smoke.test.tsx`: a run added after loading appears on `focus` in Spec and Execute mode, the chosen run stays chosen, and the queue stays (checked to fail without the listener).
+
+**Verified live** (the agent's tab):
+- **Clip 1:** with the filter, `j`, `p` and `f` + a note + Ctrl+Enter; the note was saved (API).
+- **Clip 2:** Overview, Run, Test Health and a case's history.
+- **Clip 3:** the `curl`; the new run appears on focus in Spec and Execute mode.
+- **Clip 4:** a new project, then the whole wizard with the sample file: 13 cases, 2 fields, 0 values skipped. It ends in Spec mode on that project, also when imported from Execute mode on another project; reopening the wizard follows the current project.
+- **Clip 5:** + Case, Edit, a step, Approve, + Add.
+- **Clip 6:** a pasted PNG (a synthetic paste event); the viewer opens it.
+- **Clip 7:** an MCP-only token creates a draft through `/mcp`, which appears in Payment on focus, and REST refuses the token; `claude mcp add`'s syntax checked against `claude mcp add --help`.
+
+The dev server was then restarted and Storefront reloaded, so the clips start clean.

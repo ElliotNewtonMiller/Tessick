@@ -44,7 +44,7 @@ npm start                                # production: one process serving the A
 docker compose up -d                     # Tessick + PostgreSQL; copy .env.example to .env first
 docker compose -f docker-compose.demo.yml up   # the demo: published image, demo mode, Report Demo loaded, no .env
 npx tsx apps/server/scripts/report-demo.ts   # loads a demo project with 8 runs of results through the API
-npx tsx apps/server/scripts/showcase/load-showcase.ts   # the "Storefront" project for filming demo clips (its folder has a TestLink export and a JUnit file to use on camera)
+npx tsx apps/server/scripts/showcase/load-showcase.ts   # the "Storefront" project for filming demo clips (its folder's README.md has the clips, a TestLink export and a JUnit file)
 npx tsx apps/server/scripts/migrate-testlink.ts --from <url> --dry-run   # moves a TestLink database in (DATABASE_URL: Tessick's)
 ```
 
@@ -280,6 +280,7 @@ docs/              changelog.md, api_roadmap.md, api_getting_started.md, deploym
   - Use `authHeaders()` / `jsonHeaders()` from `utils/session.ts`; never store a token.
   - Any 401 from `/api` signs the user out with "Your sign-in has ended" (`watchForEndedSession`).
 - **Loaders that can race** keep a request-sequence ref and apply only the latest response. Clearing state on an empty selection must happen before an early return.
+- **Coming back to the window** (its `focus` event) refreshes the spec tree and the run list (in Execute mode, the whole queue), so runs CI created, its results and cases an agent wrote show without a reload (`App.tsx`).
 - **Custom-field inputs:**
   - Text, number and date inputs are uncontrolled. Key them per entity *and* field, and clear values before fetching, or one case's value shows on another.
   - A rejected save remounts the input so it shows the stored value again.
