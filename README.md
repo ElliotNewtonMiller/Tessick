@@ -44,6 +44,8 @@ Open http://localhost:3001 and sign in as `admin` / `tessick-demo-admin` (the si
 
 The demo's password is public, so it only listens on your own machine. To keep real data, see [Running it for real](#running-it-for-real).
 
+**Using the app:** the [user guide](docs/user_guide.md) walks through every screen, from writing test cases to running them from the keyboard, reports and the Admin Panel.
+
 ## Running it for real
 
 Tessick runs as one process that serves both the API and the web app, on top of PostgreSQL. The quickest way to get both is Docker Compose:

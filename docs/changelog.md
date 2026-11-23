@@ -4573,3 +4573,15 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Verified:** frames from the GIF read clearly (case titles, steps, the note being typed, the status bar); every image path in the README exists; `git check-ignore` ignores the `.xcf`. How GitHub draws the README is checked after the next push (manual test backlog).
 
+## A user guide to the web app (2026-11-23)
+
+**Why:** the docs covered installing, migrating, the API and reports, but nothing explained the app's own screens. The website's Documentation page (aimed at TestLink users) needs one to link to.
+
+**What changed:**
+- **`docs/user_guide.md`**, in task order: signing in and the header; Spec mode (suites, cases, steps, versions with Edit/Approve/Deprecate/Restore and Duplicate, custom fields, search and filters); plans and runs (adding cases, retiring removed ones, closing and auto-closing runs); Execute mode (the queue and its filters, the hotkeys, notes, overwriting, evidence by button, drop and paste, the viewer and who may add or delete); Reports (each tab, case history, Limit to cases, links, report emails and schedules); Import and Export; the Admin Panel tab by tab; My Account with the TestLink API key; and a table of what each built-in role can do. It reuses the README's GIF and two screenshots from `docs/media/`; no new images.
+- **Links:** the README (under "Try it in a minute"), and CLAUDE.md/AGENTS.md (repo layout and doc map, with a note to keep the guide current when a screen changes).
+
+**How it was checked:** every statement against the web app's source (`apps/web/src`), the server where the UI defers to it (permissions, evidence rules, webhook retries, password policy) and CLAUDE.md's domain rules. Then live in the agent's own tab at `127.0.0.1:3000` against the running dev server, with Storefront loaded: the Spec panes (a suite lists only its own cases; no suite lists all), Execute mode in a throwaway project (`f`, a note and Ctrl+Enter moving to the next case; `p` on the last case auto-closing the run; the evidence panel asking for a result first; a pasted screenshot added after the close and shown in the viewer, "added after the run closed"), the Admin Panel's tabs, My Account, and the Run, Trends and Test Health reports. The throwaway project was deleted afterwards; Storefront's rc.8 was left untouched for filming.
+
+**Found on the way, not changed:** the `[` and `]` hotkeys only show a message ("Toggled suite folder tree state"); they don't collapse or expand the tree, though CLAUDE.md says they do. The guide points to the **Expand all / Collapse all** button instead.
+

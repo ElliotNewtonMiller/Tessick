@@ -119,7 +119,7 @@ packages/core/     Domain logic with no database, each module unit-tested: inges
 packages/db/       Kysely, Postgres-compatible SQL only. createDbClient(): no connection string = in-memory PGlite,
                    otherwise pg. migrations/ (tracked), repositories/, seeds/ (rbac registry, sample project, dev fixtures).
 branding/          The logo: the full logo (white and black), the mark and the wordmarks, clean SVGs plus Inkscape sources, and GitHub's social preview (README.md says which to use).
-docs/              changelog.md, api_roadmap.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).
+docs/              changelog.md, api_roadmap.md, user_guide.md, api_getting_started.md, deployment.md, reports_api_and_mcp.md, and the design docs (RFCs, blueprint, roadmap).
   media/           The README's GIF and screenshots (the full demo clips aren't in the repo).
 ```
 
@@ -356,7 +356,7 @@ These were chosen deliberately; don't reverse them without asking Elliot.
 
 ## Doc map
 
-1. `README.md`: overview and quick start. `docs/deployment.md`: running Tessick for real.
+1. `README.md`: overview and quick start. `docs/deployment.md`: running Tessick for real. `docs/user_guide.md`: using the web app, screen by screen (for testers, test leads and admins); when a change alters what a screen shows or does, update it too.
 2. `docs/changelog.md`: the history and reasoning behind everything.
 3. `docs/api_getting_started.md`: the API for scripts and CI, step by step. `docs/reports_api_and_mcp.md`: reports, the results API, MCP. The reference itself is `/docs` on a running server.
 4. `docs/manual_test_backlog.md`: the checks Elliot will do himself in the web app, and what the agent already checked; at its end, his other tasks (e.g. what selling a commercial license needs). `docs/api_roadmap.md`: where the API stands, and the planned next steps for the API and MCP, with their status.

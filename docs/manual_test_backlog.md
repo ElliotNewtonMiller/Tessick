@@ -177,6 +177,13 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the GIF (from `clip1_processed.mp4`: 960 × 545, 15 fps, 3.8 MB, under GitHub's 10 MB limit) by looking at frames from it; that every image path in the README exists; that `git` ignores the `.xcf`. Not checked: how GitHub draws the README, until it's pushed.
 
+## A user guide to the web app (2026-11-23)
+
+- [ ] Read `docs/user_guide.md` on GitHub after the next push: its three images show, and its section links and links to the other docs work.
+- [ ] Skim it for anything that reads differently from how you use the app, or that you'd rather not promise (the role table in section 9, the evidence limits).
+
+**Already checked by the agent:** each statement against the source and the server's rules, and live in its own tab (Spec panes, Fail with notes and Ctrl+Enter, a run auto-closing, a pasted screenshot and the viewer, the Admin Panel tabs, My Account, three reports). Not checked: how GitHub draws it, until it's pushed.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)
