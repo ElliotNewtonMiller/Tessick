@@ -183,15 +183,20 @@ In Admin Panel → API Tokens → New Token:
 
 In this order, so the GIFs, videos and website all show the final logo:
 - [x] **Replace the logo.** Done: your mark and wordmark are in `branding/` and in the app (header, sign-in page, loading screen, browser-tab icon). Check them in the app (below). Your white and black SVG wordmarks replaced the WebP (2026-11-20), and `branding/tessick-logo-white.svg` / `-black.svg` are the full logo for the website and social preview.
-- [ ] **README images:** one short hero GIF (10 to 20 seconds, e.g. recording verdicts with the keyboard) right under the first paragraph, and a couple of screenshots (a report, the case editor). A GIF plays by itself in a README; an mp4 also works if dragged into GitHub's web editor, but has to be started.
-- [ ] **Demo videos** for the website.
-- [ ] **The website.**
+- [x] **README images:** done (2026-11-23): the keyboard GIF under the first line, and the Reports and case-editor screenshots.
+- [x] **Demo videos:** done (2026-11-23), eight clips in `~/Videos/Tessick`; the website has them.
+- [ ] **The website** (2026-11-23). It's built and committed in its own local repo, `~/Documents/Code/tessick-site` (its `README.md` has the details); nothing is on GitHub yet. Your steps:
+  - [ ] **Choose the commercial-license email address**, and tell the agent. It replaces the highlighted `EMAIL_TBD` on the home page and `/testlink/`, and goes in Tessick's README in place of "contact Elliot on GitHub". A new address just for Tessick is wise: it'll be public and get spam.
+  - [ ] **Buy the domain** (e.g. `tessick.dev` or `tessick.io`), and tell the agent. Until then the site is built for `elliotnewtonmiller.github.io/tessick-site`.
+  - [ ] **Say "publish"**: the agent creates the public repo `ElliotNewtonMiller/tessick-site`, pushes it and turns on GitHub Pages. Then check the 404 page and the social preview on the live site.
+  - [ ] **Set the domain's DNS records** (the agent gives you them, also in the site's `README.md`), then verify the domain in GitHub (your profile's **Settings → Pages**) and tick **Enforce HTTPS** in the site repo's **Settings → Pages**.
+  - [ ] **Look over the copy** on all three pages: it's checked against the docs, but the voice should be yours.
 - [ ] **With the website, on the GitHub repository** (its ⚙ next to About):
-  - the website link;
-  - topics, e.g. `testlink`, `test-management`, `test-case-management`, `qa`, `self-hosted`, `mcp`;
-  - a social preview image (Settings → Social preview), shown when the repository's link is shared;
-  - the description, which now reads "An open-source, self-hostable, free, replacement for Testlink, test management software." For example: "Self-hosted, open-source test case management: a modern replacement for TestLink."
-- [ ] **A way to reach you about the commercial license.** The README says to contact you on GitHub, which has no private messages: give an email address, or the website's contact page.
+  - [ ] the website link (the agent can set it with `gh` once the site is live);
+  - [ ] topics, e.g. `testlink`, `test-management`, `test-case-management`, `qa`, `self-hosted`, `mcp` (none set yet);
+  - [ ] the social preview image: upload `branding/tessick-social-preview-logo.png` in **Settings → General → Social preview**;
+  - [x] the description: done ("Self-hosted, open-source test case management: a modern replacement for TestLink").
+- [ ] **Getting it in front of TestLink users**, once the site is live (the checklist is in the site's `README.md`): list Tessick on AlternativeTo as an alternative to TestLink and TestRail; post on Show HN, r/QualityAssurance, r/softwaretesting, r/selfhosted and Ministry of Testing's forum, each saying it's yours; awesome-selfhosted once Tessick meets its rule on release age; an article such as "Moving off TestLink" linking to the site's `/testlink/` page; and submit the sitemap to Google Search Console and Bing Webmaster Tools.
 - [ ] **Optional:** the README's first line calls Tessick "faster" than TestLink. Keep it if you can show it (in the GIF, say), or drop the word.
 
 **Already done by the agent:** the README now has the TestLink pitch under its first line and its sections in the order a visitor needs them (demo, real install, API, development), and says contributions aren't accepted. Releases are versioned: `v1.0.0` is a git tag and GitHub release, and a version tag publishes the image as `1.0.0`, `1.0` and `1`.
