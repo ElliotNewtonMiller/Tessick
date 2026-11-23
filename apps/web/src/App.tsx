@@ -259,6 +259,22 @@ export default function App() {
     refreshRunsList,
   ]);
 
+  // Coming back to the window fetches the same again, so what changed elsewhere meanwhile
+  // shows without a reload: a run CI created (a JUnit upload with run_name), results CI
+  // recorded, cases an agent wrote over MCP. Selections stay as they are. Execute mode
+  // refreshes its whole queue rather than refreshRunsList alone, since the two share a request
+  // sequence and the runs-only call would cancel a queue load in flight.
+  useEffect(() => {
+    if (!currentUser || !selectedProjectId) return;
+    const onFocus = () => {
+      refreshSpecTree();
+      if (workspaceMode === "EXECUTION") refreshExecutionWorkspace();
+      else refreshRunsList();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [currentUser, workspaceMode, selectedProjectId, refreshSpecTree, refreshExecutionWorkspace, refreshRunsList]);
+
   // Spec mode: selection, multi-select and drag-and-drop moving (hooks/useSpecSelection.ts).
   const specSelection = useSpecSelection({
     workspaceMode,
@@ -522,7 +538,14 @@ export default function App() {
           onClose={() => setImportWizardOpen(false)}
           projects={projectsList}
           defaultProjectId={selectedProjectId}
-          onImportComplete={refreshSpecTree}
+          onImportComplete={(projectId) => {
+            // Show what was imported: its project, in Spec mode (in Execute mode a new project has
+            // no plan yet, so the screen would stay empty).
+            if (projectId !== selectedProjectId) scope.handleSelectProject(projectId, { silent: true });
+            setAppView("WORKSPACE");
+            setWorkspaceMode("SPECIFICATION");
+            refreshSpecTree();
+          }}
         />
 
         <ExportModal

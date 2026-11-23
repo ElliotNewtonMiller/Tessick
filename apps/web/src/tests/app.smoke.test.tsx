@@ -71,6 +71,8 @@ const EVIDENCE = [evidenceItem('evd-1', 'image', 'login-failed.png', 'image/png'
 
 type Call = { method: string; path: string; body: any };
 let calls: Call[] = [];
+/** Runs added to the plan from elsewhere (CI) after the app loaded, newest first. */
+let laterRuns: Array<typeof run> = [];
 
 /** Serves the fixture above. `signedIn: null` makes /auth/me answer 401 (signed out).
  *  `completesRun`: each result completes the run (it closes unless deferred). `notesStatus`:
@@ -85,6 +87,7 @@ function installApi(opts: {
   demo?: { username: string; password: string | null } | null;
 }) {
   calls = [];
+  laterRuns = [];
   // Evidence: none, and none allowed, until a result is recorded.
   let recorded = false;
   let duplicated = false;
@@ -102,11 +105,11 @@ function installApi(opts: {
     if (p === '/api/v1/projects' && method === 'GET')
       return json({ projects: [{ ...project, permissions: opts.projectPermissions ?? opts.signedIn?.permissions ?? [] }] });
     if (p === '/api/v1/projects/prj-1/plans') return json({ plans: [plan] });
-    if (p === '/api/v1/plans/pln-1/runs') return json({ runs: [run] });
+    if (p === '/api/v1/plans/pln-1/runs') return json({ runs: [...laterRuns, run] });
     if (p === '/api/v1/projects/prj-1/spec-tree')
       return json({ project: { id: 'prj-1', name: project.name, prefix: 'SMK', settings: {} }, suites: [suite('ste-login', 'Login', 2), suite('ste-pay', 'Payments', 1)], cases: [...CASES, ...(duplicated ? [COPY] : [])].map(specCase) });
     if (p === '/api/v1/projects/prj-1/case-search/fields') return json({ fields: [] });
-    if (p === '/api/v1/plans/pln-1/cases') return json({ plan, runs: [run], cases: CASES.map(queueCase) });
+    if (p === '/api/v1/plans/pln-1/cases') return json({ plan, runs: [...laterRuns, run], cases: CASES.map(queueCase) });
     const latest = p.match(/^\/api\/v1\/cases\/cas-(\d+)\/versions\/latest$/);
     if (latest) return json(latestVersion(Number(latest[1])));
     if (/custom-fields$/.test(p)) return json({ values: [] });
@@ -189,6 +192,24 @@ describe('App smoke tests', () => {
     expect(screen.getByDisplayValue('Smoke Project (SMK)')).toBeTruthy();
     expect(screen.getByDisplayValue(/Regression/)).toBeTruthy();
     expect(screen.getByDisplayValue(/Run 1/)).toBeTruthy();
+  });
+
+  it('a run CI created since loading shows up when the window regains focus, and the chosen run stays chosen', async () => {
+    await renderSignedIn();
+    laterRuns = [{ ...run, id: 'bld-2', name: 'CI build 42' }];
+    expect(screen.queryByRole('option', { name: 'CI build 42' })).toBeNull();
+    fireEvent.focus(window);
+    expect(await screen.findByRole('option', { name: 'CI build 42' })).toBeTruthy();
+    expect(screen.getByDisplayValue(/Run 1/)).toBeTruthy();
+
+    // In Execute mode too, where the queue's own request brings the runs.
+    fireEvent.click(screen.getByRole('button', { name: 'Execute' }));
+    await waitFor(() => expect(calls.some((c) => c.path === '/api/v1/plans/pln-1/cases')).toBe(true));
+    laterRuns = [{ ...run, id: 'bld-3', name: 'CI build 43' }, ...laterRuns];
+    fireEvent.focus(window);
+    expect(await screen.findByRole('option', { name: 'CI build 43' })).toBeTruthy();
+    expect(screen.getByDisplayValue(/Run 1/)).toBeTruthy();
+    expect((await screen.findAllByText('SMK-1')).length).toBeGreaterThan(0); // the queue is still there
   });
 
   it('opens in Spec mode with the suite tree and the case list', async () => {

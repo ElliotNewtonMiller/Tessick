@@ -132,8 +132,9 @@ export const DEFAULT_ROLE_DESCRIPTIONS: Record<string, string> = {
 /**
  * Where an API token works: `BOTH` the REST API and MCP (the default), `MCP` only, or `REST` only.
  * An AI agent's token should be `MCP`: MCP adds limits of its own (cases an agent creates are
- * drafts; there are no tools to approve, deprecate or delete; changes are marked "via Tessick
- * MCP"), and a token that also works on the REST API lets an agent step around them.
+ * drafts; approving needs SPEC_APPROVE on the token; there are no tools to deprecate, restore or
+ * delete; changes are marked "via Tessick MCP"), and a token that also works on the REST API lets
+ * an agent step around them.
  */
 export const API_TOKEN_INTERFACES = ['BOTH', 'MCP', 'REST'] as const;
 export type ApiTokenInterface = (typeof API_TOKEN_INTERFACES)[number];

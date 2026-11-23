@@ -119,7 +119,8 @@ interface ImportWizardModalProps {
   onClose: () => void;
   projects: ProjectItem[];
   defaultProjectId?: string;
-  onImportComplete?: () => void;
+  /** After a successful import, with the project the file went into. */
+  onImportComplete?: (projectId: string) => void;
 }
 
 const FORMAT_OPTIONS: Array<{ value: FieldFormatId; label: string }> = [
@@ -191,6 +192,9 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
   useEffect(() => {
     if (!isOpen) {
       resetWizard();
+      // The next opening starts on the project selected then, not the one this import used.
+      // (resetWizard keeps it, for "Import Another File" into the same project.)
+      setTargetProjectId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -339,7 +343,7 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
       }
       setExecuteResult(data);
       setStep("RESULTS");
-      onImportComplete?.();
+      onImportComplete?.(targetProjectId);
     } catch (err: any) {
       setErrorMessage(err.message || "Import failed");
     } finally {
