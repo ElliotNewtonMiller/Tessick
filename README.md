@@ -9,6 +9,8 @@ Tessick is an open-source, self-hosted test case management app: a faster, more 
 
 <img src="docs/media/tessick-keyboard-execution.gif" alt="Executing a test run from the keyboard: each key records a verdict and moves to the next case, and a failure takes a note">
 
+Website: **[tessick.com](https://tessick.com)**, with short videos of each feature.
+
 **Coming from TestLink?** [Moving from TestLink](docs/migrating_from_testlink.md) takes your test cases across with TestLink's own XML export, or your whole database with its history, users and API keys. Scripts written for TestLink's REST API keep working with only the address changed.
 
 - **Specification**: projects, nested test suites and versioned test cases with steps. Each case goes through draft, approved and deprecated, and you can add custom fields of six types, for all projects or chosen ones.
@@ -124,7 +126,7 @@ Copyright (c) 2026 Elliot Newton-Miller.
 Tessick is dual-licensed:
 
 - **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`; see [LICENSE](LICENSE)). You may use, change and self-host Tessick for free, including inside a company. If you change it and let people use your changed version over a network, you must offer them its source code under the same license.
-- **A commercial license**, for organisations that want to use or offer Tessick without the AGPL's terms, for example in a product or hosted service whose source they don't want to publish. To ask about one, contact [Elliot Newton-Miller on GitHub](https://github.com/ElliotNewtonMiller).
+- **A commercial license**, for organisations that want to use or offer Tessick without the AGPL's terms, for example in a product or hosted service whose source they don't want to publish. To ask about one, email [TessickTesting@gmail.com](mailto:TessickTesting@gmail.com).
 
 Versions published before 2026-11-16 (up to commit `f530a5c`) were released under the MIT license, and remain available under it.
 

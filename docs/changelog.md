@@ -4597,3 +4597,15 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Verified live** (the agent's tab at `127.0.0.1:3000`, Storefront): in Spec mode `[` left only the top-level suites showing, and `]` brought the sub-suites back, with the button reading "Expand all" and then "Collapse all"; `[` did the same in Execute mode.
 
+
+## The website's address and the commercial-license email (2026-11-24)
+
+**Why:** Elliot chose the commercial-license address, TessickTesting@gmail.com, and bought tessick.com for the website.
+
+**What changed:**
+- **README:** links to tessick.com under the GIF, and the License section's commercial license now says to email TessickTesting@gmail.com (it said to contact Elliot on GitHub).
+- **CLAUDE.md and AGENTS.md:** the doc map's item 7 says where the website lives and that its copy describes Tessick's features.
+- **Backlog:** the email and domain are ticked; Elliot's remaining steps (verifying the domain in GitHub, "publish", the DNS records, HTTPS) are spelled out.
+- **The site's repo** (separate): the email in place of the highlighted placeholder; tessick.com in the canonical, social, JSON-LD, sitemap and robots addresses; the 404 page's links start at `/`; the local preview serves the folder itself; its README has the DNS records. A site published by a GitHub Actions workflow ignores a `CNAME` file, so the domain is set in the repo's Pages settings instead, and the workflow no longer copies one.
+
+**Verified:** the site served locally: every page, the 404 page's links and assets answer 200; the email link reads and opens TessickTesting@gmail.com with no highlight. The README's tessick.com link works once the site is published and DNS is set.

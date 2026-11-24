@@ -198,11 +198,12 @@ In this order, so the GIFs, videos and website all show the final logo:
 - [x] **Replace the logo.** Done: your mark and wordmark are in `branding/` and in the app (header, sign-in page, loading screen, browser-tab icon). Check them in the app (below). Your white and black SVG wordmarks replaced the WebP (2026-11-20), and `branding/tessick-logo-white.svg` / `-black.svg` are the full logo for the website and social preview.
 - [x] **README images:** done (2026-11-23): the keyboard GIF under the first line, and the Reports and case-editor screenshots.
 - [x] **Demo videos:** done (2026-11-23), eight clips in `~/Videos/Tessick`; the website has them.
-- [ ] **The website** (2026-11-23). It's built and committed in its own local repo, `~/Documents/Code/tessick-site` (its `README.md` has the details); nothing is on GitHub yet. Your steps:
-  - [ ] **Choose the commercial-license email address**, and tell the agent. It replaces the highlighted `EMAIL_TBD` on the home page and `/testlink/`, and goes in Tessick's README in place of "contact Elliot on GitHub". A new address just for Tessick is wise: it'll be public and get spam.
-  - [ ] **Buy the domain** (e.g. `tessick.dev` or `tessick.io`), and tell the agent. Until then the site is built for `elliotnewtonmiller.github.io/tessick-site`.
-  - [ ] **Say "publish"**: the agent creates the public repo `ElliotNewtonMiller/tessick-site`, pushes it and turns on GitHub Pages. Then check the 404 page and the social preview on the live site.
-  - [ ] **Set the domain's DNS records** (the agent gives you them, also in the site's `README.md`), then verify the domain in GitHub (your profile's **Settings → Pages**) and tick **Enforce HTTPS** in the site repo's **Settings → Pages**.
+- [ ] **The website** (2026-11-23), at **tessick.com**. It's built and committed in its own local repo, `~/Documents/Code/tessick-site` (its `README.md` has the details); nothing is on GitHub yet. Your steps:
+  - [x] **The commercial-license email:** TessickTesting@gmail.com (2026-11-24), on the home page, `/testlink/` and Tessick's README.
+  - [x] **The domain:** tessick.com (2026-11-24); the site's addresses, sitemap and 404 page use it.
+  - [ ] **Verify the domain in GitHub:** github.com → your picture → **Settings → Pages → Add a domain**, type `tessick.com`, and add the `TXT` record it shows at your registrar; then click **Verify**. This stops anyone else's repository from claiming tessick.com.
+  - [ ] **Say "publish"**: the agent creates the public repo `ElliotNewtonMiller/tessick-site`, pushes it, turns on GitHub Pages with the domain, and pushes Tessick's README link to the site.
+  - [ ] **Set the domain's DNS records** at your registrar (they're in the site's `README.md` under Publishing): four `A` and four `AAAA` records for `tessick.com`, and a `CNAME` for `www`. Remove any parking or forwarding records the registrar put there. Then wait for GitHub to issue the certificate (minutes to a day), and tick **Enforce HTTPS** in the site repo's **Settings → Pages** (or ask the agent).
   - [ ] **Look over the copy** on all three pages: it's checked against the docs, but the voice should be yours.
 - [ ] **With the website, on the GitHub repository** (its ⚙ next to About):
   - [ ] the website link (the agent can set it with `gh` once the site is live);
