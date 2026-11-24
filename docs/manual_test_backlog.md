@@ -184,6 +184,12 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** each statement against the source and the server's rules, and live in its own tab (Spec panes, Fail with notes and Ctrl+Enter, a run auto-closing, a pasted screenshot and the viewer, the Admin Panel tabs, My Account, three reports). Not checked: how GitHub draws it, until it's pushed.
 
+## The `[` and `]` hotkeys (2026-11-23)
+
+- [ ] In Spec and in Execute mode, press `[`: every suite folds up to the top level, and the button under the search box says **Expand all**. Press `]`: they all open again. Typing `[` in the search box or notes types it, and doesn't fold the tree.
+
+**Already checked by the agent:** the folding and the button's label in both modes, live in its own tab; the helper by a unit test.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

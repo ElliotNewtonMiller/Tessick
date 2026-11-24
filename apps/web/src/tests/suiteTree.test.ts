@@ -9,6 +9,7 @@ import {
   suiteInfoById,
   suitesContaining,
   visibleSuiteOrder,
+  withAllSuitesExpanded,
 } from '../utils/suiteTree';
 import type { SpecSuiteNode } from '../types';
 
@@ -52,6 +53,13 @@ describe('suiteTree', () => {
     expect(visibleSuiteOrder(built, {})).toEqual(['a', 'a1', 'a1x', 'a2', 'b']);
     expect(visibleSuiteOrder(built, { a1: false })).toEqual(['a', 'a1', 'a2', 'b']);
     expect(visibleSuiteOrder(built, { a: false })).toEqual(['a', 'b']);
+  });
+
+  it('collapses or expands every suite with sub-suites, keeping other entries', () => {
+    const built = buildSuiteNodes(TREE, new Map());
+    expect(withAllSuitesExpanded({ other: true }, built, false)).toEqual({ other: true, a: false, a1: false });
+    expect(withAllSuitesExpanded({ a: false, a1: false }, built, true)).toEqual({ a: true, a1: true });
+    expect(visibleSuiteOrder(built, withAllSuitesExpanded({}, built, false))).toEqual(['a', 'b']);
   });
 
   it('finds suites and flattens them into indented options', () => {

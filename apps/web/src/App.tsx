@@ -12,7 +12,7 @@ import { ForcedPasswordChange } from "./components/ForcedPasswordChange";
 import { EntityManagementModal } from "./components/EntityManagementModal";
 import { OVERWRITE_DENIED_MESSAGE, RUN_DENIED_MESSAGE } from "./app/messages";
 import { permissionFlags } from "./utils/permissions";
-import { buildSuiteNodes, pruneSuiteTree, suitesContaining } from "./utils/suiteTree";
+import { buildSuiteNodes, pruneSuiteTree, suitesContaining, withAllSuitesExpanded } from "./utils/suiteTree";
 import { usePaneLayout } from "./hooks/usePaneLayout";
 import { useSession } from "./hooks/useSession";
 import { useToast } from "./hooks/useToast";
@@ -393,8 +393,9 @@ export default function App() {
     onAdvancePastEnd: () => {
       if (crossSuiteNextCaseIndex !== undefined) advanceToCase(crossSuiteNextCaseIndex);
     },
-    onToggleSuiteExpand: () => {
-      showToast("Toggled suite folder tree state ([ / ])");
+    // '[' collapses and ']' expands every suite in the tree, as the filter panel's button does.
+    onToggleSuiteExpand: (collapse) => {
+      specTree.setSuiteExpandedMap((prev) => withAllSuitesExpanded(prev, suiteNodes, !collapse));
     },
     onFocusSearch: () => {
       if (searchInputRef.current) searchInputRef.current.focus();

@@ -71,7 +71,7 @@ The panes' widths can be changed by dragging the lines between them.
 - **New suite:** **+ Suite** at the top of the tree makes a top-level suite; the **+** on a suite's row makes one inside it. Suites nest up to 27 levels.
 - **Rename or move:** the ✏️ on its row opens **Rename / Move Suite**, with its name and its parent. You can also rename it in the details pane, or drag it onto another suite (or onto the top-level area that appears while dragging).
 - **Delete:** the 🗑️ on its row. A suite with cases or sub-suites asks first, and **Delete Anyway** deletes everything in it, with its results.
-- **Expand all / Collapse all**, under the search box, opens or closes every suite.
+- **Expand all / Collapse all**, under the search box, opens or closes every suite. The keys `]` and `[` do the same, in both modes.
 
 Clicking a suite lists its *own* cases in the middle pane (not those of its sub-suites) and shows its details on the right: how many cases it holds, how many are in the selected plan, and the suite's custom fields.
 
@@ -182,6 +182,7 @@ Choose a plan and a run in the header, then click **Execute**.
 | Ctrl+Enter (Cmd+Enter) | In Notes: save the notes and go to the next case |
 | Esc | Leave Notes without moving |
 | `/` | Jump to the search box |
+| `[` / `]` | Collapse / expand every suite in the tree |
 
 The buttons at the bottom do the same as the keys. A typical pass: filter to UNTESTED, press `j`, then `p`, `p`, `p`… and on a failure `f`, type what went wrong, Ctrl+Enter.
 

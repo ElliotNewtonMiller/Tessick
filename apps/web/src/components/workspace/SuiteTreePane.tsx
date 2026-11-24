@@ -8,7 +8,7 @@ import type { SpecTree } from "../../hooks/useSpecTree";
 import type { SuiteEditor } from "../../hooks/useSuiteEditor";
 import { CaseFilterPanel } from "../CaseFilterPanel";
 import { VirtualizedSuiteTree, type SuiteTreeNode } from "../VirtualizedSuiteTree";
-import { expandableSuiteIds as listExpandableSuiteIds, flattenSuiteOptions } from "../../utils/suiteTree";
+import { expandableSuiteIds as listExpandableSuiteIds, flattenSuiteOptions, withAllSuitesExpanded } from "../../utils/suiteTree";
 
 interface SuiteTreePaneProps {
   caseSearch: CaseSearch;
@@ -98,11 +98,7 @@ export function SuiteTreePane({
 
   const toggleAllSuitesExpanded = () => {
     const next = !allSuitesExpanded;
-    setSuiteExpandedMap((prev) => {
-      const updated = { ...prev };
-      for (const id of expandableSuiteIds) updated[id] = next;
-      return updated;
-    });
+    setSuiteExpandedMap((prev) => withAllSuitesExpanded(prev, suiteNodes, next));
   };
 
   return (

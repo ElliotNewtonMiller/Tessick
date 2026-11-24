@@ -146,8 +146,8 @@ All shortcuts work out of the box; they can't be remapped. The implementation is
 | :--- | :--- | :--- | :--- |
 | `j` / ↓ | Next case | Both modes | Moves the selection down one row. |
 | `k` / ↑ | Previous case | Both modes | Moves the selection up one row. |
-| `[` | Collapse the tree | Both modes | Collapses the suite tree. |
-| `]` | Expand the tree | Both modes | Expands the suite tree. |
+| `[` | Collapse the tree | Both modes | Collapses every suite in the tree, as **Collapse all** does. |
+| `]` | Expand the tree | Both modes | Expands every suite in the tree, as **Expand all** does. |
 | `/` | Search | Both modes | Focuses the search box in Pane 1; hotkeys pause while typing. |
 | `Esc` | Leave a text box | Any input | Blurs it; hotkeys re-engage. In Spec mode, also clears a multi-selection. |
 | `p` | Passed | Execute | Records PASSED and moves to the next case (into the next suite at the end of one). |

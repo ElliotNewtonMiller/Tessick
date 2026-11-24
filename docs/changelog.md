@@ -4585,3 +4585,15 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Found on the way, not changed:** the `[` and `]` hotkeys only show a message ("Toggled suite folder tree state"); they don't collapse or expand the tree, though CLAUDE.md says they do. The guide points to the **Expand all / Collapse all** button instead.
 
+## The `[` and `]` hotkeys collapse and expand the suite tree (2026-11-23)
+
+**Why:** Elliot found that `[` and `]` only showed "Toggled suite folder tree state" (the user guide's session noticed while writing it). CLAUDE.md and RFC 02 said they collapse and expand the tree: `useHotkeyEngine` sent the right signal, but `App.tsx`'s `onToggleSuiteExpand` was a placeholder that never changed the tree.
+
+**Fix:** `[` collapses and `]` expands every suite with sub-suites, in Spec and Execute modes, exactly as the filter panel's **Collapse all / Expand all** button does (whose label follows). Both use a new helper, `withAllSuitesExpanded` in `utils/suiteTree.ts`. Chosen over changing the docs, since RFC 02 has always specified these keys.
+
+**Docs:** CLAUDE.md and AGENTS.md, RFC 02's hotkey table and the user guide (its hotkey table and the tree's button) say what the keys do.
+
+**Tests:** `suiteTree.test.ts`: the helper closes or opens every suite with sub-suites and keeps other entries. `hotkeys.test.ts` already checked that `[` and `]` send collapse and expand.
+
+**Verified live** (the agent's tab at `127.0.0.1:3000`, Storefront): in Spec mode `[` left only the top-level suites showing, and `]` brought the sub-suites back, with the button reading "Expand all" and then "Collapse all"; `[` did the same in Execute mode.
+

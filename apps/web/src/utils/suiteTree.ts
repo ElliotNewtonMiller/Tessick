@@ -60,6 +60,18 @@ export function expandableSuiteIds(nodes: SuiteTreeNode[]): string[] {
   return ids;
 }
 
+/** The expand map with every suite that has sub-suites opened (or closed): "Expand all" /
+ * "Collapse all" in the filter panel, and the `]` / `[` hotkeys. */
+export function withAllSuitesExpanded(
+  map: Record<string, boolean>,
+  nodes: SuiteTreeNode[],
+  expanded: boolean,
+): Record<string, boolean> {
+  const updated = { ...map };
+  for (const id of expandableSuiteIds(nodes)) updated[id] = expanded;
+  return updated;
+}
+
 /** Visible tree order (collapsed children excluded) -- what a Shift-range spans in the tree. */
 export function visibleSuiteOrder(nodes: SuiteTreeNode[], expandedMap: Record<string, boolean>): string[] {
   const order: string[] = [];

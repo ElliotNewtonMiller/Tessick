@@ -290,7 +290,7 @@ docs/              changelog.md, api_roadmap.md, user_guide.md, api_getting_star
   - Toggles are colored squares or pills, as in `CustomFieldEditor` and the permission grids. Only the email settings and schedule forms use native checkboxes.
   - The app starts in Spec mode.
 - **Hotkeys** (`useHotkeyEngine`):
-  - `j`/`k` move, `/` focuses search, `[`/`]` collapse and expand the tree.
+  - `j`/`k` move, `/` focuses search, `[`/`]` collapse and expand every suite in the tree (as the filter panel's Collapse all / Expand all).
   - `p`/`f`/`b`/`s` record a verdict in Execute mode, and Ctrl+Enter submits notes and jumps to the next folder.
   - Verdict keys are blocked in Spec mode, on closed runs and without permission.
 
