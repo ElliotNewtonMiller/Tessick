@@ -199,6 +199,12 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** with your real exports, in its own tab: Auto-detect switched to the plan; 79 cases, 20 ready, 59 drafts and 12 renamed since the spec export, each shown with both titles; the first import added 20, the second approved and added the 59 with the 20 left alone; Spec mode showed 79 in the plan. The rules (states, order, platforms, permissions, locked plans, refusing a spec file, the case import refusing a plan file) by server tests. Not checked: a TestLink plan with platforms from a real TestLink (only a written one).
 
+## The plan's total above the suite tree (2026-11-25)
+
+- [ ] In Spec mode, choose a plan: next to **SUITE TREE** it says how many of the project's cases are in the plan (`79/725 in plan`), the sum of the top-level suites' counts. Add or remove a case: the total follows. In Execute mode, or with no plan chosen, it isn't shown.
+
+**Already checked by the agent:** in its own tab, with your Training project: "Regression - Admin" showed 20/725, "Regression - Admin back to 79" 79/725 (76 in Portal/Console/LMS Admin, 2 in Flutter, 1 in Bugs/Misc); not shown in Execute mode.
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

@@ -101,6 +101,12 @@ export function SuiteTreePane({
     setSuiteExpandedMap((prev) => withAllSuitesExpanded(prev, suiteNodes, next));
   };
 
+  // The plan's total, since each top-level suite only counts its own cases.
+  const planTotals =
+    workspaceMode === "SPECIFICATION" && selectedPlanId && specData
+      ? { inPlan: specData.cases.filter((c) => c.in_plan).length, total: specData.cases.length }
+      : null;
+
   return (
     <div
       style={{
@@ -130,6 +136,14 @@ export function SuiteTreePane({
           SUITE TREE
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {planTotals && (
+            <span
+              title={`${planTotals.inPlan} of the project's ${planTotals.total} cases are in this plan`}
+              style={{ fontSize: "11px", color: planTotals.inPlan > 0 ? "#4ade80" : "#9ca3af", whiteSpace: "nowrap" }}
+            >
+              {planTotals.inPlan}/{planTotals.total} in plan
+            </span>
+          )}
           {workspaceMode === "SPECIFICATION" && hasSpecCreatePermission && (
             <button
               onClick={() => openCreateSuiteForm(null)}

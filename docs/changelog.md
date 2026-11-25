@@ -4662,3 +4662,14 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 - The plan, through the wizard on Auto-detect: 79 cases, 20 approved, 59 drafts, 12 with titles changed since the spec export.
 - Without approving: 20 added and the plan selected. Into the same plan with approval: 59 approved and added, 20 already there.
 - Spec mode showed 79/724 in the plan. No server errors.
+
+## The plan's total above the suite tree (2026-11-25)
+
+**What changed:** in Spec mode with a plan chosen, the suite tree's header shows how many of the project's cases are in the plan (`79/725 in plan`, `components/workspace/SuiteTreePane.tsx`), counted from the spec tree's cases (so deprecated cases count only with **Show deprecated**, as in the suites' counts).
+
+**Why:** Elliot imported a 79-case TestLink plan and saw 76 on the first top-level suite, which reads like a master suite. The other three cases were in two other top-level suites: TestLink's export has several, and Tessick has no folder above them, so nothing showed the plan's whole count. Decided with Elliot: show the total.
+
+**Tests:** none new (a count in a header); typecheck and the web tests pass.
+
+**Verified live** (the agent's tab at `127.0.0.1:3000`): the Training project's plans showed 20/725 and 79/725; Execute mode doesn't show it.
+
