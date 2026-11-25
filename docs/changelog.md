@@ -4699,3 +4699,9 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Verified live** (the agent's tab at `127.0.0.1:3000`, a scratch project deleted afterwards): with the plan's cases request delayed 3 seconds in the page, a focus refresh and then `p`: before the fix the case went back to U when the refresh answered, after it the P stayed; a failure recorded by the batch API meanwhile showed after the next refresh.
 
+
+## Docs caught up with the suite counts and the queue refresh (2026-11-25)
+
+- **User guide:** the plan-total bullet no longer says a top-level suite counts "its own cases", which now means the cases directly in it.
+- **RFC 02** (Pane 1): the tree's two-part counts in both modes, and the plan's total above the tree.
+- **CLAUDE.md / AGENTS.md:** a queue refresh keeps the results this window recorded that it may not include yet (`utils/unsettledVerdicts.ts`), and anything else that replaces the queue must do the same.

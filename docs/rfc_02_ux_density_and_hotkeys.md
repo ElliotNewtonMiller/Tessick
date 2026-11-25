@@ -48,7 +48,7 @@ The workspace has three panes side by side, separated by draggable dividers.
 
 | Pane | Role | Width | Contents |
 | :--- | :--- | :--- | :--- |
-| **Pane 1** | Suite tree | Default `280px`, at least `140px` | Search and filter rows; the suite tree with counts, plan-inclusion toggles (Spec) or pass/fail pills (Execute); create, rename and delete buttons; drag-and-drop moving in Spec mode. In Execute mode the tree shows only the suites holding the plan's (or run's) cases, and the suites above them. |
+| **Pane 1** | Suite tree | Default `280px`, at least `140px` | Search and filter rows; the suite tree with counts (each suite's own cases, then the whole suite's when its sub-suites hold cases: `1/4 · 7/33`), plan-inclusion toggles (Spec) or pass/fail pills (Execute, the same two parts: `— · 5/9 P`); the plan's total above the tree (Spec); create, rename and delete buttons; drag-and-drop moving in Spec mode. In Execute mode the tree shows only the suites holding the plan's (or run's) cases, and the suites above them. |
 | **Pane 2** | Case list (Spec) or execution queue (Execute) | Default `420px`, at least `180px` | Virtualized list. Spec: version status boxes and plan toggles. Execute: verdict letters and the selected-suite filter. |
 | **Pane 3** | Details | The rest, at least `160px` | Spec: the case editor (with Edit, ⧉ Duplicate and Delete in its header) or Suite Details. Execute: the case's steps and custom fields, verdict buttons, notes, the Evidence section (screenshots, videos, logs, traces: added with a button, a drop on the pane or a pasted screenshot, opened in a viewer) and the hotkey badge. |
 

@@ -282,7 +282,7 @@ docs/              changelog.md, api_roadmap.md, user_guide.md, api_getting_star
   - Use `authHeaders()` / `jsonHeaders()` from `utils/session.ts`; never store a token.
   - Any 401 from `/api` signs the user out with "Your sign-in has ended" (`watchForEndedSession`).
 - **Loaders that can race** keep a request-sequence ref and apply only the latest response. Clearing state on an empty selection must happen before an early return.
-- **Coming back to the window** (its `focus` event) refreshes the spec tree and the run list (in Execute mode, the whole queue), so runs CI created, its results and cases an agent wrote show without a reload (`App.tsx`).
+- **Coming back to the window** (its `focus` event) refreshes the spec tree and the run list (in Execute mode, the whole queue), so runs CI created, its results and cases an agent wrote show without a reload (`App.tsx`). A queue refresh keeps the results this window recorded that it may not include yet (sent before they were saved): `utils/unsettledVerdicts.ts`, fed by `submitVerdict`. Anything else that replaces the queue with the server's answer must do the same, or a result just recorded vanishes from the screen.
 - **Custom-field inputs:**
   - Text, number and date inputs are uncontrolled. Key them per entity *and* field, and clear values before fetching, or one case's value shows on another.
   - A rejected save remounts the input so it shows the stored value again.

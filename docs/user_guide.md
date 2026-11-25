@@ -144,7 +144,7 @@ A **test plan** is the set of cases to run for something: a release, a sprint, a
 **Adding cases** happens in Spec mode, with the plan chosen in the header:
 - Each case's row has **+ Add**, or **✓ In Plan** when it's in the plan. Click it to add or remove the case.
 - Each suite's row in the tree shows how many of its own cases are in the plan, then the whole suite's (`1/4 · 7/33`, see Suites above); its square adds or removes all of them, sub-suites included.
-- The top of the tree shows the plan's total (`79/725 in plan`). Each top-level suite counts only its own cases, so a plan spread over several top-level suites adds up there.
+- The top of the tree shows the plan's total (`79/725 in plan`). Each top-level suite counts only what's inside it, so the total adds up a plan spread over several top-level suites.
 - Only approved cases can be added. A draft's **+ Add** is greyed out until it's approved.
 
 **Removing a case that has results** asks first (an amber banner, **Remove anyway**). It isn't deleted from the plan's history: old runs keep it, with its results, read-only, marked **REMOVED**. Adding it back lets it be tested again.
