@@ -4,6 +4,7 @@ import type { Scope } from "./useScope";
 import type { ExecWorkspaceStatus, WorkspaceData } from "../types";
 import { authHeaders } from "../utils/session";
 import { api } from "../api/routes";
+import { keepUnsettledResults, UnsettledVerdicts } from "../utils/unsettledVerdicts";
 
 // Execute mode before (or without) a loaded plan: nothing to show. (This used to be two
 // made-up cases, TFY-101/102, which appeared whenever no plan was selected or a load failed.)
@@ -29,6 +30,9 @@ export function useExecutionWorkspace(scope: Scope) {
   // Read by refreshExecutionWorkspace (a callback that shouldn't re-create on every load).
   const workspaceRef = useRef<WorkspaceData | null>(workspace);
   workspaceRef.current = workspace;
+  // Results recorded here that a refresh in flight may not include (useExecution's submitVerdict
+  // reports them): a refresh keeps what the queue shows for those cases.
+  const unsettledVerdictsRef = useRef(new UnsettledVerdicts());
 
   // Execution-mode workspace: the selected plan's cases, with results from the selected run.
   const refreshExecutionWorkspace = useCallback(async () => {
@@ -53,6 +57,7 @@ export function useExecutionWorkspace(scope: Scope) {
     }
     // Only a different plan shows "Loading" -- a refresh of the same plan keeps its cases up.
     setExecWorkspaceStatus((prev) => (prev === "READY" && workspaceRef.current?.plan.id === selectedPlanId ? prev : "LOADING"));
+    const refresh = unsettledVerdictsRef.current.refreshSent();
     try {
       const res = await fetch(api.planCases(selectedPlanId, { test_run_id: selectedRunId || undefined }), { headers: authHeaders() });
       if (res.ok) {
@@ -60,37 +65,41 @@ export function useExecutionWorkspace(scope: Scope) {
         if (runsListRequestSeq.current !== seq) return; // a newer request already resolved
         const projectEntity = projectsList.find((p) => p.id === selectedProjectId);
         const runs = data.runs || [];
+        const unsettled = unsettledVerdictsRef.current.unsettledIn(refresh, selectedRunId);
 
-        setWorkspace({
-          project: projectEntity
-            ? {
-                id: projectEntity.id,
-                name: projectEntity.name,
-                prefix: projectEntity.prefix || "TFY",
-              }
-            : EMPTY_WORKSPACE.project,
-          suites: [],
-          plan: { id: data.plan.id, name: data.plan.name, status: data.plan.status },
-          run: runs[0]
-            ? { id: runs[0].id, name: runs[0].name, status: runs[0].status }
-            : EMPTY_WORKSPACE.run,
-          cases: data.cases.map((c: any) => ({
-            test_plan_case_id: c.test_plan_case_id,
-            test_case_id: c.test_case_id,
-            test_suite_id: c.test_suite_id,
-            external_id: c.external_id,
-            title: c.title,
-            priority: c.priority,
-            execution_type: c.execution_type,
-            version_number: c.version_number,
-            summary: c.summary,
-            preconditions: c.preconditions,
-            steps: c.steps,
-            latest_verdict: c.latest_verdict || "UNTESTED",
-            latest_test_result_id: c.latest_test_result_id || null,
-            latest_notes: c.latest_notes || null,
-            removed_from_plan: Boolean(c.removed_from_plan),
-          })),
+        setWorkspace((prev) => {
+          const fresh: WorkspaceData = {
+            project: projectEntity
+              ? {
+                  id: projectEntity.id,
+                  name: projectEntity.name,
+                  prefix: projectEntity.prefix || "TFY",
+                }
+              : EMPTY_WORKSPACE.project,
+            suites: [],
+            plan: { id: data.plan.id, name: data.plan.name, status: data.plan.status },
+            run: runs[0]
+              ? { id: runs[0].id, name: runs[0].name, status: runs[0].status }
+              : EMPTY_WORKSPACE.run,
+            cases: data.cases.map((c: any) => ({
+              test_plan_case_id: c.test_plan_case_id,
+              test_case_id: c.test_case_id,
+              test_suite_id: c.test_suite_id,
+              external_id: c.external_id,
+              title: c.title,
+              priority: c.priority,
+              execution_type: c.execution_type,
+              version_number: c.version_number,
+              summary: c.summary,
+              preconditions: c.preconditions,
+              steps: c.steps,
+              latest_verdict: c.latest_verdict || "UNTESTED",
+              latest_test_result_id: c.latest_test_result_id || null,
+              latest_notes: c.latest_notes || null,
+              removed_from_plan: Boolean(c.removed_from_plan),
+            })),
+          };
+          return prev.plan.id === fresh.plan.id ? { ...fresh, cases: keepUnsettledResults(fresh.cases, prev.cases, unsettled) } : fresh;
         });
         setExecWorkspaceStatus("READY");
 
@@ -125,7 +134,7 @@ export function useExecutionWorkspace(scope: Scope) {
     }
   }, [selectedPlanId, selectedProjectId, selectedRunId, projectsList]);
 
-  return { workspace, setWorkspace, execWorkspaceStatus, refreshExecutionWorkspace };
+  return { workspace, setWorkspace, execWorkspaceStatus, refreshExecutionWorkspace, unsettledVerdicts: unsettledVerdictsRef.current };
 }
 
 export type ExecutionWorkspace = ReturnType<typeof useExecutionWorkspace>;

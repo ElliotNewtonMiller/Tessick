@@ -4689,3 +4689,13 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Seen while testing, not changed:** one pass recorded with the `p` key (saved on the server) disappeared from the queue and tree until the next reload. A queue refresh (the window's focus event) already in flight when the verdict was recorded probably replaced the optimistic update with older data. It wasn't reproduced on purpose.
 
+## A result recorded during a queue refresh stays on screen (2026-11-25)
+
+**What was wrong:** in Execute mode, a result recorded while a queue refresh was on its way could vanish from the queue (and the suite counts) until the next refresh, although the server had saved it. The refresh had been sent before the result was saved, so it answered with the case untested, and the queue was replaced with that answer, overwriting the optimistic update. Coming back to the window sends such a refresh (its focus event), so clicking into the window and pressing `p` at once could do it. Seen while testing the suite counts (the entry above); confirmed by slowing the refresh down in the page.
+
+**The fix:** `apps/web/src/utils/unsettledVerdicts.ts` keeps track of results recorded in this window until a refresh sent after their save answers: `submitVerdict` (`useExecution`) reports each save, and its outcome, and `refreshExecutionWorkspace` (`useExecutionWorkspace`) keeps what the queue shows for cases its answer may not include (saved after it was sent, or still saving), in the same run. Everything else comes from the server as before, so results recorded elsewhere (CI, another tester) still show, and a refused result still goes back.
+
+**Tests:** `unsettledVerdicts.test.ts`: a result saved after the refresh was sent is kept and forgotten after a later refresh; one still saving is kept; a refused one, or one for another run, isn't; a case recorded twice stays kept until its latest save is answered.
+
+**Verified live** (the agent's tab at `127.0.0.1:3000`, a scratch project deleted afterwards): with the plan's cases request delayed 3 seconds in the page, a focus refresh and then `p`: before the fix the case went back to U when the refresh answered, after it the P stayed; a failure recorded by the batch API meanwhile showed after the next refresh.
+

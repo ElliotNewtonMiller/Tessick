@@ -214,6 +214,12 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** in its own tab, with your Training project's "Regression - Admin back to 79": Portal/Console/LMS Admin `— · 76/196`, End-to-End `1/1 · 7/33` (its own case matched the case list's "1/1 in plan" and the details pane), Reports `1/1 · 12/24`. In a scratch project (deleted afterwards): case counts only without a plan, then Execute mode with passes moving up the tree and a finished suite turning green. The rules by unit tests (`suiteTree.test.ts`).
 
+## A result recorded during a queue refresh stays on screen (2026-11-25)
+
+- [ ] In Execute mode, click away from the window and back, and press `p` at once: the case shows P and keeps it. Before, it could go back to U until the next refresh, although the result was saved.
+
+**Already checked by the agent:** in its own tab, with the queue's refresh slowed down in the page: before the fix the pass went back to U when the refresh answered; after it, the P stayed, and a result CI recorded meanwhile for another case still showed. The rules by unit tests (`unsettledVerdicts.test.ts`).
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

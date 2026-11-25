@@ -73,7 +73,7 @@ export function useExecution({
   setUserPermissions,
   customFieldDefsVersion,
 }: ExecutionOptions) {
-  const { workspace, setWorkspace } = executionWorkspace;
+  const { workspace, setWorkspace, unsettledVerdicts } = executionWorkspace;
   const { selectedProjectId, selectedRunId, selectedRun, setRunsList } = scope;
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [failureNotes, setFailureNotes] = useState<string>("");
@@ -285,6 +285,9 @@ export function useExecution({
           };
         });
 
+      // Until it's saved, a queue refresh already on its way keeps this result on screen.
+      const save = unsettledVerdicts.saving(targetCase.test_plan_case_id, runId);
+
       setSyncStatus(`Syncing verdict for ${targetCase.external_id}...`);
 
       // 2. DISPATCH BACKGROUND API CALL
@@ -306,6 +309,7 @@ export function useExecution({
         });
 
         if (response.ok) {
+          unsettledVerdicts.saved(save);
           setExecutionDenied(null);
           setResultsRecorded((n) => n + 1);
           setSyncStatus(
@@ -322,6 +326,7 @@ export function useExecution({
             }
           }
         } else if (response.status === 401) {
+          unsettledVerdicts.failed(save);
           // Session expired or token invalid -- the server now requires a real, current
           // sign-in for this route (EXECUTE_RUN permission). Drop back to the login screen
           // rather than silently failing every subsequent keystroke.
@@ -329,6 +334,7 @@ export function useExecution({
           setUserPermissions([]);
           setSyncStatus("Session expired -- please log in again");
         } else if (response.status === 403) {
+          unsettledVerdicts.failed(save);
           revertOptimisticUpdate();
           const denial = await response.json().catch(() => ({}));
           const message =
@@ -342,6 +348,7 @@ export function useExecution({
           notSaved(message);
           if (!resolvedNotes) setExecutionDenied(message);
         } else {
+          unsettledVerdicts.failed(save);
           revertOptimisticUpdate();
           const problem = await response.json().catch(() => ({}));
           if (errorCode(problem) === "RUN_CLOSED") markRunClosed(runId);
@@ -350,12 +357,13 @@ export function useExecution({
           if (!resolvedNotes) showToast(errorMessage(problem) || "The result wasn't recorded.");
         }
       } catch (err) {
+        unsettledVerdicts.failed(save);
         revertOptimisticUpdate();
         setSyncStatus("Network Error");
         notSaved("The server couldn't be reached.");
       }
     },
-    [activeCase, workspace, failureNotes, verdictBlockReason, selectedRunId, showToast, markRunClosed, finishDeferredAutoClose],
+    [activeCase, workspace, failureNotes, verdictBlockReason, selectedRunId, showToast, markRunClosed, finishDeferredAutoClose, unsettledVerdicts],
   );
 
   // Execution mode: indices into workspace.cases that pass the active search/filter (all of
