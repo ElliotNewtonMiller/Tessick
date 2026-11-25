@@ -25,25 +25,104 @@ export function suitesContaining(nodes: SpecSuiteNode[], withCases: Set<string>)
   return keep;
 }
 
-/** The Suite Tree's nodes, with Execute mode's passed/total counts per suite. */
-export function buildSuiteNodes(
-  nodes: SpecSuiteNode[],
-  execCountsBySuite: Map<string, { passed: number; total: number }>,
-): SuiteTreeNode[] {
+/** `count` of `total` cases: in the plan (Spec mode) or passed (Execute mode). */
+export interface SuiteCount {
+  count: number;
+  total: number;
+}
+
+/** Each suite's own cases (not its sub-suites') and how many are in the plan, from the spec
+ * tree's cases. The spec tree's `in_plan_count`/`total_case_count` are the whole suite's. */
+export function ownPlanCountsBySuite(cases: Array<{ test_suite_id: string; in_plan: boolean }>): Map<string, SuiteCount> {
+  const counts = new Map<string, SuiteCount>();
+  for (const c of cases) {
+    const entry = counts.get(c.test_suite_id) ?? { count: 0, total: 0 };
+    entry.total += 1;
+    if (c.in_plan) entry.count += 1;
+    counts.set(c.test_suite_id, entry);
+  }
+  return counts;
+}
+
+/** Each suite's own counts plus all its sub-suites', over the whole tree (so a pruned tree's
+ * suites still show their real totals). Suites with nothing in them are left out. */
+export function withSubtreeTotals(nodes: SpecSuiteNode[], own: Map<string, SuiteCount>): Map<string, SuiteCount> {
+  const totals = new Map<string, SuiteCount>();
+  const visit = (n: SpecSuiteNode): SuiteCount => {
+    const sum = { ...(own.get(n.id) ?? { count: 0, total: 0 }) };
+    for (const child of n.children) {
+      const c = visit(child);
+      sum.count += c.count;
+      sum.total += c.total;
+    }
+    if (sum.total > 0) totals.set(n.id, sum);
+    return sum;
+  };
+  nodes.forEach(visit);
+  return totals;
+}
+
+/** The counts the Suite Tree's rows show, per suite. */
+export interface SuiteNodeCounts {
+  /** Execute mode: each suite's own cases in the run's plan, and how many passed */
+  execOwn?: Map<string, { passed: number; total: number }>;
+  /** Execute mode: the same for the whole suite (withSubtreeTotals) */
+  execWhole?: Map<string, SuiteCount>;
+  /** Spec mode: each suite's own cases, and how many are in the plan (ownPlanCountsBySuite) */
+  specOwn?: Map<string, SuiteCount>;
+}
+
+/** The Suite Tree's nodes, with each suite's counts. */
+export function buildSuiteNodes(nodes: SpecSuiteNode[], counts: SuiteNodeCounts = {}): SuiteTreeNode[] {
   return nodes.map((n) => {
-    const exec = execCountsBySuite.get(n.id);
+    const exec = counts.execOwn?.get(n.id);
+    const execWhole = counts.execWhole?.get(n.id);
+    const specOwn = counts.specOwn?.get(n.id);
     return {
       id: n.id,
       name: n.name,
       path: n.path,
       parentId: n.parent_suite_id,
-      children: buildSuiteNodes(n.children, execCountsBySuite),
+      children: buildSuiteNodes(n.children, counts),
       passedCount: exec?.passed ?? 0,
       totalCount: exec?.total ?? 0,
+      subtreePassedCount: execWhole?.count ?? exec?.passed ?? 0,
+      subtreeTotalCount: execWhole?.total ?? exec?.total ?? 0,
       inPlanCount: n.in_plan_count,
       totalCaseCount: n.total_case_count,
+      ownInPlanCount: specOwn?.count ?? 0,
+      ownCaseCount: specOwn?.total ?? 0,
     };
   });
+}
+
+/** What a suite row's count shows: in the plan (Spec mode, a plan chosen), cases (Spec mode,
+ * no plan) or passed (Execute mode). */
+export type SuiteCountKind = "PLAN" | "CASES" | "PASSED";
+
+/**
+ * A suite row's count: its own cases first, then (shown dimmer) the whole suite's, sub-suites
+ * included, when its sub-suites hold cases -- `1/4 · 76/196`. `—` when it has none of its own.
+ * Null when the whole suite has no cases.
+ */
+export function suiteCountText(
+  kind: SuiteCountKind,
+  own: SuiteCount,
+  whole: SuiteCount,
+): { own: string; whole: string | null; title: string } | null {
+  if (whole.total === 0) return null;
+  const figure = (c: SuiteCount) => (kind === "CASES" ? `${c.total}` : `${c.count}/${c.total}`);
+  const words = (c: SuiteCount) =>
+    kind === "PLAN" ? `${c.count} of ${c.total} in the plan` : kind === "PASSED" ? `${c.count} of ${c.total} passed` : `${c.total}`;
+  // "P" (passed) goes on whichever part comes last.
+  const suffix = kind === "PASSED" ? " P" : "";
+  const ownText = own.total === 0 ? "—" : figure(own);
+  if (whole.total === own.total) return { own: ownText + suffix, whole: null, title: `Cases: ${words(own)}` };
+  return {
+    own: ownText,
+    whole: figure(whole) + suffix,
+    title: `Its own cases: ${own.total === 0 ? "none" : words(own)}\nWith its sub-suites: ${words(whole)}`,
+  };
 }
 
 /** Ids of suites with sub-suites -- the ones that have an expand arrow. */

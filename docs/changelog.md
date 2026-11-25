@@ -4673,3 +4673,19 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 
 **Verified live** (the agent's tab at `127.0.0.1:3000`): the Training project's plans showed 20/725 and 79/725; Execute mode doesn't show it.
 
+## Suite counts: own cases, then the whole suite (2026-11-25)
+
+**What changed:**
+- **Spec mode:** each suite row in the tree shows the suite's own cases first (`in plan/cases`), then, dimmer after a dot, the whole suite's with its sub-suites, when they hold cases (`1/1 · 7/33`). `—` means no cases of its own; a suite without sub-suites with cases shows one count, as before. A tooltip says it in words. Without a plan, the rows count cases only (`4 · 33`) instead of `0/33`. The tri-state square still follows the whole suite.
+- **The suite details header** says "N cases here, M with sub-suites · x in plan here, y with sub-suites" for a suite with sub-suites holding cases.
+- **Execute mode:** the pill was the suite's own cases only, so parent suites showed nothing. It now has the same two parts (`— · 5/9 P`), summed over the full tree so a search doesn't shrink them, and turns green once the whole suite has passed.
+- **Code:** `ownPlanCountsBySuite`, `withSubtreeTotals` and `suiteCountText` in `apps/web/src/utils/suiteTree.ts`; `buildSuiteNodes` now takes its counts as one object. The own counts come from the spec tree's cases (no API change).
+
+**Why:** Elliot saw `3/40` on a suite, `2/20` on a sub-suite and `1/6` on several below, and could only tell a case sat in the top suite itself by adding up every child. Decided with Elliot: "own, then total" (over the count following folding, or "+N in sub-suites"), and the same in Execute mode.
+
+**Tests:** `suiteTree.test.ts`: own counts, sums over a tree with an empty middle suite, and the count text (leaf, parent with and without its own cases, no plan, Execute's `P`, nothing anywhere).
+
+**Verified live** (the agent's tab at `127.0.0.1:3000`): Elliot's Training plan showed `— · 76/196`, `1/1 · 7/33` and `1/1 · 12/24`, and the own count matched the case list and the details pane. In a scratch project (deleted afterwards): case counts without a plan; in Execute mode, passes moved the counts up the tree and a finished sub-suite turned green while its parent didn't.
+
+**Seen while testing, not changed:** one pass recorded with the `p` key (saved on the server) disappeared from the queue and tree until the next reload. A queue refresh (the window's focus event) already in flight when the verdict was recorded probably replaced the optimistic update with older data. It wasn't reproduced on purpose.
+

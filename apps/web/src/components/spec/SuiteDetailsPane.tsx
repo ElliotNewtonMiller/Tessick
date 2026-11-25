@@ -1,16 +1,25 @@
 import { useApp } from "../../app/AppContext";
 import type { SpecSuiteNode } from "../../types";
 import type { SuiteEditor } from "../../hooks/useSuiteEditor";
+import type { SuiteCount } from "../../utils/suiteTree";
 import { CustomFieldEditor } from "../CustomFieldEditor";
 
 interface SuiteDetailsPaneProps {
   editor: SuiteEditor;
   specActiveSuite: SpecSuiteNode;
+  /** The suite's own cases (not its sub-suites'), and how many are in the plan */
+  ownCounts: SuiteCount;
 }
 
+const cases = (n: number) => `${n} case${n === 1 ? "" : "s"}`;
+
 /** Pane 3 in Spec mode when a suite is selected: its name and custom fields. */
-export function SuiteDetailsPane({ editor, specActiveSuite }: SuiteDetailsPaneProps) {
-  const { can } = useApp();
+export function SuiteDetailsPane({ editor, specActiveSuite, ownCounts }: SuiteDetailsPaneProps) {
+  const { can, scope } = useApp();
+  const hasPlan = Boolean(scope.selectedPlanId);
+  // Its own cases, and the whole suite's when its sub-suites hold cases too.
+  const whole = { count: specActiveSuite.in_plan_count, total: specActiveSuite.total_case_count };
+  const hasSubCases = whole.total !== ownCounts.total;
   const { hasPlanManagePermission, hasSpecEditPermission } = can;
   const {
     suiteCustomFieldValues,
@@ -73,9 +82,13 @@ export function SuiteDetailsPane({ editor, specActiveSuite }: SuiteDetailsPanePr
             />
           </div>
           <div style={{ fontSize: "12px", color: "#6b7280" }}>
-            {specActiveSuite.total_case_count} case{specActiveSuite.total_case_count === 1 ? "" : "s"}
-            {" · "}
-            {specActiveSuite.in_plan_count} in plan
+            {hasSubCases
+              ? `${cases(ownCounts.total)} here, ${whole.total} with sub-suites`
+              : cases(whole.total)}
+            {hasPlan &&
+              (hasSubCases
+                ? ` · ${ownCounts.count} in plan here, ${whole.count} with sub-suites`
+                : ` · ${whole.count} in plan`)}
           </div>
         </div>
 

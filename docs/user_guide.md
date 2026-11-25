@@ -73,7 +73,9 @@ The panes' widths can be changed by dragging the lines between them.
 - **Delete:** the 🗑️ on its row. A suite with cases or sub-suites asks first, and **Delete Anyway** deletes everything in it, with its results.
 - **Expand all / Collapse all**, under the search box, opens or closes every suite. The keys `]` and `[` do the same, in both modes.
 
-Clicking a suite lists its *own* cases in the middle pane (not those of its sub-suites) and shows its details on the right: how many cases it holds, how many are in the selected plan, and the suite's custom fields.
+Each suite's row counts its own cases first, then, dimmer, the whole suite's with its sub-suites, when they hold cases: `1/4 · 7/33` means 1 of its own 4 cases is in the plan, and 7 of the 33 in it and its sub-suites. `—` means it holds no cases itself; a suite without sub-suites shows one count. Without a plan, the rows count cases only (`4 · 33`). Hover a count to read it in words.
+
+Clicking a suite lists its *own* cases in the middle pane (not those of its sub-suites) and shows its details on the right: how many cases it holds and how many are in the selected plan (its own and with its sub-suites), and the suite's custom fields.
 
 ### Test cases
 
@@ -141,7 +143,7 @@ A **test plan** is the set of cases to run for something: a release, a sprint, a
 
 **Adding cases** happens in Spec mode, with the plan chosen in the header:
 - Each case's row has **+ Add**, or **✓ In Plan** when it's in the plan. Click it to add or remove the case.
-- Each suite's row in the tree shows how many of its cases are in the plan (`3/5`); its square adds or removes all of them, sub-suites included.
+- Each suite's row in the tree shows how many of its own cases are in the plan, then the whole suite's (`1/4 · 7/33`, see Suites above); its square adds or removes all of them, sub-suites included.
 - The top of the tree shows the plan's total (`79/725 in plan`). Each top-level suite counts only its own cases, so a plan spread over several top-level suites adds up there.
 - Only approved cases can be added. A draft's **+ Add** is greyed out until it's approved.
 
@@ -162,7 +164,7 @@ A **test run** is one round of testing a plan: "2.4.0-rc.8", "Sprint 12", "Night
 
 Choose a plan and a run in the header, then click **Execute**.
 
-- **The suite tree** shows only suites with cases in the plan. Each shows how many of its cases passed in this run (`2/3 P`).
+- **The suite tree** shows only suites with cases in the plan. Each shows how many of its own cases passed in this run, then the whole suite's when its sub-suites have cases in the plan (`2/3 P`, `— · 5/9 P`). It turns green once everything in the suite has passed.
 - **The queue** (middle) lists the plan's cases in tree order. Each has a badge for its result in this run: **P** passed, **F** failed, **B** blocked, **S** skipped, **U** untested. The header counts passes and failures.
 - **The right pane** shows the selected case: its summary, preconditions, steps, custom fields, **Notes** and **Evidence**, with **Pass**, **Fail**, **Block** and **Skip** at the bottom.
 

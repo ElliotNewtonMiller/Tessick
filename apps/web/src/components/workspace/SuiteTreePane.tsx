@@ -396,6 +396,7 @@ export function SuiteTreePane({
           handleSpecSuiteClick(suiteId, mods);
         }}
         mode={workspaceMode}
+        hasPlan={Boolean(selectedPlanId)}
         canManagePlan={hasPlanManagePermission}
         onToggleSuiteInclusion={handleToggleSuiteInclusion}
         canCreateSuites={hasSpecCreatePermission}

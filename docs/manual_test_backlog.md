@@ -205,6 +205,15 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** in its own tab, with your Training project: "Regression - Admin" showed 20/725, "Regression - Admin back to 79" 79/725 (76 in Portal/Console/LMS Admin, 2 in Flutter, 1 in Bugs/Misc); not shown in Execute mode.
 
+## Suite counts: own cases, then the whole suite (2026-11-25)
+
+- [ ] In Spec mode with a plan, a suite holding cases itself and in its sub-suites shows both (`1/1 · 7/33`); a suite with none of its own shows `— · 2/30`; a suite without sub-suites with cases shows one count. Hovering a count says it in words. Click a suite: the case list's "x/y in plan" matches the first count, and the details pane says "N cases here, M with sub-suites".
+- [ ] In a project with no plans, the rows count cases only (`2 · 6`).
+- [ ] In Execute mode, parent suites show progress (`— · 3/9 P`). Pass a case in a sub-suite: the count moves in its suite and every suite above it, and a suite turns green once everything in it has passed.
+- [ ] With the tree pane at its default width, the longer counts on parent suites hide more of their names. Say if that's too much.
+
+**Already checked by the agent:** in its own tab, with your Training project's "Regression - Admin back to 79": Portal/Console/LMS Admin `— · 76/196`, End-to-End `1/1 · 7/33` (its own case matched the case list's "1/1 in plan" and the details pane), Reports `1/1 · 12/24`. In a scratch project (deleted afterwards): case counts only without a plan, then Execute mode with passes moving up the tree and a finished suite turning green. The rules by unit tests (`suiteTree.test.ts`).
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

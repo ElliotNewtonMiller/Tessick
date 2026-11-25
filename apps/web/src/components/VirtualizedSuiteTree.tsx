@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { suiteCountText, type SuiteCountKind } from '../utils/suiteTree';
 
 export interface SuiteTreeNode {
   id: string;
@@ -6,13 +7,20 @@ export interface SuiteTreeNode {
   path: string;
   parentId?: string | null;
   children?: SuiteTreeNode[];
+  /** Execution mode: the suite's own cases in the plan, and how many passed in the run */
   passedCount?: number;
   totalCount?: number;
+  /** Execution mode: the same for the whole suite, sub-suites included */
+  subtreePassedCount?: number;
+  subtreeTotalCount?: number;
   isExpanded?: boolean;
   /** Specification-mode plan-inclusion counts, summed recursively over the subtree
    * (from GET /api/v1/projects/:id/spec-tree). Drive the tri-state cascade indicator. */
   inPlanCount?: number;
   totalCaseCount?: number;
+  /** Specification mode: the suite's own cases (not its sub-suites'), and how many are in the plan */
+  ownInPlanCount?: number;
+  ownCaseCount?: number;
 }
 
 export interface VirtualizedSuiteTreeProps {
@@ -46,6 +54,8 @@ export interface VirtualizedSuiteTreeProps {
   /** EXECUTION (default) shows the pass/fail progress pill; SPECIFICATION shows the
    * plan-inclusion tri-state indicator instead. */
   mode?: 'EXECUTION' | 'SPECIFICATION';
+  /** Specification mode: whether a plan is chosen -- without one, the rows count cases only. */
+  hasPlan?: boolean;
   /** Whether the current user holds PLAN_MANAGE -- gates the inclusion indicator's click
    * handler (view-only otherwise, matching how execute buttons are disabled elsewhere). */
   canManagePlan?: boolean;
@@ -89,6 +99,7 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
   expandedMap: controlledExpandedMap,
   onExpandedMapChange,
   mode = 'EXECUTION',
+  hasPlan = false,
   canManagePlan = false,
   onToggleSuiteInclusion,
   canCreateSuites = false,
@@ -154,10 +165,24 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
 
   const flatNodes = flattenTree(suites);
 
+  // A row's count: the suite's own cases, then (dimmer) the whole suite's when its sub-suites
+  // hold cases -- so each row says what it holds itself without adding up its children.
+  const renderCount = (kind: SuiteCountKind, own: { count: number; total: number }, whole: { count: number; total: number }, wholeColor: string) => {
+    const text = suiteCountText(kind, own, whole);
+    if (!text) return null;
+    return (
+      <span title={text.title} style={{ whiteSpace: 'nowrap' }}>
+        {text.own}
+        {text.whole && <span style={{ color: wholeColor, fontWeight: 400 }}> · {text.whole}</span>}
+      </span>
+    );
+  };
+
   const renderInclusionIndicator = (node: SuiteTreeNode) => {
     const total = node.totalCaseCount ?? 0;
     const inPlan = node.inPlanCount ?? 0;
     if (total === 0) return null;
+    const ownTotal = node.ownCaseCount ?? 0;
 
     const state: 'all' | 'partial' | 'none' = inPlan === 0 ? 'none' : inPlan === total ? 'all' : 'partial';
     // Partial always escalates to fully-on first, same as a standard tri-state checkbox.
@@ -170,7 +195,7 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '8px' }}>
         <span style={{ fontSize: '10px', color: '#9ca3af' }}>
-          {inPlan}/{total}
+          {renderCount(hasPlan ? 'PLAN' : 'CASES', { count: node.ownInPlanCount ?? 0, total: ownTotal }, { count: inPlan, total }, '#6b7280')}
         </span>
         <button
           onClick={(e) => {
@@ -181,7 +206,7 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
           disabled={!canManagePlan}
           title={
             canManagePlan
-              ? `${inPlan}/${total} in plan -- click to ${nextAction === 'ADD' ? 'add all' : 'remove all'}`
+              ? `${inPlan}/${total} in plan${ownTotal !== total ? ', with its sub-suites' : ''} -- click to ${nextAction === 'ADD' ? 'add all' : 'remove all'}`
               : 'Requires plan management permission'
           }
           style={{
@@ -254,6 +279,8 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
           const indentPx = depth * INDENT_PER_LEVEL + 8;
           const passed = node.passedCount ?? 0;
           const total = node.totalCount ?? 0;
+          const wholePassed = node.subtreePassedCount ?? passed;
+          const wholeTotal = node.subtreeTotalCount ?? total;
 
           return (
             <div
@@ -433,12 +460,13 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
                 )}
                 </span>
               ) : (
-                total > 0 && (
+                wholeTotal > 0 && (
                   <span
                     style={{
                       fontSize: '11px',
                       fontWeight: 600,
-                      color: passed === total && total > 0 ? '#4ade80' : '#60a5fa',
+                      // Green once everything in the suite, sub-suites included, has passed.
+                      color: wholePassed === wholeTotal ? '#4ade80' : '#60a5fa',
                       backgroundColor: 'rgba(31, 41, 55, 0.8)',
                       padding: '1px 6px',
                       borderRadius: '9999px',
@@ -448,7 +476,7 @@ export const VirtualizedSuiteTree: React.FC<VirtualizedSuiteTreeProps> = ({
                       right: '8px',
                     }}
                   >
-                    {passed}/{total} P
+                    {renderCount('PASSED', { count: passed, total }, { count: wholePassed, total: wholeTotal }, '#94a3b8')}
                   </span>
                 )
               )}

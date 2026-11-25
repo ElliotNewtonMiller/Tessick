@@ -12,7 +12,14 @@ import { ForcedPasswordChange } from "./components/ForcedPasswordChange";
 import { EntityManagementModal } from "./components/EntityManagementModal";
 import { OVERWRITE_DENIED_MESSAGE, RUN_DENIED_MESSAGE } from "./app/messages";
 import { permissionFlags } from "./utils/permissions";
-import { buildSuiteNodes, pruneSuiteTree, suitesContaining, withAllSuitesExpanded } from "./utils/suiteTree";
+import {
+  buildSuiteNodes,
+  ownPlanCountsBySuite,
+  pruneSuiteTree,
+  suitesContaining,
+  withAllSuitesExpanded,
+  withSubtreeTotals,
+} from "./utils/suiteTree";
 import { usePaneLayout } from "./hooks/usePaneLayout";
 import { useSession } from "./hooks/useSession";
 import { useToast } from "./hooks/useToast";
@@ -174,7 +181,19 @@ export default function App() {
   let treeSuites = specData?.suites ?? [];
   if (executeSuiteIds) treeSuites = pruneSuiteTree(treeSuites, executeSuiteIds);
   if (filterResult) treeSuites = pruneSuiteTree(treeSuites, filterResult.suiteIds);
-  const suiteNodes: SuiteTreeNode[] = specData ? buildSuiteNodes(treeSuites, execCountsBySuite) : [];
+  // Each row counts the suite's own cases, then the whole suite's (summed over the full tree, so
+  // pruning doesn't shrink them; in Spec mode the server sums them).
+  const specOwnCounts = ownPlanCountsBySuite(specData?.cases ?? []);
+  const execWholeCounts =
+    workspaceMode === "EXECUTION" && specData
+      ? withSubtreeTotals(
+          specData.suites,
+          new Map([...execCountsBySuite].map(([id, c]) => [id, { count: c.passed, total: c.total }])),
+        )
+      : undefined;
+  const suiteNodes: SuiteTreeNode[] = specData
+    ? buildSuiteNodes(treeSuites, { execOwn: execCountsBySuite, execWhole: execWholeCounts, specOwn: specOwnCounts })
+    : [];
 
   // A folder filter on a suite the tree no longer shows (another plan or run) would hide every
   // case behind a folder you can't see; drop it.
@@ -689,7 +708,11 @@ export default function App() {
               specActiveCase ? (
                 <CaseDetailPane editor={caseEditor} specSelectedCaseId={specSelectedCaseId} />
               ) : specActiveSuite ? (
-                <SuiteDetailsPane editor={suiteEditor} specActiveSuite={specActiveSuite} />
+                <SuiteDetailsPane
+                  editor={suiteEditor}
+                  specActiveSuite={specActiveSuite}
+                  ownCounts={specOwnCounts.get(specActiveSuite.id) ?? { count: 0, total: 0 }}
+                />
               ) : (
                 <div
                   style={{
