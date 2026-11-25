@@ -1,6 +1,6 @@
 # Moving from TestLink to Tessick
 
-This guide takes your test cases out of TestLink and into Tessick. The quick way uses TestLink's own XML export and Tessick's Import wizard, with no scripts and no database access, and takes about fifteen minutes. If you also want your plans, builds, results history and users, there's a full database migration (below).
+This guide takes your test cases and test plans out of TestLink and into Tessick. The quick way uses TestLink's own XML exports and Tessick's Import wizard, with no scripts and no database access, and takes about fifteen minutes. If you also want your builds, results history and users, there's a full database migration (below).
 
 ## Choose your way out
 
@@ -9,7 +9,8 @@ This guide takes your test cases out of TestLink and into Tessick. The quick way
 | **You need** | TestLink's web UI | A copy of TestLink's database, Node.js 22 and a copy of Tessick's source |
 | **Suites, cases, steps** | Yes | Yes, with every version |
 | **Custom fields and keywords** | Yes | Yes |
-| **Test plans, builds, results history** | No | Yes |
+| **Test plans** | Yes, each plan's cases ([below](#3-import-your-test-plans)) | Yes |
+| **Builds, results history** | No | Yes |
 | **Users, roles, TestLink API keys** | No | Yes (passwords are set again) |
 | **Requirements, attachments** | No | No |
 
@@ -82,7 +83,38 @@ Click **📥 Import** in the header. The wizard has five steps:
 
 An export without statuses (older TestLink versions) is imported as approved. A re-import's new versions take TestLink's status at the time, so a case you approved in Tessick but that's still a draft in TestLink gets a new draft version. Approve in one place.
 
-**Not in TestLink's XML**, and so not imported this way: test plans, builds, results, users, requirements and attachments. To bring plans, builds, results and users, use the database migration.
+**Not in TestLink's XML**, and so not imported this way: builds, results, users, requirements and attachments. To bring builds, results and users, use the database migration. Test plans have their own export: see the next section.
+
+## 3. Import your test plans
+
+TestLink exports each test plan's cases as its own file, which Tessick turns into a test plan. Import the project's test cases first (above): the plan's cases are found by their numbers (TestLink's `331` is `PREFIX-331`), so they must be in the project already.
+
+1. **In TestLink,** open **Test Plan Management** and click the export icon in the plan's row. It saves a file named `linkedItems_<plan name>.xml`.
+2. **In Tessick,** click **📥 Import**, choose the file and the project, and leave the format on Auto-detect: Tessick recognises a test plan export. **Preview Import** shows the plan and each of its cases, and writes nothing:
+   - **Approved** cases are added.
+   - **Drafts** are added only if they're approved: tick **Approve the N draft cases and add them too** (you need permission to approve cases). Without it they're skipped, and listed.
+   - **Deprecated** cases can't be added, and cases the project doesn't have are listed.
+   - A case whose title here differs from the plan file's (renamed since you exported the test cases) is still found by its number, and both titles are shown. If most cases are missing or titled differently, the file probably belongs to another project.
+3. **Name the plan** (the file's name by default), or, when the project already has a plan of that name, choose **Add to the existing plan**. **Create Test Plan** adds the cases in TestLink's execution order.
+
+Importing a plan again into the same plan adds only the cases that weren't in it, for example drafts you've approved since; they go after the cases already there. So approve the drafts in the first import to keep TestLink's order throughout.
+
+Each case is added once, pinned at its current approved version: Tessick doesn't keep TestLink's version numbers, so the version the TestLink plan held isn't used. Tessick has no platforms either: a case linked on several platforms is added once, and the plan's platforms are kept only for scripts that use the [TestLink-compatible API](testlink_compat_api.md). Builds and results aren't in the export.
+
+Over the API, with a token that has `IMPORT_DATA` and `PLAN_MANAGE` (and `SPEC_APPROVE` to approve drafts), and `TESSICK` and `PROJECT` set as in [Importing from a script](#importing-from-a-script):
+
+```bash
+# A preview: each case and what would happen to it. Nothing is written.
+curl -fsS -H "Authorization: Bearer $TOKEN" -F file=@linkedItems_Regression.xml \
+  "$TESSICK/api/v1/projects/$PROJECT/imports/testlink-plan/dry-run"
+
+# The import: a new plan (plan_name, or the file's), or {"test_plan_id": "..."} to add to one.
+curl -fsS -H "Authorization: Bearer $TOKEN" -F file=@linkedItems_Regression.xml \
+  -F 'configuration={"plan_name":"Regression","approve_drafts":true}' \
+  "$TESSICK/api/v1/projects/$PROJECT/imports/testlink-plan/execute"
+```
+
+The test case import refuses a test plan export (`400 TESTLINK_PLAN_FILE`), since it would read the plan's case numbers as cases to update.
 
 ## Importing from a script
 

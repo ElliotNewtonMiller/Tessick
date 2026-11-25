@@ -426,6 +426,146 @@ export const importExecuteSchema = {
   },
 };
 
+// ---- Import: a TestLink test plan ----
+
+const planImportConfiguration = {
+  type: 'object',
+  properties: {
+    plan_name: { type: 'string', description: "A name for the new plan (default: the file's plan name)" },
+    test_plan_id: { type: 'string', description: 'Add the cases to this plan instead of creating one' },
+    approve_drafts: { type: 'boolean', description: 'Approve the plan\'s DRAFT cases first, so they can be added (needs `SPEC_APPROVE`); without it they are skipped' },
+  },
+};
+const planImportBody = {
+  content: {
+    'multipart/form-data': {
+      schema: handlerValidated({
+        type: 'object',
+        required: ['file'],
+        properties: {
+          file: { type: 'string', format: 'binary', description: "TestLink's export of a test plan's linked test cases (`linkedItems_<plan>.xml`), up to 50 MB" },
+          configuration: { type: 'string', description: 'JSON (as text): `{ plan_name?, test_plan_id?, approve_drafts? }`' },
+        },
+      }),
+    },
+    'application/json': {
+      schema: handlerValidated({
+        type: 'object',
+        required: ['file_content'],
+        properties: {
+          file_content: { type: 'string', description: 'The file as text (or base64 with `is_base64`); bodies up to 5 MB' },
+          is_base64: { type: 'boolean' },
+          filename: { type: 'string' },
+          configuration: planImportConfiguration,
+        },
+      }),
+    },
+  },
+};
+const planImportItemProperties = {
+  testlink_external_id: { type: 'string', description: "The case's number in the file (TestLink's `externalid`)" },
+  external_id: { type: ['string', 'null'], description: "Its id in this project, e.g. `SHOP-12` (null when the file gives none)" },
+  file_name: { type: 'string', description: "The case's name in the file" },
+  testlink_version: { type: ['integer', 'null'], description: "The TestLink version the plan held; Tessick pins the case's current approved version" },
+  test_case_id: { type: ['string', 'null'] },
+  title: { type: ['string', 'null'], description: "The case's title in Tessick" },
+  state: oneOf(['READY', 'DRAFT', 'DEPRECATED', 'NOT_FOUND', 'ALREADY_IN_PLAN']),
+  title_differs: { type: 'boolean', description: "Tessick's title isn't the file's name" },
+};
+const planImportItemRequired = Object.keys(planImportItemProperties);
+const planImportWarnings = {
+  type: 'array',
+  items: {
+    type: 'object',
+    required: ['code', 'message'],
+    properties: {
+      code: { type: 'string', description: 'NO_CASES, OTHER_PROJECT_LIKELY, CASES_NOT_FOUND, TITLES_DIFFER, DRAFT_CASES, DEPRECATED_CASES or PLATFORMS' },
+      message: { type: 'string' },
+    },
+  },
+};
+const planImportErrors = authedErrors(
+  [400, 'Not a TestLink test plan export, unreadable XML, or a bad configuration'],
+  404,
+  [413, '`IMPORT_TOO_LARGE`'],
+  [422, '`PLAN_LOCKED`: the plan named by `test_plan_id` is locked or archived'],
+  [429, '`IMPORT_BUSY` (2 imports at a time), or a rate limit']
+);
+
+export const planImportDryRunSchema = {
+  tags: IMPORT,
+  summary: 'Preview a TestLink test plan import',
+  operationId: 'previewTestLinkPlanImport',
+  description:
+    "Reads TestLink's export of a test plan's linked test cases and says what importing it would do, writing nothing. Each case is found in the project by its TestLink number (`12` → `PREFIX-12`, as the test case import numbers them), and is READY (approved), a DRAFT (added only if approved), DEPRECATED (never added), NOT_FOUND or, with `test_plan_id`, ALREADY_IN_PLAN. `matching_plans` are the project's plans with the same name. Needs `IMPORT_DATA` and `PLAN_MANAGE`.",
+  params: idParams('projectId'),
+  body: planImportBody,
+  response: {
+    200: {
+      description: 'What would happen',
+      type: 'object',
+      required: ['object', 'plan_name', 'matching_plans', 'platforms', 'summary', 'items', 'warnings'],
+      properties: {
+        object: { type: 'string', enum: ['testlink_plan_preview'] },
+        plan_name: { type: 'string', description: "The file's plan name" },
+        matching_plans: {
+          type: 'array',
+          items: { type: 'object', required: ['id', 'name', 'status'], properties: { id: { type: 'string' }, name: { type: 'string' }, status: { type: 'string' } } },
+        },
+        platforms: { type: 'array', items: { type: 'string' }, description: "The plan's TestLink platforms" },
+        summary: {
+          type: 'object',
+          additionalProperties: { type: 'integer' },
+          description: 'Counts: links in the file, total cases (each once), ready, draft, deprecated, not_found, already_in_plan, title_differs',
+        },
+        items: { type: 'array', items: { type: 'object', required: planImportItemRequired, properties: planImportItemProperties } },
+        warnings: planImportWarnings,
+      },
+    },
+    ...planImportErrors,
+  },
+};
+
+export const planImportExecuteSchema = {
+  tags: IMPORT,
+  summary: 'Import a TestLink test plan',
+  operationId: 'importTestLinkPlan',
+  description:
+    "Creates a test plan from TestLink's export of a plan's linked test cases (or adds them to `test_plan_id`), adding its cases in TestLink's execution order through the ordinary routes: only approved cases, each pinned at its current version. With `approve_drafts` the DRAFT cases are approved first. Platforms are linked to the plan for the TestLink-compatible API. It isn't one transaction: `items` says what happened to each case. Needs `IMPORT_DATA` and `PLAN_MANAGE` (and `SPEC_APPROVE` to approve).",
+  params: idParams('projectId'),
+  body: planImportBody,
+  response: {
+    200: {
+      description: 'Imported',
+      type: 'object',
+      required: ['object', 'plan', 'plan_created', 'platforms', 'summary', 'items', 'warnings'],
+      properties: {
+        object: { type: 'string', enum: ['testlink_plan_import_result'] },
+        plan: { $ref: 'Plan#' },
+        plan_created: { type: 'boolean' },
+        platforms: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'object', additionalProperties: { type: 'integer' }, description: 'Counts: total, added, approved, already_in_plan, skipped, failed' },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [...planImportItemRequired, 'outcome', 'approved'],
+            properties: {
+              ...planImportItemProperties,
+              outcome: oneOf(['ADDED', 'ALREADY_IN_PLAN', 'SKIPPED', 'FAILED']),
+              approved: { type: 'boolean', description: 'This import approved the draft' },
+              code: { type: 'string', description: 'Why it failed' },
+              detail: { type: 'string' },
+            },
+          },
+        },
+        warnings: planImportWarnings,
+      },
+    },
+    ...planImportErrors,
+  },
+};
+
 export const importFieldOptionsSchema = {
   tags: IMPORT,
   summary: 'Custom fields an import can map to',

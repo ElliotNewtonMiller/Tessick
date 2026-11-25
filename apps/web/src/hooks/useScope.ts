@@ -73,6 +73,8 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
   // specTreeRequestSeq are already scoped to the state they guard.
   const runsListRequestSeq = useRef(0);
   const plansRequestSeq = useRef(0);
+  // A plan to select once a plan list that has it arrives (one just imported: showImportedPlan).
+  const planToSelect = useRef<string | null>(null);
 
   const openEntityModal = (entityType: EntityType, actionType: ActionType) => {
     let targetItem: EntityItem | null = null;
@@ -445,6 +447,14 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
     if (target) showToast(`Switched to Test Plan: ${target.name}`);
   };
 
+  /** Shows a plan just imported: its project, with the plan list reloaded and the plan selected. */
+  const showImportedPlan = (projectId: string, planId: string) => {
+    planToSelect.current = planId;
+    // Switching projects loads its plans (the effect below); the same project's are reloaded here.
+    if (projectId !== selectedProjectId) handleSelectProject(projectId, { silent: true });
+    else loadPlans(projectId);
+  };
+
   const handleSelectRun = (runId: string) => {
     setSelectedRunId(runId);
     const target = runsList.find((r) => r.id === runId);
@@ -500,12 +510,16 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
         // state indefinitely.
         // Default to the first plan that isn't archived (archived plans are hidden from the
         // dropdown unless asked for), falling back to any plan.
+        const wanted = planToSelect.current;
+        if (wanted && mapped.some((p) => p.id === wanted)) planToSelect.current = null;
         setSelectedPlanId((prev) =>
           mapped.length === 0
             ? ""
-            : mapped.some((p) => p.id === prev)
-              ? prev
-              : (mapped.find((p) => p.status !== "ARCHIVED") ?? mapped[0]).id,
+            : wanted && mapped.some((p) => p.id === wanted)
+              ? wanted
+              : mapped.some((p) => p.id === prev)
+                ? prev
+                : (mapped.find((p) => p.status !== "ARCHIVED") ?? mapped[0]).id,
         );
       } else {
         // A failed plans fetch clears the plan (and, through it, the run) rather than leaving
@@ -684,6 +698,7 @@ export function useScope({ currentUser, showToast, handleAuthExpiry, initial, on
     handleConfirmDeleteRun,
     handleSelectProject,
     handleSelectPlan,
+    showImportedPlan,
     handleSelectRun,
     refreshRunsList,
     handleToggleRunClosed,

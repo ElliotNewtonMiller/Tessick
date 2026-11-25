@@ -23,7 +23,7 @@ It was named **Testify** until 2026-11-15 (renamed by Elliot: the name clashed w
 - Evidence: screenshots, videos, logs and Playwright traces per executed case, in the web app (the Execute pane's Evidence section and viewer), the API (including CI batches, upload links and JUnit attachments) and MCP, stored on disk or in S3-compatible storage.
 - Reports: run summaries and diffs, trends, flaky and slow tests, case history, breakdowns. They're available in the app, the REST API, scheduled email and MCP.
 - Webhooks: a project's events (runs, results, test cases, imports) sent as they happen, as signed JSON, Slack-style messages or Teams cards, with retries, a delivery log, and a pause for webhooks that keep failing.
-- Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON) and export (JSON, CSV).
+- Import (TestLink XML, JUnit XML, TestRail CSV, CSV, JSON; and TestLink's test plan export, as a plan of cases already in the project) and export (JSON, CSV).
 - Editable roles, per-project roles and permission overrides, and project-scoped API tokens.
 
 Not built:
@@ -82,7 +82,8 @@ apps/server/       Fastify API (TypeScript, ESM). Entry src/server.ts (createSer
                    rateLimits, loginThrottle, resultValidation, resultOverwrite, stepValidation, secrets,
                    batchResults (recording a CI batch, JSON or JUnit), runByName (CI's run per build),
                    webhooks (the delivery worker), webhookEvents (what each event sends), webhookTargets (address rules),
-                   idempotency (Idempotency-Key on the result routes), storageSweeper (deletes files whose evidence rows went).
+                   idempotency (Idempotency-Key on the result routes), storageSweeper (deletes files whose evidence rows went),
+                   testlinkPlanImport (a TestLink test plan export into a plan, through the ordinary routes).
   src/middleware/auth.ts   Authentication and permission checks (see "Auth and permissions").
   src/mcp/          mcpServer.ts: POST /mcp, read tools over the same services; evidenceTools.ts: evidence (an image returned as image content); writeTools.ts: write tools that call
                    the REST routes as the caller (internalRequests.ts).

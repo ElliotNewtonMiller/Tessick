@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Readable } from 'node:stream';
-import { SaxXmlParser, JsonSchemaParser, CsvParser, LOOSE_CASES_SUITE_NAME, cleanHtmlText } from '../src/index.js';
+import { SaxXmlParser, JsonSchemaParser, CsvParser, LOOSE_CASES_SUITE_NAME, cleanHtmlText, parseTestLinkPlanXml, isTestLinkPlanXml, TestLinkPlanFileError } from '../src/index.js';
 
 describe('Core Ingestion Parsers', () => {
   it('SaxXmlParser parses TestLink XML streaming payload', async () => {
@@ -276,5 +276,79 @@ Payments / Checkout,Verify Payment,TC-PAY-2,Summary text,HIGH,AUTOMATED,2,Check 
 
     expect(count).toBe(5000);
     expect(heapDiffMb).toBeLessThan(64);
+  });
+});
+
+// TestLink's export of a test plan's linked test cases (linkedItems_<plan>.xml).
+const PLAN_XML = `<?xml version="1.0" encoding="UTF-8"?>
+
+
+	<testplan>
+		<name><![CDATA[Regression & smoke]]></name>
+		<platforms>
+			<platform><name><![CDATA[Chrome]]></name><internal_id><![CDATA[3]]></internal_id></platform>
+		</platforms>
+<executables>
+	<link>
+		<platform><name><![CDATA[Chrome]]></name></platform>
+		<testcase>
+			<name><![CDATA[Pays by card]]></name>
+			<externalid><![CDATA[7]]></externalid>
+			<version><![CDATA[2]]></version>
+			<execution_order><![CDATA[20]]></execution_order>
+		</testcase>
+</link>
+	<link>
+		<platform><name><![CDATA[Firefox]]></name></platform>
+		<testcase>
+			<name><![CDATA[Pays by card]]></name>
+			<externalid><![CDATA[7]]></externalid>
+			<version><![CDATA[2]]></version>
+			<execution_order><![CDATA[20]]></execution_order>
+		</testcase>
+</link>
+	<link>
+		<platform><name><![CDATA[]]></name></platform>
+		<testcase>
+			<name><![CDATA[Logs in]]></name>
+			<externalid><![CDATA[3]]></externalid>
+			<version><![CDATA[1]]></version>
+			<execution_order><![CDATA[]]></execution_order>
+		</testcase>
+</link>
+</executables>
+	</testplan>`;
+
+describe("TestLink's test plan export", () => {
+  it('reads the name, platforms and every link in file order', () => {
+    const plan = parseTestLinkPlanXml(PLAN_XML);
+    expect(plan.name).toBe('Regression & smoke');
+    expect(plan.platforms).toEqual(['Chrome', 'Firefox']);
+    expect(plan.links).toEqual([
+      { external_id: '7', name: 'Pays by card', version: 2, execution_order: 20, platform: 'Chrome' },
+      { external_id: '7', name: 'Pays by card', version: 2, execution_order: 20, platform: 'Firefox' },
+      { external_id: '3', name: 'Logs in', version: 1, execution_order: null, platform: '' },
+    ]);
+  });
+
+  it('refuses a file that is not a plan export, or not XML', () => {
+    expect(() => parseTestLinkPlanXml('<testsuite name="x"></testsuite>')).toThrow(/starts with <testsuite>, not <testplan>/);
+    expect(() => parseTestLinkPlanXml('<testplan><name>x</name>')).toThrow(/isn't readable XML/);
+    expect(() => parseTestLinkPlanXml('')).toThrow(/empty/);
+  });
+
+  it('is recognised by its first element', () => {
+    expect(isTestLinkPlanXml(PLAN_XML)).toBe(true);
+    expect(isTestLinkPlanXml('\uFEFF<!-- exported --><testplan>')).toBe(true);
+    expect(isTestLinkPlanXml('<?xml version="1.0"?><testsuite name=""><testplan>')).toBe(false);
+  });
+
+  it("isn't read as test cases by the TestLink XML import", async () => {
+    const read = async () => {
+      for await (const _suite of new SaxXmlParser().parseStream(Readable.from([PLAN_XML]))) {
+        // nothing should be read
+      }
+    };
+    await expect(read()).rejects.toBeInstanceOf(TestLinkPlanFileError);
   });
 });

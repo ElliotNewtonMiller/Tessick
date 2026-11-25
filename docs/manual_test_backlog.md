@@ -190,6 +190,15 @@ In Admin Panel → API Tokens → New Token:
 
 **Already checked by the agent:** the folding and the button's label in both modes, live in its own tab; the helper by a unit test.
 
+## Importing TestLink test plans (2026-11-24)
+
+- [ ] Import your project's test cases (TestLink XML) into a project with TestLink's prefix, then a plan's `linkedItems_<plan>.xml` with **📥 Import** on Auto-detect: the wizard says it's a TestLink test plan and lists its cases in TestLink's order, with what happens to each.
+- [ ] **Create Test Plan** without approving: only the approved cases are in the new plan, and Tessick selects it. Import the file again, choose **Add to the existing plan** and tick **Approve the N draft cases**: they're approved and added after the others.
+- [ ] Confirm where TestLink 1.9 exports a plan: the docs say **Test Plan Management → the plan's export icon**. Tell the agent if it's somewhere else.
+- [ ] As a user without Approve permission, the tick box isn't offered; the drafts are listed as skipped.
+
+**Already checked by the agent:** with your real exports, in its own tab: Auto-detect switched to the plan; 79 cases, 20 ready, 59 drafts and 12 renamed since the spec export, each shown with both titles; the first import added 20, the second approved and added the 59 with the 20 left alone; Spec mode showed 79 in the plan. The rules (states, order, platforms, permissions, locked plans, refusing a spec file, the case import refusing a plan file) by server tests. Not checked: a TestLink plan with platforms from a real TestLink (only a written one).
+
 ## Elliot's other tasks
 
 ### Launch (2026-11-18)

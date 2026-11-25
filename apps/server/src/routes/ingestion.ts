@@ -30,12 +30,15 @@ import {
   type DryRunWarning,
   type HierarchyPreviewNode,
   type SkippedCustomFieldValueWarning,
+  TestLinkPlanFileError,
+  parseTestLinkPlanXml,
 } from '@tessick/core';
 import { authenticateRequest, permissionsInProject } from '../middleware/auth.js';
 import { isPublicError, publicErrorMessage, sendError } from '../errors.js';
 import { requestOrigin } from '../audit.js';
 import { emitImportCompleted, webhookActor } from '../services/webhookEvents.js';
 import * as O from '../openapi/areas/other.js';
+import { executePlanImport, previewPlanImport, type PlanImportOptions } from '../services/testlinkPlanImport.js';
 
 /**
  * Import size limits. An import file is held in memory while it's parsed (and its parsed tree
@@ -98,12 +101,17 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
   function importErrorHandler(err: any, _req: FastifyRequest, reply: FastifyReply) {
     if (!sendImportTooLarge(reply, err)) throw err;
   }
-  // Helper to extract file buffer and configuration from request
-  async function parseImportRequest(req: FastifyRequest) {
+  /**
+   * The uploaded file and settings: multipart (`file`, `format`, `configuration` as JSON text) or a
+   * JSON body (`file_content`, `is_base64`, `filename`, `format`, `configuration`). A configuration
+   * that isn't readable JSON is `unreadableConfiguration`.
+   */
+  async function readImportUpload(req: FastifyRequest) {
     let fileBuffer: Buffer | null = null;
     let filename = 'import_file';
     let format: string | undefined = undefined;
-    let configuration: ImportConfiguration = {};
+    let configuration: unknown = undefined;
+    let unreadableConfiguration = false;
 
     if (req.isMultipart()) {
       const parts = req.parts();
@@ -116,9 +124,9 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
           if (part.fieldname === 'format') format = part.value as string;
           if (part.fieldname === 'configuration') {
             try {
-              configuration = typeof part.value === 'string' ? JSON.parse(part.value) : (part.value as any);
-            } catch (e) {
-              // fallback
+              configuration = typeof part.value === 'string' ? JSON.parse(part.value) : part.value;
+            } catch {
+              unreadableConfiguration = true;
             }
           }
         }
@@ -138,6 +146,14 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
     if (!fileBuffer) {
       throw new Error('No import file provided in request.');
     }
+    return { fileBuffer: fileBuffer as Buffer, filename, format, configuration, unreadableConfiguration };
+  }
+
+  // Helper to extract file buffer and configuration from request
+  async function parseImportRequest(req: FastifyRequest) {
+    const upload = await readImportUpload(req);
+    const { fileBuffer, filename, format } = upload;
+    const configuration = (upload.unreadableConfiguration ? {} : (upload.configuration ?? {})) as ImportConfiguration;
 
     // Select parser. JUnitXmlParser must be checked before SaxXmlParser for auto-sniffing --
     // SaxXmlParser's broad <testsuite>/<testsuites> match would otherwise greedily claim
@@ -400,6 +416,7 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
       // A problem with the file (too large, parse errors, missing file) is the user's to fix;
       // anything else is unexpected and answered by the global error handler.
       if (sendImportTooLarge(reply, err)) return;
+      if (err instanceof TestLinkPlanFileError) return sendError(reply, 400, err.message, { code: 'TESTLINK_PLAN_FILE' });
       if (!isPublicError(err)) throw err;
       return sendError(reply, 400, err.message);
     }
@@ -883,6 +900,108 @@ export async function registerIngestionRoutes(app: FastifyInstance, db: Kysely<D
     } catch (err) {
       // A problem with the file (too large, parse errors, missing file) is the user's to fix;
       // anything else is unexpected and answered by the global error handler.
+      if (sendImportTooLarge(reply, err)) return;
+      if (err instanceof TestLinkPlanFileError) return sendError(reply, 400, err.message, { code: 'TESTLINK_PLAN_FILE' });
+      if (!isPublicError(err)) throw err;
+      return sendError(reply, 400, err.message);
+    }
+  });
+
+  /** A plan import's `configuration`, checked: the options, or 400's invalid_params. */
+  function planImportOptions(raw: unknown, unreadable: boolean): { options: PlanImportOptions } | { invalid: Array<{ name: string; reason: string }> } {
+    if (unreadable) return { invalid: [{ name: 'configuration', reason: "isn't readable JSON" }] };
+    if (raw === undefined || raw === null) return { options: {} };
+    if (typeof raw !== 'object' || Array.isArray(raw)) return { invalid: [{ name: 'configuration', reason: 'must be an object' }] };
+    const invalid: Array<{ name: string; reason: string }> = [];
+    const known: Record<string, (v: unknown) => boolean> = {
+      plan_name: (v) => typeof v === 'string',
+      test_plan_id: (v) => typeof v === 'string' && v.length > 0,
+      approve_drafts: (v) => typeof v === 'boolean',
+    };
+    for (const [key, value] of Object.entries(raw)) {
+      if (!known[key]) invalid.push({ name: `configuration.${key}`, reason: "isn't a known field" });
+      else if (!known[key](value)) invalid.push({ name: `configuration.${key}`, reason: key === 'approve_drafts' ? 'must be true or false' : 'must be a string' });
+    }
+    const options = raw as PlanImportOptions;
+    if (options.plan_name !== undefined && options.test_plan_id !== undefined) {
+      invalid.push({ name: 'configuration.test_plan_id', reason: 'give a plan_name for a new plan or a test_plan_id to add to, not both' });
+    }
+    return invalid.length ? { invalid } : { options };
+  }
+
+  /**
+   * What both plan import routes do first: read the upload and its settings, check the caller may
+   * import plans (and approve, when asked) in the project, and read the file. Null when it answered.
+   */
+  async function readPlanImport(req: FastifyRequest, reply: FastifyReply, execute: boolean) {
+    const user = await authenticateRequest(req, reply, db, jwtSecret);
+    if (!user) return null;
+    const upload = await readImportUpload(req);
+    const checked = planImportOptions(upload.configuration, upload.unreadableConfiguration);
+    if ('invalid' in checked) {
+      sendError(reply, 400, `The configuration has problems: ${checked.invalid.map((p) => `${p.name} ${p.reason}`).join('; ')}.`, { invalid_params: checked.invalid });
+      return null;
+    }
+    const { options } = checked;
+    const projectId = (req.params as { projectId: string }).projectId;
+    const perms = await permissionsInProject(user, projectId, db);
+    const needed = ['IMPORT_DATA', 'PLAN_MANAGE', ...(execute && options.approve_drafts ? ['SPEC_APPROVE'] : [])];
+    const missing = perms.includes('SYSTEM_ADMIN') ? undefined : needed.find((p) => !perms.includes(p));
+    if (missing) {
+      sendError(reply, 403, `Importing a test plan${missing === 'SPEC_APPROVE' ? ' and approving its drafts' : ''} needs ${missing}`, { required_permission: missing });
+      return null;
+    }
+    const project = await db.selectFrom('projects').select(['id', 'prefix']).where('id', '=', projectId).executeTakeFirst();
+    if (!project) {
+      sendError(reply, 404, 'Project not found');
+      return null;
+    }
+    if (options.test_plan_id) {
+      const plan = await db.selectFrom('test_plans').select('id').where('id', '=', options.test_plan_id).where('project_id', '=', project.id).executeTakeFirst();
+      if (!plan) {
+        sendError(reply, 404, 'Test plan not found in this project', { invalid_params: [{ name: 'configuration.test_plan_id', reason: 'is not a plan in this project' }] });
+        return null;
+      }
+    }
+    const file = withoutNul(parseTestLinkPlanXml(upload.fileBuffer.toString('utf-8')));
+    return { project, file, options };
+  }
+
+  const planImportRoute = {
+    bodyLimit: IMPORT_JSON_BODY_LIMIT_BYTES,
+    config: { stripNul: true },
+    onRequest: takeImportSlot,
+    onResponse: releaseImportSlot,
+    onRequestAbort: releaseImportSlot,
+    errorHandler: importErrorHandler,
+  };
+
+  // POST /api/v1/projects/:projectId/imports/testlink-plan/dry-run -- what importing a TestLink
+  // test plan export would do (services/testlinkPlanImport.ts); writes nothing.
+  app.post('/api/v1/projects/:projectId/imports/testlink-plan/dry-run', { schema: O.planImportDryRunSchema, ...planImportRoute }, async (req, reply) => {
+    try {
+      const read = await readPlanImport(req, reply, false);
+      if (!read) return reply;
+      return reply.status(200).send(await previewPlanImport(db, read.project, read.file, read.options.test_plan_id));
+    } catch (err) {
+      if (sendImportTooLarge(reply, err)) return;
+      if (!isPublicError(err)) throw err;
+      return sendError(reply, 400, err.message);
+    }
+  });
+
+  // POST /api/v1/projects/:projectId/imports/testlink-plan/execute -- imports it: a new plan (or
+  // the one named), its cases added in TestLink's order, drafts approved first when asked.
+  app.post('/api/v1/projects/:projectId/imports/testlink-plan/execute', { schema: O.planImportExecuteSchema, ...planImportRoute }, async (req, reply) => {
+    try {
+      const read = await readPlanImport(req, reply, true);
+      if (!read) return reply;
+      const out = await executePlanImport(req, db, read.project, read.file, read.options);
+      if (!out.ok) {
+        return sendError(reply, out.status, out.detail, { code: out.code, ...(out.invalid_params ? { invalid_params: out.invalid_params as any } : {}) });
+      }
+      return reply.status(200).send(out.body);
+    } catch (err) {
       if (sendImportTooLarge(reply, err)) return;
       if (!isPublicError(err)) throw err;
       return sendError(reply, 400, err.message);

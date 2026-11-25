@@ -92,7 +92,7 @@ All addresses below are under `/api/v1`. The permission each route needs is in R
 | Evidence | `POST /runs/{runId}/cases/{caseId}/evidence` (to the case's latest result; multipart or a raw body), `POST /results/{resultId}/evidence`, `POST /runs/{runId}/evidence` (CI: file parts named by case), `POST /runs/{runId}/cases/{caseId}/evidence/uploads` (an upload link), `PUT /evidence-uploads/{token}` (no sign-in: the link is the credential), `POST /evidence-uploads/{uploadId}/complete`, `GET /runs/{runId}/evidence` (paged; filters `test_case_id`, `kind`), `GET /runs/{runId}/cases/{caseId}/evidence`, `GET`/`DELETE /evidence/{evidenceId}`, `GET /evidence/{evidenceId}/content` (Range; `?download=1`) (§5) |
 | Reports | `GET /projects/{projectId}/reports` (the catalog), `POST /projects/{projectId}/reports/{reportId}[?format=json\|markdown\|csv]` |
 | Report email | `POST /projects/{projectId}/report-emails`, `GET`/`POST /projects/{projectId}/report-schedules`, `PUT`/`DELETE /report-schedules/{scheduleId}`, `POST /report-schedules/{scheduleId}/recipients` (`email`), `DELETE /report-schedules/{scheduleId}/recipients/{email}`, `POST /report-schedules/{scheduleId}/send-now` |
-| Import | `POST /projects/{projectId}/imports/dry-run`, `POST /projects/{projectId}/imports/execute`, `GET /projects/{projectId}/imports/custom-field-options` (§6) |
+| Import | `POST /projects/{projectId}/imports/dry-run`, `POST /projects/{projectId}/imports/execute`, `GET /projects/{projectId}/imports/custom-field-options` (§6); a TestLink test plan: `POST /projects/{projectId}/imports/testlink-plan/dry-run`, `POST /projects/{projectId}/imports/testlink-plan/execute` (§6.6) |
 | Export | `POST /projects/{projectId}/exports/definitions`, `POST /projects/{projectId}/exports/results` |
 | API tokens | `GET`/`POST /projects/{projectId}/api-tokens`, `DELETE /api-tokens/{tokenId}` (revokes) |
 | Webhooks | `GET /webhook-events`, `GET`/`POST /projects/{projectId}/webhooks`, `GET`/`PATCH`/`DELETE /webhooks/{webhookId}`, `POST /webhooks/{webhookId}/rotate-secret`, `POST /webhooks/{webhookId}/ping`, `GET /webhooks/{webhookId}/deliveries` (paged), `GET /webhook-deliveries/{deliveryId}`, `POST /webhook-deliveries/{deliveryId}/redeliver` (§7.3) |
@@ -390,7 +390,7 @@ Everything else is refused (`415 EVIDENCE_TYPE_REFUSED`): SVG, HTML, PDF, execut
 
 ## 6. Extensible Multi-Format Ingestion & Migration Engine
 
-Importing existing test repositories into Tessick supports five formats through one pipeline: preview (dry run), then execute. The import wizard in the web app (`ImportWizardModal.tsx`) walks through Upload → Field Mapping → Duplicates → Confirm → Results.
+Importing existing test repositories into Tessick supports five formats through one pipeline: preview (dry run), then execute. The import wizard in the web app (`ImportWizardModal.tsx`) walks through Upload → Field Mapping → Duplicates → Confirm → Results. A TestLink test plan export isn't test cases: it has routes of its own and goes Upload → Test Plan → Results (§6.6).
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -427,7 +427,7 @@ export interface IFileParser {
 
 `ParsedSuite` holds `name`, `details`, `node_order`, `sub_suites` and `test_cases`. Each `ParsedCase` has `external_id`, `title`, `summary`, `preconditions`, `importance`, `execution_type`, `steps`, a flat `custom_fields` string map, and any parser warnings.
 
-**Auto-detection** sniffs the first bytes, checking JUnit XML before TestLink XML: both use `<testsuite>`, but JUnit has `tests=`/`classname=` attributes. TestRail CSV is never auto-detected; it has to be chosen explicitly.
+**Auto-detection** sniffs the first bytes, checking JUnit XML before TestLink XML: both use `<testsuite>`, but JUnit has `tests=`/`classname=` attributes. TestRail CSV is never auto-detected; it has to be chosen explicitly. A file whose first element is `<testplan>` (TestLink's test plan export) is refused by the TestLink XML parser with `400 TESTLINK_PLAN_FILE`, rather than read as cases to update; the wizard then switches to the plan import (§6.6).
 
 ### 6.2 Format Mappings
 
@@ -529,6 +529,23 @@ The dry run writes nothing and returns:
 - `hierarchy_preview`.
 
 Execute runs the whole import in one transaction, writes an `IMPORT_EXECUTED` audit row, and returns the counts. There's no server-side session or ticket: the client sends the file again.
+
+### 6.6 TestLink Test Plans
+
+TestLink exports a test plan's linked test cases as its own file (Test Plan Management → the plan's export icon, `linkedItems_<plan>.xml`). `packages/core/src/ingestion/testlinkPlanXml.ts` reads it:
+
+| Element | Tessick | Rules |
+| :--- | :--- | :--- |
+| `<testplan><name>` | The plan's name | The default name of a new plan. |
+| `<platforms><platform><name>`, `<link><platform><name>` | (the TestLink-compatible API's platforms) | Tessick has no platforms: a case on several platforms is added once, and the platforms are linked to the plan (`compat_plan_platforms`) so TestLink clients can record results per platform. |
+| `<link><testcase><externalid>` | The case | The number alone, found in the project as `PREFIX-n`, as the test case import numbers it. |
+| `<testcase><name>` | (checked) | `title_differs` when the case's title in Tessick isn't this name. |
+| `<testcase><version>` | (shown only) | Tessick pins the case's current approved version; TestLink's version numbers aren't kept by the XML import. |
+| `<execution_order>` | The order cases are added | Then the file's order; the plan's positions follow it. |
+
+`POST /api/v1/projects/{projectId}/imports/testlink-plan/dry-run` and `.../execute` take the file as the other imports do (multipart `file`, or JSON `file_content`), with `configuration` `{ plan_name?, test_plan_id?, approve_drafts? }`. They need `IMPORT_DATA` and `PLAN_MANAGE`, and `SPEC_APPROVE` to approve drafts (`services/testlinkPlanImport.ts`):
+- **Dry run:** each case's `state`, READY (approved), DRAFT, DEPRECATED, NOT_FOUND or, with `test_plan_id`, ALREADY_IN_PLAN, plus counts, warnings (`OTHER_PROJECT_LIKELY` when most cases are missing or titled differently) and `matching_plans`, the project's plans with the file's plan name.
+- **Execute:** creates the plan (`plan_name`, or the file's) or uses `test_plan_id` (an ACTIVE plan; otherwise `422 PLAN_LOCKED`); with `approve_drafts`, approves each DRAFT case; then adds the cases in order. Each step goes through the ordinary route as the caller (`innerRequest`, as bulk changes do), so the plan rules hold: only approved cases, pinned at their latest version; each change writes its own audit row. Like a bulk change, it isn't one transaction: `items` gives each case's `outcome` (ADDED, ALREADY_IN_PLAN, SKIPPED, FAILED). It then writes an `IMPORT_EXECUTED` audit row for the plan and sends `import.completed` with format `TESTLINK_PLAN_XML`.
 
 ---
 

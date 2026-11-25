@@ -133,7 +133,7 @@ Several filters must all match. **Clear** removes the search and every filter. S
 
 A **test plan** is the set of cases to run for something: a release, a sprint, a regression pass. It pins each case at a version, so a case edited later doesn't change under the people testing it until it's approved again.
 
-- **New plan:** **⋯ → ➕ New plan** next to Plan. It starts empty.
+- **New plan:** **⋯ → ➕ New plan** next to Plan. It starts empty. A TestLink test plan can be imported instead, with its cases ([Import](#import)).
 - **Status** (**⋯ → ✏️ Edit plan**):
   - **ACTIVE**: the normal state.
   - **LOCKED**: frozen. No results can be recorded and its cases can't change.
@@ -268,6 +268,13 @@ Scripts and AI agents get the same reports through the API and MCP: see [reports
 5. **Results:** what was imported, and any values that didn't fit their field.
 
 Files can be up to 50 MB. Afterwards, Tessick opens the project in Spec mode to show what arrived. Moving from TestLink has its own step-by-step guide: [migrating_from_testlink.md](migrating_from_testlink.md).
+
+**A TestLink test plan** (the file TestLink's Test Plan Management exports for a plan, `linkedItems_<plan>.xml`) is recognised by Auto-detect, or choose **TestLink test plan (XML)**. It needs `PLAN_MANAGE` too, and the project's test cases imported first: the plan's cases are found by their TestLink numbers. Instead of the field and duplicate steps, there's one **Test Plan** step:
+- **The plan:** a new plan, named after TestLink's (change it if you like), or **Add to the existing plan** when the project has one of that name.
+- **Each case**, in TestLink's order, with what will happen to it. Approved cases are added. Drafts are added only if you tick **Approve the N draft cases and add them too** (shown when you can approve cases). Deprecated cases and cases the project doesn't have aren't added. A case whose title differs from the file's is shown with both titles.
+- **Create Test Plan** (or **Add to Test Plan**) adds them, and **Results** lists the cases that weren't added and why. Tessick then selects the plan.
+
+Importing the same plan again into the same plan adds only what's missing, such as drafts approved since.
 
 ### Export
 

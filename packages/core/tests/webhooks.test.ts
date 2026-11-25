@@ -66,6 +66,8 @@ describe('Slack-style messages', () => {
     expect(closed).toContain('• *SHOP-1* Logs in — timeout');
     expect(renderSlackMessage(env('test_case.created', samples['test_case.created'])).text).toContain('*SHOP-3* Refunds was created by an AI agent as a DRAFT, waiting for review.');
     expect(renderSlackMessage(env('results.failed', samples['results.failed'])).text).toMatch(/^:x: 1 failed in run \*CI build 7\* \(plan Regression\)/);
+    const planImport = { format: 'TESTLINK_PLAN_XML', counts: { plan_name: 'Regression', added_cases_count: 20, skipped_cases_count: 59 } };
+    expect(renderSlackMessage(env('import.completed', planImport)).text).toContain('Test plan *Regression* imported from TestLink: 20 cases added, 59 skipped.');
   });
 
   it("escapes test content, so it can't mention @channel or make links", () => {

@@ -4609,3 +4609,56 @@ The dev server was then restarted and Storefront reloaded, so the clips start cl
 - **The site's repo** (separate): the email in place of the highlighted placeholder; tessick.com in the canonical, social, JSON-LD, sitemap and robots addresses; the 404 page's links start at `/`; the local preview serves the folder itself; its README has the DNS records. A site published by a GitHub Actions workflow ignores a `CNAME` file, so the domain is set in the repo's Pages settings instead, and the workflow no longer copies one.
 
 **Verified:** the site served locally: every page, the 404 page's links and assets answer 200; the email link reads and opens TessickTesting@gmail.com with no highlight. The README's tessick.com link works once the site is published and DNS is set.
+
+## Importing TestLink test plans (2026-11-24)
+
+**Why:** Elliot wants to bring TestLink's test plans across without the database migration. TestLink exports a plan's linked test cases as its own file (`linkedItems_<plan>.xml`: the plan's name and, for each case, its number, name, version, platform and execution order). The XML import brought only test cases.
+
+**Found on the way:** the test case import read such a file as test cases. Its `<externalid>`s matched the project's cases, so under the default "Version up" each case in the plan got a new, empty, APPROVED latest version. It now refuses the file (`400 TESTLINK_PLAN_FILE`).
+
+**What changed:**
+- **Parser:** `packages/core/src/ingestion/testlinkPlanXml.ts` reads the plan file, and refuses anything else (a spec export, unreadable or cut-short XML). `SaxXmlParser` throws `TestLinkPlanFileError` on a `<testplan>` root.
+- **Routes:** `POST /projects/:projectId/imports/testlink-plan/dry-run` and `/execute` (`routes/ingestion.ts`, logic in `services/testlinkPlanImport.ts`). The file is read as the other imports read it (multipart or JSON, the same slots and limits). `configuration` is `{ plan_name?, test_plan_id?, approve_drafts? }`. They need IMPORT_DATA and PLAN_MANAGE, and SPEC_APPROVE to approve drafts.
+- **Matching:** each case by its TestLink number in the project (`PREFIX-n`, as the case import numbers it). Its state is READY, DRAFT, DEPRECATED, NOT_FOUND or ALREADY_IN_PLAN, and `title_differs` is set when Tessick's title isn't the file's. Warnings cover missing cases, renamed cases, drafts, deprecated cases, platforms, and "probably another project" when most are missing or renamed.
+- **Execute** goes through the ordinary routes as the caller (`innerRequest`, as bulk changes do):
+  - it creates the plan or uses an ACTIVE one (`422 PLAN_LOCKED` otherwise);
+  - it approves drafts if asked;
+  - it adds the cases in TestLink's execution order, then the file's;
+  - it ends with an `IMPORT_EXECUTED` audit row on the plan and `import.completed` (format `TESTLINK_PLAN_XML`, with its own Slack line).
+
+  So the plan rules hold (approved cases only, pinned at their current version). Like a bulk change it isn't one transaction, and each case gets an `outcome`.
+- **Platforms:** Tessick has none. A case on several platforms is added once, and the platforms are linked to the plan (`compat_plan_platforms`), because the TestLink-compatible API refuses a result for a platform the plan doesn't have.
+- **Web:** the Import wizard has **TestLink test plan (XML)**. Auto-detect switches to it on the server's `TESTLINK_PLAN_FILE`, so detection lives only on the server. Its steps are Upload → Test Plan → Results:
+  - the Test Plan step (`PlanImportPanels.tsx`, helpers in `utils/planImport.ts`) offers a new plan (named from the file) or the existing plan of that name;
+  - it shows tiles and the approve-drafts tick box (only with SPEC_APPROVE in the target project);
+  - it lists every case with both titles when they differ.
+
+  Afterwards `useScope.showImportedPlan` selects the plan once its project's plan list loads.
+- **Docs:**
+  - `migrating_from_testlink.md`: the table, and a new section 3, "Import your test plans";
+  - RFC 03: §6, and the new §6.6;
+  - the user guide;
+  - CLAUDE.md and AGENTS.md;
+  - the website's `/testlink/` and home page (its own repo, not published).
+
+**Decided with Elliot:** drafts are offered for approval in the preview, to people who can approve, rather than skipped silently or linked as drafts. The entry point is the existing Import wizard.
+
+**Known limit:** a second import into the same plan adds the missing cases after those already in it. TestLink's whole order holds when the drafts are approved in the first import. Tessick pins each case's current approved version; TestLink's version numbers aren't kept by the XML import.
+
+**Tests:**
+- `ingestion.test.ts`: the parser (platforms, repeated cases, empty order, not a plan, cut short), and the case parser refusing a plan.
+- `testlink_plan_import.test.ts`:
+  - states and order;
+  - creating, then adding approved drafts to the same plan;
+  - names, locked plans and both options at once;
+  - the permissions;
+  - the case import refusing a plan file without touching a case;
+  - multipart.
+- `webhooks.test.ts`: the Slack line. `planImport.test.ts` (web): the configuration sent and each case's text.
+- `openapi.test.ts`: 133 documented routes.
+
+**Verified live** (the agent's tab at `127.0.0.1:3000`), with Elliot's real exports, kept out of the repo:
+- The spec: 724 cases.
+- The plan, through the wizard on Auto-detect: 79 cases, 20 approved, 59 drafts, 12 with titles changed since the spec export.
+- Without approving: 20 added and the plan selected. Into the same plan with approval: 59 approved and added, 20 already there.
+- Spec mode showed 79/724 in the plan. No server errors.

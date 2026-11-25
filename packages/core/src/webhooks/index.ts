@@ -201,6 +201,9 @@ function headline(env: WebhookEnvelope, st: Style): string {
       return `${st.icon('recycle', '♻️')}${tc} was restored.`;
     case 'import.completed': {
       const c = d.counts ?? {};
+      if (d.format === 'TESTLINK_PLAN_XML') {
+        return `${st.icon('inbox_tray', '📥')}Test plan *${st.esc(c.plan_name ?? '')}* imported from TestLink: ${c.added_cases_count ?? 0} cases added${c.skipped_cases_count ? `, ${c.skipped_cases_count} skipped` : ''}.`;
+      }
       return `${st.icon('inbox_tray', '📥')}Import finished: ${c.imported_cases_count ?? 0} cases in ${c.imported_suites_count ?? 0} suites (${st.esc(d.format)}).`;
     }
     default:

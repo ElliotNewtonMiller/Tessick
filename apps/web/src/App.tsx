@@ -539,10 +539,11 @@ export default function App() {
           onClose={() => setImportWizardOpen(false)}
           projects={projectsList}
           defaultProjectId={selectedProjectId}
-          onImportComplete={(projectId) => {
-            // Show what was imported: its project, in Spec mode (in Execute mode a new project has
-            // no plan yet, so the screen would stay empty).
-            if (projectId !== selectedProjectId) scope.handleSelectProject(projectId, { silent: true });
+          onImportComplete={(projectId, planId) => {
+            // Show what was imported: its project (and a test plan import's plan), in Spec mode (in
+            // Execute mode a new project has no plan yet, so the screen would stay empty).
+            if (planId) scope.showImportedPlan(projectId, planId);
+            else if (projectId !== selectedProjectId) scope.handleSelectProject(projectId, { silent: true });
             setAppView("WORKSPACE");
             setWorkspaceMode("SPECIFICATION");
             refreshSpecTree();

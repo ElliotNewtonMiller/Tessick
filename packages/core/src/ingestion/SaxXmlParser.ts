@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 import { normalizePriority, type ParsedPriority } from './types.js';
 import { versionStatusFromTestLink } from '../testlink/migration.js';
+import { TestLinkPlanFileError } from './testlinkPlanXml.js';
 
 /** sax's table of the HTML entities (missing from its type definitions). */
 const HTML_ENTITIES = (sax as unknown as { ENTITIES: Record<string, string | number | undefined> }).ENTITIES;
@@ -139,8 +140,12 @@ export class SaxXmlParser implements IFileParser {
     let tagStack: string[] = [];
     let textBuffer = '';
 
+    let rootSeen = false;
     parser.onopentag = (node) => {
       const tagName = node.name.toLowerCase();
+      // A test plan export lists cases by their ids, which would be read here as cases to update.
+      if (!rootSeen && tagName === 'testplan') throw new TestLinkPlanFileError();
+      rootSeen = true;
       tagStack.push(tagName);
       textBuffer = '';
 

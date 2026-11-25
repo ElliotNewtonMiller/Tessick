@@ -3,10 +3,14 @@ import { authHeaders } from "../utils/session";
 
 import { errorMessage as apiErrorMessage } from "../api/errors";
 import { api, withQuery } from "../api/routes";
+import { PlanImportPreviewPanel, PlanImportResultPanel } from "./PlanImportPanels";
+import { planImportConfiguration, type PlanImportPreview, type PlanImportResult, type PlanImportTarget } from "../utils/planImport";
 interface ProjectItem {
   id: string;
   name: string;
   prefix?: string;
+  /** The caller's permissions in the project (GET /projects) */
+  permissions?: string[];
 }
 
 /** A readable default name for a field made from an imported column: `cf_test_type` → "Test type". */
@@ -24,9 +28,10 @@ function numberFromText(value: string): number | null {
   return negative ? -Number(match[3]) : Number(match[3]);
 }
 
-type WizardStep = "UPLOAD" | "MAPPING" | "DUPLICATES" | "CONFIRM" | "RESULTS";
+// A TestLink test plan export goes UPLOAD → PLAN → RESULTS instead (PLAN_STEPS).
+type WizardStep = "UPLOAD" | "MAPPING" | "DUPLICATES" | "CONFIRM" | "PLAN" | "RESULTS";
 
-type FieldFormatId = "" | "TESTLINK_XML" | "NATIVE_JSON" | "STANDARD_CSV" | "JUNIT_XML" | "TESTRAIL_CSV";
+type FieldFormatId = "" | "TESTLINK_XML" | "TESTLINK_PLAN_XML" | "NATIVE_JSON" | "STANDARD_CSV" | "JUNIT_XML" | "TESTRAIL_CSV";
 
 type CustomFieldType = "TEXT" | "NUMBER" | "CHECKBOX" | "DATE" | "SINGLE_SELECT" | "MULTI_SELECT";
 
@@ -119,13 +124,14 @@ interface ImportWizardModalProps {
   onClose: () => void;
   projects: ProjectItem[];
   defaultProjectId?: string;
-  /** After a successful import, with the project the file went into. */
-  onImportComplete?: (projectId: string) => void;
+  /** After a successful import, with the project the file went into (and a test plan import's plan). */
+  onImportComplete?: (projectId: string, planId?: string) => void;
 }
 
 const FORMAT_OPTIONS: Array<{ value: FieldFormatId; label: string }> = [
   { value: "", label: "Auto-detect" },
   { value: "TESTLINK_XML", label: "TestLink XML" },
+  { value: "TESTLINK_PLAN_XML", label: "TestLink test plan (XML)" },
   { value: "NATIVE_JSON", label: "Native JSON" },
   { value: "STANDARD_CSV", label: "Standard CSV" },
   { value: "JUNIT_XML", label: "JUnit XML" },
@@ -138,6 +144,12 @@ const STEPS: Array<{ key: WizardStep; label: string }> = [
   { key: "DUPLICATES", label: "3. Duplicates" },
   { key: "CONFIRM", label: "4. Confirm" },
   { key: "RESULTS", label: "5. Results" },
+];
+
+const PLAN_STEPS: Array<{ key: WizardStep; label: string }> = [
+  { key: "UPLOAD", label: "1. Upload" },
+  { key: "PLAN", label: "2. Test Plan" },
+  { key: "RESULTS", label: "3. Results" },
 ];
 
 /** Parses a JSON reply, or returns {} when the body is empty/not JSON (e.g. a proxy error or a
@@ -182,6 +194,14 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [executeResult, setExecuteResult] = useState<ImportExecuteResult | null>(null);
 
+  // A TestLink test plan export: chosen as its format, or recognised by the server.
+  const [isPlanImport, setIsPlanImport] = useState<boolean>(false);
+  const [planPreview, setPlanPreview] = useState<PlanImportPreview | null>(null);
+  const [planTarget, setPlanTarget] = useState<PlanImportTarget>("NEW");
+  const [planName, setPlanName] = useState<string>("");
+  const [approveDrafts, setApproveDrafts] = useState<boolean>(false);
+  const [planResult, setPlanResult] = useState<PlanImportResult | null>(null);
+
   useEffect(() => {
     if (isOpen && !projects.some((p) => p.id === targetProjectId)) {
       setTargetProjectId(defaultProjectId || projects[0]?.id || "");
@@ -219,6 +239,12 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
     setDuplicateAction("VERSION_UP");
     setErrorMessage(null);
     setExecuteResult(null);
+    setIsPlanImport(false);
+    setPlanPreview(null);
+    setPlanTarget("NEW");
+    setPlanName("");
+    setApproveDrafts(false);
+    setPlanResult(null);
   };
 
   if (!isOpen) return null;
@@ -235,6 +261,8 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
     }
     setFileName(chosen.name);
     setFile(chosen);
+    // A new file is detected afresh.
+    setIsPlanImport(false);
   };
 
   // The file goes up as multipart/form-data, which the server reads as a stream -- not
@@ -254,7 +282,8 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
     return form;
   };
 
-  const runDryRun = async (): Promise<DryRunResult | null> => {
+  /** The case preview, or "PLAN_FILE" when the server recognised a TestLink test plan export. */
+  const runDryRun = async (): Promise<DryRunResult | "PLAN_FILE" | null> => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -265,6 +294,7 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
         body: buildImportForm(),
       });
       const data = await readJsonResponse(res);
+      if (!res.ok && data.code === "TESTLINK_PLAN_FILE") return "PLAN_FILE";
       if (!res.ok) {
         throw new Error(apiErrorMessage(data) || describeFailedResponse(res, "Failed to preview import"));
       }
@@ -287,11 +317,82 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
       setErrorMessage("Choose a target project first.");
       return;
     }
+    if (format === "TESTLINK_PLAN_XML") {
+      await previewPlan("NEW");
+      return;
+    }
     const result = await runDryRun();
-    if (result) {
+    if (result === "PLAN_FILE") {
+      await previewPlan("NEW");
+    } else if (result) {
       setStep("MAPPING");
     }
   };
+
+  // ---- A TestLink test plan export ----
+
+  const buildPlanForm = (target: PlanImportTarget, withApproval: boolean): FormData => {
+    const form = new FormData();
+    form.append("configuration", JSON.stringify(planImportConfiguration(target, planName, withApproval)));
+    if (file) form.append("file", file, fileName);
+    return form;
+  };
+
+  /** Previews the plan import (into `target`), and shows it. */
+  const previewPlan = async (target: PlanImportTarget) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(api.planImportDryRun(targetProjectId), {
+        method: "POST",
+        headers: authHeaders(),
+        body: buildPlanForm(target, false),
+      });
+      const data = await readJsonResponse(res);
+      if (!res.ok) throw new Error(apiErrorMessage(data) || describeFailedResponse(res, "Failed to preview the test plan"));
+      const preview = data as PlanImportPreview;
+      // The first preview names the new plan after the file's.
+      if (!isPlanImport || !planPreview) setPlanName(preview.plan_name);
+      setIsPlanImport(true);
+      setPlanPreview(preview);
+      setPlanTarget(target);
+      setStep("PLAN");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to preview the test plan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePlanExecute = async () => {
+    if (planTarget === "NEW" && !planName.trim()) {
+      setErrorMessage("Give the new test plan a name.");
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(api.planImportExecute(targetProjectId), {
+        method: "POST",
+        headers: authHeaders(),
+        body: buildPlanForm(planTarget, approveDrafts),
+      });
+      const data = await readJsonResponse(res);
+      if (!res.ok) throw new Error(apiErrorMessage(data) || describeFailedResponse(res, "Import failed"));
+      const result = data as PlanImportResult;
+      setPlanResult(result);
+      setStep("RESULTS");
+      onImportComplete?.(targetProjectId, result.plan.id);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Import failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const targetProject = projects.find((p) => p.id === targetProjectId);
+  const targetPermissions = targetProject?.permissions ?? [];
+  const canApproveInTarget = targetPermissions.includes("SPEC_APPROVE") || targetPermissions.includes("SYSTEM_ADMIN");
 
   const fetchFieldOptions = async (projectId: string) => {
     try {
@@ -382,9 +483,11 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: "20px" }}>📥 Import Test Suites &amp; Cases</h2>
+            <h2 style={{ margin: 0, fontSize: "20px" }}>{isPlanImport ? "📥 Import a TestLink Test Plan" : "📥 Import Test Suites & Cases"}</h2>
             <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
-              Upload a file, resolve any unmapped fields, and confirm before importing.
+              {isPlanImport
+                ? "The plan's cases are found in the project by their TestLink number, and added in TestLink's order."
+                : "Upload a file, resolve any unmapped fields, and confirm before importing."}
             </div>
           </div>
           <button
@@ -396,9 +499,8 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
         </div>
 
         <div style={{ display: "flex", borderBottom: "1px solid #1e293b", marginBottom: "16px" }}>
-          {STEPS.map((s) => {
-            const currentIdx = STEPS.findIndex((x) => x.key === step);
-            const thisIdx = STEPS.findIndex((x) => x.key === s.key);
+          {(isPlanImport ? PLAN_STEPS : STEPS).map((s, thisIdx, steps) => {
+            const currentIdx = steps.findIndex((x) => x.key === step);
             const isActive = s.key === step;
             const isPast = thisIdx < currentIdx;
             return (
@@ -469,7 +571,8 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
                 ))}
               </select>
               <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "12px" }}>
-                TestRail CSV can never be auto-detected -- select it explicitly if that's your file.
+                TestRail CSV can never be auto-detected -- select it explicitly if that's your file. A TestLink test plan export
+                (its linked test cases) is recognised; import the project's test cases first.
               </div>
 
               <label style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 700, display: "block", marginBottom: "4px" }}>PROJECT</label>
@@ -788,6 +891,22 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
             </div>
           )}
 
+          {step === "PLAN" && planPreview && (
+            <PlanImportPreviewPanel
+              preview={planPreview}
+              projectName={targetProject?.name ?? ""}
+              target={planTarget}
+              onTargetChange={(target) => previewPlan(target)}
+              planName={planName}
+              onPlanNameChange={setPlanName}
+              approveDrafts={approveDrafts}
+              onApproveDraftsChange={setApproveDrafts}
+              canApprove={canApproveInTarget}
+            />
+          )}
+
+          {step === "RESULTS" && planResult && <PlanImportResultPanel result={planResult} />}
+
           {step === "RESULTS" && executeResult && (
             <div>
               <div
@@ -854,7 +973,7 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
             {step !== "UPLOAD" && step !== "RESULTS" && (
               <button
                 onClick={() =>
-                  setStep(step === "MAPPING" ? "UPLOAD" : step === "DUPLICATES" ? "MAPPING" : "DUPLICATES")
+                  setStep(step === "MAPPING" || step === "PLAN" ? "UPLOAD" : step === "DUPLICATES" ? "MAPPING" : "DUPLICATES")
                 }
                 style={secondaryButtonStyle}
               >
@@ -881,6 +1000,11 @@ export function ImportWizardModal({ isOpen, onClose, projects, defaultProjectId,
             {step === "CONFIRM" && (
               <button onClick={handleExecute} disabled={isLoading} style={primaryButtonStyle(isLoading)}>
                 {isLoading ? "Importing..." : "Run Import"}
+              </button>
+            )}
+            {step === "PLAN" && (
+              <button onClick={handlePlanExecute} disabled={isLoading} style={primaryButtonStyle(isLoading)}>
+                {isLoading ? "Importing..." : planTarget === "NEW" ? "Create Test Plan" : "Add to Test Plan"}
               </button>
             )}
             {step === "RESULTS" && (

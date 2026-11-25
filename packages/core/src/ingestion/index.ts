@@ -1,5 +1,6 @@
 export * from './types.js';
 export { SaxXmlParser, cleanHtmlText, LOOSE_CASES_SUITE_NAME } from './SaxXmlParser.js';
+export * from './testlinkPlanXml.js';
 export { JsonSchemaParser } from './JsonSchemaParser.js';
 export { CsvParser } from './CsvParser.js';
 export { JUnitXmlParser } from './JUnitXmlParser.js';

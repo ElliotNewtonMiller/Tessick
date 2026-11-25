@@ -88,6 +88,8 @@ export const api = {
   // Import and export
   importDryRun: (projectId: string) => `${V1}/projects/${enc(projectId)}/imports/dry-run`,
   importExecute: (projectId: string) => `${V1}/projects/${enc(projectId)}/imports/execute`,
+  planImportDryRun: (projectId: string) => `${V1}/projects/${enc(projectId)}/imports/testlink-plan/dry-run`,
+  planImportExecute: (projectId: string) => `${V1}/projects/${enc(projectId)}/imports/testlink-plan/execute`,
   importFieldOptions: (projectId: string) => `${V1}/projects/${enc(projectId)}/imports/custom-field-options`,
   exportDefinitions: (projectId: string) => `${V1}/projects/${enc(projectId)}/exports/definitions`,
   exportResults: (projectId: string) => `${V1}/projects/${enc(projectId)}/exports/results`,
